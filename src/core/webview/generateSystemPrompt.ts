@@ -84,9 +84,9 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		{
 			maxConcurrentFileReads: maxConcurrentFileReads ?? 5,
 			todoListEnabled: apiConfiguration?.todoListEnabled ?? true,
-			useAgentRules: vscode.workspace.getConfiguration("roo-cline").get<boolean>("useAgentRules") ?? true,
+			useAgentRules: vscode.workspace.getConfiguration("anh-cline").get<boolean>("useAgentRules") ?? true,
 			newTaskRequireTodos: vscode.workspace
-				.getConfiguration("roo-cline")
+				.getConfiguration("anh-cline")
 				.get<boolean>("newTaskRequireTodos", false),
 		},
 	)

@@ -11,11 +11,11 @@ describe("DEFAULT_HEADERS", () => {
 	})
 
 	it("should have correct HTTP-Referer value", () => {
-		expect(DEFAULT_HEADERS["HTTP-Referer"]).toBe("https://github.com/RooVetGit/Roo-Cline")
+		expect(DEFAULT_HEADERS["HTTP-Referer"]).toBe("https://github.com/RooVetGit/anh-cline")
 	})
 
 	it("should have correct X-Title value", () => {
-		expect(DEFAULT_HEADERS["X-Title"]).toBe("Roo Code")
+		expect(DEFAULT_HEADERS["X-Title"]).toBe("ANH CHAT")
 	})
 
 	it("should have correct User-Agent format", () => {

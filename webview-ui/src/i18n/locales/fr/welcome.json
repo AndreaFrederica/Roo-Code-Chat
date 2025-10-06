@@ -1,6 +1,6 @@
 {
-	"greeting": "Bienvenue sur Roo Code !",
-	"introduction": "Avec une gamme de Modes intégrés et extensibles, Roo Code te permet de planifier, architecturer, coder, déboguer et augmenter ta productivité comme jamais auparavant.",
+	"greeting": "Bienvenue sur ANH CHAT !",
+	"introduction": "Avec une gamme de Modes intégrés et extensibles, ANH CHAT te permet de planifier, architecturer, coder, déboguer et augmenter ta productivité comme jamais auparavant.",
 	"notice": "Pour commencer, cette extension a besoin d'un fournisseur d'API.",
 	"start": "C'est parti !",
 	"routers": {
@@ -20,8 +20,8 @@
 	"startRouter": "Nous recommandons d'utiliser un routeur LLM :",
 	"startCustom": "Ou tu peux apporter ta propre clé API :",
 	"telemetry": {
-		"helpImprove": "Aide à améliorer Roo Code",
-		"helpImproveMessage": "Roo Code collecte des données d'erreurs et d'utilisation pour nous aider à corriger les bugs et améliorer l'extension. Cette télémétrie ne collecte pas de code, de prompts ou d'informations personnelles. Tu peux désactiver ceci dans les <settingsLink>paramètres</settingsLink>."
+		"helpImprove": "Aide à améliorer ANH CHAT",
+		"helpImproveMessage": "ANH CHAT collecte des données d'erreurs et d'utilisation pour nous aider à corriger les bugs et améliorer l'extension. Cette télémétrie ne collecte pas de code, de prompts ou d'informations personnelles. Tu peux désactiver ceci dans les <settingsLink>paramètres</settingsLink>."
 	},
 	"importSettings": "Importer les paramètres"
 }

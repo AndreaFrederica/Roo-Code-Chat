@@ -8,9 +8,9 @@ import { ContactForm } from "@/components/enterprise/contact-form"
 import { SEO } from "@/lib/seo"
 import { EXTERNAL_LINKS } from "@/lib/constants"
 
-const TITLE = "Pricing - Roo Code Cloud"
+const TITLE = "Pricing - Roo CHAT Cloud"
 const DESCRIPTION =
-	"Simple, transparent pricing for Roo Code Cloud. The VS Code extension is free forever. Choose the cloud plan that fits your needs."
+	"Simple, transparent pricing for Roo CHAT Cloud. The VS Code extension is free forever. Choose the cloud plan that fits your needs."
 const PATH = "/pricing"
 const OG_IMAGE = SEO.ogImage
 
@@ -96,7 +96,7 @@ const pricingTiers: PricingTier[] = [
 		period: "/mo",
 		trial: "Free 14-day trial · ",
 		cancellation: "Cancel anytime",
-		description: "For pro Roo coders",
+		description: "For pro ANH CHATrs",
 		featuresIntro: "Everything in Free, plus:",
 		features: [
 			"Roomote Control",
@@ -152,7 +152,7 @@ export default function PricingPage() {
 			<section className="relative overflow-hidden pt-16 pb-12">
 				<div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center">
-						<h1 className="text-5xl font-bold tracking-tight">Roo Code Cloud Pricing</h1>
+						<h1 className="text-5xl font-bold tracking-tight">Roo CHAT Cloud Pricing</h1>
 						<p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
 							Simple, transparent pricing that scales with your needs.
 							<br />
@@ -166,8 +166,8 @@ export default function PricingPage() {
 			<div className="mx-auto max-w-6xl">
 				<div className="rounded-xl p-4 mb-8 text-center bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-purple-500/10 border border-blue-500/20 dark:border-white/20">
 					<p className="text-center">
-						<strong className="font-semibold">The Roo Code extension is free! </strong>
-						Roo Code Cloud is an optional service which takes it to the next level.
+						<strong className="font-semibold">The ANH CHAT extension is free! </strong>
+						Roo CHAT Cloud is an optional service which takes it to the next level.
 					</p>
 				</div>
 			</div>
@@ -242,9 +242,9 @@ export default function PricingPage() {
 					</div>
 					<div className="mx-auto mt-12 grid max-w-5xl gap-8 md:grid-cols-2">
 						<div className="rounded-lg border border-border bg-card p-6">
-							<h3 className="font-semibold">Wait, is Roo Code free or not?</h3>
+							<h3 className="font-semibold">Wait, is ANH CHAT free or not?</h3>
 							<p className="mt-2 text-sm text-muted-foreground">
-								Yes! The Roo Code VS Code extension is open source and free forever. The extension acts
+								Yes! The ANH CHAT VS Code extension is open source and free forever. The extension acts
 								as a powerful AI coding assistant right in your editor. These are the prices for Roo
 								Code Cloud.
 							</p>
@@ -303,7 +303,7 @@ export default function PricingPage() {
 			<section className="py-20">
 				<div className="container mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="mx-auto max-w-4xl rounded-3xl border border-border/50 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-purple-500/5 p-8 text-center shadow-2xl backdrop-blur-xl dark:border-white/20 dark:bg-gradient-to-br dark:from-gray-800 dark:via-gray-900 dark:to-black sm:p-12">
-						<h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">Try Roo Code Cloud now</h2>
+						<h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">Try Roo CHAT Cloud now</h2>
 						<p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">Code from anywhere.</p>
 						<div className="flex flex-col justify-center space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0">
 							<Button

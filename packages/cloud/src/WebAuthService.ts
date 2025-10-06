@@ -266,7 +266,7 @@ export class WebAuthService extends EventEmitter<AuthServiceEvents> implements A
 			await this.context.globalState.update(AUTH_STATE_KEY, state)
 			const packageJSON = this.context.extension?.packageJSON
 			const publisher = packageJSON?.publisher ?? "RooVeterinaryInc"
-			const name = packageJSON?.name ?? "roo-cline"
+			const name = packageJSON?.name ?? "anh-cline"
 			const params = new URLSearchParams({
 				state,
 				auth_redirect: `${vscode.env.uriScheme}://${publisher}.${name}`,
@@ -280,16 +280,16 @@ export class WebAuthService extends EventEmitter<AuthServiceEvents> implements A
 			await vscode.env.openExternal(vscode.Uri.parse(url))
 		} catch (error) {
 			const context = landingPageSlug ? ` (landing page: ${landingPageSlug})` : ""
-			this.log(`[auth] Error initiating Roo Code Cloud auth${context}: ${error}`)
-			throw new Error(`Failed to initiate Roo Code Cloud authentication${context}: ${error}`)
+			this.log(`[auth] Error initiating Roo CHAT Cloud auth${context}: ${error}`)
+			throw new Error(`Failed to initiate Roo CHAT Cloud authentication${context}: ${error}`)
 		}
 	}
 
 	/**
-	 * Handle the callback from Roo Code Cloud
+	 * Handle the callback from Roo CHAT Cloud
 	 *
 	 * This method is called when the user is redirected back to the extension
-	 * after authenticating with Roo Code Cloud.
+	 * after authenticating with Roo CHAT Cloud.
 	 *
 	 * @param code The authorization code from the callback
 	 * @param state The state parameter from the callback
@@ -304,7 +304,7 @@ export class WebAuthService extends EventEmitter<AuthServiceEvents> implements A
 			const vscode = await importVscode()
 
 			if (vscode) {
-				vscode.window.showInformationMessage("Invalid Roo Code Cloud sign in url")
+				vscode.window.showInformationMessage("Invalid Roo CHAT Cloud sign in url")
 			}
 
 			return
@@ -329,14 +329,14 @@ export class WebAuthService extends EventEmitter<AuthServiceEvents> implements A
 			const vscode = await importVscode()
 
 			if (vscode) {
-				vscode.window.showInformationMessage("Successfully authenticated with Roo Code Cloud")
+				vscode.window.showInformationMessage("Successfully authenticated with Roo CHAT Cloud")
 			}
 
-			this.log("[auth] Successfully authenticated with Roo Code Cloud")
+			this.log("[auth] Successfully authenticated with Roo CHAT Cloud")
 		} catch (error) {
-			this.log(`[auth] Error handling Roo Code Cloud callback: ${error}`)
+			this.log(`[auth] Error handling Roo CHAT Cloud callback: ${error}`)
 			this.changeState("logged-out")
-			throw new Error(`Failed to handle Roo Code Cloud callback: ${error}`)
+			throw new Error(`Failed to handle Roo CHAT Cloud callback: ${error}`)
 		}
 	}
 
@@ -364,13 +364,13 @@ export class WebAuthService extends EventEmitter<AuthServiceEvents> implements A
 			const vscode = await importVscode()
 
 			if (vscode) {
-				vscode.window.showInformationMessage("Logged out from Roo Code Cloud")
+				vscode.window.showInformationMessage("Logged out from Roo CHAT Cloud")
 			}
 
-			this.log("[auth] Logged out from Roo Code Cloud")
+			this.log("[auth] Logged out from Roo CHAT Cloud")
 		} catch (error) {
-			this.log(`[auth] Error logging out from Roo Code Cloud: ${error}`)
-			throw new Error(`Failed to log out from Roo Code Cloud: ${error}`)
+			this.log(`[auth] Error logging out from Roo CHAT Cloud: ${error}`)
+			throw new Error(`Failed to log out from Roo CHAT Cloud: ${error}`)
 		}
 	}
 

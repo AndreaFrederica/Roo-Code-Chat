@@ -185,7 +185,7 @@ Global setup instructions.`
 	describe("argument-hint functionality", () => {
 		it("should load command with argument-hint from frontmatter", async () => {
 			const commandContent = `---
-description: Create a new release of the Roo Code extension
+description: Create a new release of the ANH CHAT extension
 argument-hint: patch | minor | major
 ---
 
@@ -203,7 +203,7 @@ Create a new release.`
 				content: "# Release Command\n\nCreate a new release.",
 				source: "project",
 				filePath: path.join("/test/cwd", ".roo", "commands", "release.md"),
-				description: "Create a new release of the Roo Code extension",
+				description: "Create a new release of the ANH CHAT extension",
 				argumentHint: "patch | minor | major",
 			})
 		})

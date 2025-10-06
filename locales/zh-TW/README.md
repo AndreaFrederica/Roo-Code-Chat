@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://marketplace.visualstudio.com/items?itemName=RooVeterinaryInc.roo-cline"><img src="https://img.shields.io/visual-studio-marketplace/v/RooVeterinaryInc.roo-cline.svg?label=VS%20Code&color=%23007ACC&style=flat&logo=visualstudiocode&logoColor=white" alt="VS Code"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=RooVeterinaryInc.anh-cline"><img src="https://img.shields.io/visual-studio-marketplace/v/RooVeterinaryInc.anh-cline.svg?label=VS%20Code&color=%23007ACC&style=flat&logo=visualstudiocode&logoColor=white" alt="VS Code"></a>
   <a href="https://x.com/roo_code"><img src="https://img.shields.io/badge/roo_code-000000?style=flat&logo=x&logoColor=white" alt="X"></a>
   <a href="https://youtube.com/@roocodeyt?feature=shared"><img src="https://img.shields.io/badge/YouTube-FF0000?style=flat&logo=youtube&logoColor=white" alt="YouTube"></a>
   <a href="https://discord.gg/roocode"><img src="https://img.shields.io/badge/Join%20Discord-5865F2?style=flat&logo=discord&logoColor=white" alt="Join Discord"></a>
@@ -143,10 +143,10 @@ pnpm install:vsix [-y] [--editor=<command>]
     ```sh
     pnpm vsix
     ```
-2.  將在 `bin/` 目錄中產生一個 `.vsix` 檔案（例如 `bin/roo-cline-<version>.vsix`）。
+2.  將在 `bin/` 目錄中產生一個 `.vsix` 檔案（例如 `bin/anh-cline-<version>.vsix`）。
 3.  使用 VSCode CLI 手動安裝
     ```sh
-    code --install-extension bin/roo-cline-<version>.vsix
+    code --install-extension bin/anh-cline-<version>.vsix
     ```
 
 ---

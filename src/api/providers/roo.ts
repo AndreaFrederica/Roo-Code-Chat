@@ -25,7 +25,7 @@ export class RooHandler extends BaseOpenAiCompatibleProvider<RooModelId> {
 		// The provider-proxy server will return 401 if authentication fails.
 		super({
 			...options,
-			providerName: "Roo Code Cloud",
+			providerName: "Roo CHAT Cloud",
 			baseURL: process.env.ROO_CODE_PROVIDER_URL ?? "https://api.roocode.com/proxy/v1",
 			apiKey: sessionToken || "unauthenticated", // Use a placeholder if no token.
 			defaultProviderModelId: rooDefaultModelId,

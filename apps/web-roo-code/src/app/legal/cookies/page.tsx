@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { SEO } from "@/lib/seo"
 
 const TITLE = "Cookie Policy"
-const DESCRIPTION = "Learn about how Roo Code uses cookies to enhance your experience and provide our services."
+const DESCRIPTION = "Learn about how ANH CHAT uses cookies to enhance your experience and provide our services."
 const PATH = "/legal/cookies"
 const OG_IMAGE = SEO.ogImage
 
@@ -47,7 +47,7 @@ export default function CookiePolicy() {
 					<h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">Cookie Policy</h1>
 
 					<p className="lead">
-						This Cookie Policy explains how Roo Code uses cookies and similar technologies to recognize you
+						This Cookie Policy explains how ANH CHAT uses cookies and similar technologies to recognize you
 						when you visit our website.
 					</p>
 

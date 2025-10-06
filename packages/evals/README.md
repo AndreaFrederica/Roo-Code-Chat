@@ -87,7 +87,7 @@ The setup script does the following:
 - Clones/updates the evals repository
 - Creates and migrates a Postgres database
 - Prompts for an OpenRouter API key to add to `.env.local`
-- Optionally builds and installs the Roo Code extension from source
+- Optionally builds and installs the ANH CHAT extension from source
 
 ## Port Configuration
 

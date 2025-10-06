@@ -28,7 +28,7 @@ describe("TaskChannel", () => {
 		appVersion: "1.0.0",
 		vscodeVersion: "1.0.0",
 		platform: "darwin",
-		editorName: "Roo Code",
+		editorName: "ANH CHAT",
 		hostname: "test-host",
 	}
 

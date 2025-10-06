@@ -101,7 +101,7 @@ export function getStructuredData(): StructuredDataGraph {
 	const softwareApplication: SoftwareApplication = {
 		"@type": "SoftwareApplication",
 		"@id": `${SEO.url}#vscode-extension`,
-		name: "Roo Code (VS Code extension)",
+		name: "ANH CHAT (VS Code extension)",
 		applicationCategory: "DeveloperApplication",
 		operatingSystem: "Windows, macOS, Linux",
 		url: SEO.url,

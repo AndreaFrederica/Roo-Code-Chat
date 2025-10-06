@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://marketplace.visualstudio.com/items?itemName=RooVeterinaryInc.roo-cline"><img src="https://img.shields.io/visual-studio-marketplace/v/RooVeterinaryInc.roo-cline.svg?label=VS%20Code&color=%23007ACC&style=flat&logo=visualstudiocode&logoColor=white" alt="VS Code"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=RooVeterinaryInc.anh-cline"><img src="https://img.shields.io/visual-studio-marketplace/v/RooVeterinaryInc.anh-cline.svg?label=VS%20Code&color=%23007ACC&style=flat&logo=visualstudiocode&logoColor=white" alt="VS Code"></a>
   <a href="https://x.com/roo_code"><img src="https://img.shields.io/badge/roo_code-000000?style=flat&logo=x&logoColor=white" alt="X"></a>
   <a href="https://youtube.com/@roocodeyt?feature=shared"><img src="https://img.shields.io/badge/YouTube-FF0000?style=flat&logo=youtube&logoColor=white" alt="YouTube"></a>
   <a href="https://discord.gg/roocode"><img src="https://img.shields.io/badge/Join%20Discord-5865F2?style=flat&logo=discord&logoColor=white" alt="Join Discord"></a>
@@ -143,10 +143,10 @@ VSIX 패키지를 수동으로 설치하려면:
     ```sh
     pnpm vsix
     ```
-2.  `.vsix` 파일이 `bin/` 디렉터리에 생성됩니다(예: `bin/roo-cline-<version>.vsix`).
+2.  `.vsix` 파일이 `bin/` 디렉터리에 생성됩니다(예: `bin/anh-cline-<version>.vsix`).
 3.  VSCode CLI를 사용하여 수동으로 설치합니다:
     ```sh
-    code --install-extension bin/roo-cline-<version>.vsix
+    code --install-extension bin/anh-cline-<version>.vsix
     ```
 
 ---

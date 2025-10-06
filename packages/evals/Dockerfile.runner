@@ -126,7 +126,7 @@ COPY packages/evals/.env.local ./packages/evals/
 # Copy the pre-installed VS Code extensions
 RUN cp -r /roo/.vscode-template /roo/.vscode
 
-# Build the Roo Code extension
+# Build the ANH CHAT extension
 RUN pnpm vsix -- --out ../bin/roo-code.vsix \
     && yes | code --no-sandbox --user-data-dir /roo/.vscode --install-extension bin/roo-code.vsix
 

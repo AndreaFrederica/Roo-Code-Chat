@@ -102,7 +102,7 @@ const WelcomeView = () => {
 										...baseProviders,
 										{
 											slug: "roo",
-											name: "Roo Code Cloud",
+											name: "Roo CHAT Cloud",
 											description: t("welcome:routers.roo.description"),
 											incentive: t("welcome:routers.roo.incentive"),
 											authUrl: "#", // Placeholder since onClick handler will prevent default

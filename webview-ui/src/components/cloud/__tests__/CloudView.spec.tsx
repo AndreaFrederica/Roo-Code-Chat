@@ -9,24 +9,24 @@ vi.mock("@src/i18n/TranslationContext", () => ({
 			const translations: Record<string, string> = {
 				"cloud:title": "Cloud",
 				"settings:common.done": "Done",
-				"cloud:signIn": "Connect to Roo Code Cloud",
-				"cloud:cloudBenefitsTitle": "Connect to Roo Code Cloud",
+				"cloud:signIn": "Connect to Roo CHAT Cloud",
+				"cloud:cloudBenefitsTitle": "Connect to Roo CHAT Cloud",
 				"cloud:cloudBenefitSharing": "Share tasks with others",
 				"cloud:cloudBenefitHistory": "Access your task history",
 				"cloud:cloudBenefitMetrics": "Get a holistic view of your token consumption",
 				"cloud:logOut": "Log out",
 				"cloud:connect": "Connect Now",
-				"cloud:visitCloudWebsite": "Visit Roo Code Cloud",
+				"cloud:visitCloudWebsite": "Visit Roo CHAT Cloud",
 				"cloud:taskSync": "Task sync",
-				"cloud:taskSyncDescription": "Sync your tasks for viewing and sharing on Roo Code Cloud",
+				"cloud:taskSyncDescription": "Sync your tasks for viewing and sharing on Roo CHAT Cloud",
 				"cloud:taskSyncManagedByOrganization": "Task sync is managed by your organization",
 				"cloud:remoteControl": "Roomote Control",
 				"cloud:remoteControlDescription":
-					"Enable following and interacting with tasks in this workspace with Roo Code Cloud",
+					"Enable following and interacting with tasks in this workspace with Roo CHAT Cloud",
 				"cloud:remoteControlRequiresTaskSync": "Task sync must be enabled to use Roomote Control",
 				"cloud:usageMetricsAlwaysReported": "Model usage info is always reported when logged in",
 				"cloud:profilePicture": "Profile picture",
-				"cloud:cloudUrlPillLabel": "Roo Code Cloud URL: ",
+				"cloud:cloudUrlPillLabel": "Roo CHAT Cloud URL: ",
 			}
 			return translations[key] || key
 		},
@@ -79,7 +79,7 @@ describe("CloudView", () => {
 		)
 
 		// Check that the benefits section is displayed
-		expect(screen.getByRole("heading", { name: "Connect to Roo Code Cloud" })).toBeInTheDocument()
+		expect(screen.getByRole("heading", { name: "Connect to Roo CHAT Cloud" })).toBeInTheDocument()
 		expect(screen.getByText("Share tasks with others")).toBeInTheDocument()
 		expect(screen.getByText("Access your task history")).toBeInTheDocument()
 		expect(screen.getByText("Get a holistic view of your token consumption")).toBeInTheDocument()
@@ -136,7 +136,7 @@ describe("CloudView", () => {
 		expect(screen.getByTestId("remote-control-toggle")).toBeInTheDocument()
 		expect(screen.getByText("Roomote Control")).toBeInTheDocument()
 		expect(
-			screen.getByText("Enable following and interacting with tasks in this workspace with Roo Code Cloud"),
+			screen.getByText("Enable following and interacting with tasks in this workspace with Roo CHAT Cloud"),
 		).toBeInTheDocument()
 	})
 
@@ -236,7 +236,7 @@ describe("CloudView", () => {
 		)
 
 		// Check that the cloud URL pill is NOT displayed for production URL
-		expect(screen.queryByText(/Roo Code Cloud URL:/)).not.toBeInTheDocument()
+		expect(screen.queryByText(/Roo CHAT Cloud URL:/)).not.toBeInTheDocument()
 	})
 
 	it("should display cloud URL pill when pointing to non-production environment", () => {
@@ -255,7 +255,7 @@ describe("CloudView", () => {
 		)
 
 		// Check that the cloud URL pill is displayed with the staging URL
-		expect(screen.getByText(/Roo Code Cloud URL:/)).toBeInTheDocument()
+		expect(screen.getByText(/Roo CHAT Cloud URL:/)).toBeInTheDocument()
 		expect(screen.getByText("https://staging.roocode.com")).toBeInTheDocument()
 	})
 
@@ -270,7 +270,7 @@ describe("CloudView", () => {
 		)
 
 		// Check that the cloud URL pill is displayed even when not authenticated
-		expect(screen.getByText(/Roo Code Cloud URL:/)).toBeInTheDocument()
+		expect(screen.getByText(/Roo CHAT Cloud URL:/)).toBeInTheDocument()
 		expect(screen.getByText("https://dev.roocode.com")).toBeInTheDocument()
 	})
 
@@ -283,7 +283,7 @@ describe("CloudView", () => {
 		render(<CloudView userInfo={mockUserInfo} isAuthenticated={true} onDone={() => {}} />)
 
 		// Check that the cloud URL pill is NOT displayed when cloudApiUrl is undefined
-		expect(screen.queryByText(/Roo Code Cloud URL:/)).not.toBeInTheDocument()
+		expect(screen.queryByText(/Roo CHAT Cloud URL:/)).not.toBeInTheDocument()
 	})
 
 	it("should disable task sync toggle for organization users", () => {

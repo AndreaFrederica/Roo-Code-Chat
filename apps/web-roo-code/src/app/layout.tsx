@@ -15,7 +15,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
 	metadataBase: new URL(SEO.url),
 	title: {
-		template: "%s | Roo Code",
+		template: "%s | ANH CHAT",
 		default: SEO.title,
 	},
 	description: SEO.description,

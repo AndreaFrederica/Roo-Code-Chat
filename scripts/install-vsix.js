@@ -31,10 +31,10 @@ async function main() {
 		const publisher = packageJson.publisher
 		const extensionId = `${publisher}.${name}`
 
-		console.log("\n🚀 Roo Code VSIX Installer")
+		console.log("\n🚀 ANH CHAT VSIX Installer")
 		console.log("========================")
 		console.log("\nThis script will:")
-		console.log("1. Uninstall any existing version of the Roo Code extension")
+		console.log("1. Uninstall any existing version of the ANH CHAT extension")
 		console.log("2. Install the newly built VSIX package")
 		console.log(`\nExtension: ${extensionId}`)
 		console.log(`VSIX file: ${vsixFileName}`)

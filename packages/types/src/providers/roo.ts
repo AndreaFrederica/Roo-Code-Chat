@@ -17,7 +17,7 @@ export const rooModels = {
 		inputPrice: 0,
 		outputPrice: 0,
 		description:
-			"A reasoning model that is blazing fast and excels at agentic coding, accessible for free through Roo Code Cloud for a limited time. (Note: the free prompts and completions are logged by xAI and used to improve the model.)",
+			"A reasoning model that is blazing fast and excels at agentic coding, accessible for free through Roo CHAT Cloud for a limited time. (Note: the free prompts and completions are logged by xAI and used to improve the model.)",
 	},
 	"roo/code-supernova-1-million": {
 		maxTokens: 30_000,
@@ -27,7 +27,7 @@ export const rooModels = {
 		inputPrice: 0,
 		outputPrice: 0,
 		description:
-			"A versatile agentic coding stealth model with a 1M token context window that supports image inputs, accessible for free through Roo Code Cloud for a limited time. (Note: the free prompts and completions are logged by the model provider and used to improve the model.)",
+			"A versatile agentic coding stealth model with a 1M token context window that supports image inputs, accessible for free through Roo CHAT Cloud for a limited time. (Note: the free prompts and completions are logged by the model provider and used to improve the model.)",
 	},
 	"xai/grok-4-fast": {
 		maxTokens: 30_000,

@@ -1,6 +1,6 @@
 {
-	"greeting": "Witaj w Roo Code!",
-	"introduction": "Dzięki szerokiej gamie wbudowanych i rozszerzalnych Trybów, Roo Code pozwala planować, projektować architekturę, kodować, debugować i zwiększać produktywność jak nigdy dotąd.",
+	"greeting": "Witaj w ANH CHAT!",
+	"introduction": "Dzięki szerokiej gamie wbudowanych i rozszerzalnych Trybów, ANH CHAT pozwala planować, projektować architekturę, kodować, debugować i zwiększać produktywność jak nigdy dotąd.",
 	"notice": "Aby rozpocząć, to rozszerzenie potrzebuje dostawcy API.",
 	"start": "Zaczynajmy!",
 	"routers": {
@@ -20,8 +20,8 @@
 	"startRouter": "Zalecamy korzystanie z routera LLM:",
 	"startCustom": "Lub możesz użyć własnego klucza API:",
 	"telemetry": {
-		"helpImprove": "Pomóż ulepszyć Roo Code",
-		"helpImproveMessage": "Roo Code zbiera dane o błędach i użytkowaniu, aby pomóc nam naprawiać błędy i ulepszać rozszerzenie. Ta telemetria nie zbiera kodu, promptów ani danych osobowych. Możesz wyłączyć to w <settingsLink>ustawieniach</settingsLink>."
+		"helpImprove": "Pomóż ulepszyć ANH CHAT",
+		"helpImproveMessage": "ANH CHAT zbiera dane o błędach i użytkowaniu, aby pomóc nam naprawiać błędy i ulepszać rozszerzenie. Ta telemetria nie zbiera kodu, promptów ani danych osobowych. Możesz wyłączyć to w <settingsLink>ustawieniach</settingsLink>."
 	},
 	"importSettings": "Importuj ustawienia"
 }

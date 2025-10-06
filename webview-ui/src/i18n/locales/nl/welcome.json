@@ -1,6 +1,6 @@
 {
-	"greeting": "Welkom bij Roo Code!",
-	"introduction": "Met een reeks ingebouwde en uitbreidbare Modi laat Roo Code je plannen, ontwerpen, coderen, debuggen en je productiviteit verhogen als nooit tevoren.",
+	"greeting": "Welkom bij ANH CHAT!",
+	"introduction": "Met een reeks ingebouwde en uitbreidbare Modi laat ANH CHAT je plannen, ontwerpen, coderen, debuggen en je productiviteit verhogen als nooit tevoren.",
 	"notice": "Om te beginnen heeft deze extensie een API-provider nodig.",
 	"start": "Aan de slag!",
 	"routers": {
@@ -20,8 +20,8 @@
 	"startRouter": "We raden aan om een LLM-router te gebruiken:",
 	"startCustom": "Of je kunt je eigen API-sleutel gebruiken:",
 	"telemetry": {
-		"helpImprove": "Help Roo Code verbeteren",
-		"helpImproveMessage": "Roo Code verzamelt fout- en gebruiksgegevens om ons te helpen bugs op te lossen en de extensie te verbeteren. Deze telemetrie verzamelt geen code, prompts of persoonlijke informatie. Je kunt dit uitschakelen in de <settingsLink>instellingen</settingsLink>."
+		"helpImprove": "Help ANH CHAT verbeteren",
+		"helpImproveMessage": "ANH CHAT verzamelt fout- en gebruiksgegevens om ons te helpen bugs op te lossen en de extensie te verbeteren. Deze telemetrie verzamelt geen code, prompts of persoonlijke informatie. Je kunt dit uitschakelen in de <settingsLink>instellingen</settingsLink>."
 	},
 	"importSettings": "Instellingen importeren"
 }

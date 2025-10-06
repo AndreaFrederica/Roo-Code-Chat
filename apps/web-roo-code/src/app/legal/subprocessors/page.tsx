@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { SEO } from "@/lib/seo"
 
 const TITLE = "Subprocessors"
-const DESCRIPTION = "List of third-party subprocessors used by Roo Code to process customer data."
+const DESCRIPTION = "List of third-party subprocessors used by ANH CHAT to process customer data."
 const PATH = "/legal/subprocessors"
 const OG_IMAGE = SEO.ogImage
 
@@ -46,7 +46,7 @@ export default function SubProcessors() {
 
 					<h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">Subprocessors</h1>
 
-					<p className="lead">Roo Code engages the following third parties to process Customer Data.</p>
+					<p className="lead">ANH CHAT engages the following third parties to process Customer Data.</p>
 
 					<div className="overflow-x-auto">
 						<table className="min-w-full border-collapse border border-border">
