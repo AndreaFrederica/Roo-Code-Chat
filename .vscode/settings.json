@@ -19,5 +19,8 @@
 		}
 	},
 	"AndreaNovelHelper.autoGit.compactStatus": true,
-	"andrea.typeset.statusBar.compact": true
+	"andrea.typeset.statusBar.compact": true,
+	"cSpell.words": [
+		"Reimu"
+	]
 }

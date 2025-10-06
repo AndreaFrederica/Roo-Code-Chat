@@ -14,6 +14,8 @@ import type {
 	OrganizationAllowList,
 	ShareVisibility,
 	QueuedMessage,
+	Role,
+	RoleSummary,
 } from "@roo-code/types"
 
 import { GitCommit } from "../utils/git"
@@ -126,6 +128,11 @@ export interface ExtensionMessage {
 		| "insertTextIntoTextarea"
 		| "dismissedUpsells"
 		| "organizationSwitchResult"
+		| "getAnhRoles"
+		| "anhRolesLoaded"
+		| "loadAnhRole"
+		| "anhRoleLoaded"
+		| "selectAnhRole"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -205,6 +212,9 @@ export interface ExtensionMessage {
 	queuedMessages?: QueuedMessage[]
 	list?: string[] // For dismissedUpsells
 	organizationId?: string | null // For organizationSwitchResult
+	roles?: RoleSummary[] // For anhRolesLoaded
+	roleUuid?: string // For loadAnhRole
+	role?: Role // For anhRoleLoaded
 }
 
 export type ExtensionState = Pick<
@@ -353,6 +363,7 @@ export type ExtensionState = Pick<
 	remoteControlEnabled: boolean
 	taskSyncEnabled: boolean
 	featureRoomoteControlEnabled: boolean
+	currentAnhRole?: Role // Currently selected ANH role
 }
 
 export interface ClineSayTool {

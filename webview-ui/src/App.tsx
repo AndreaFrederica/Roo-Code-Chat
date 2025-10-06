@@ -26,6 +26,7 @@ import { CloudView } from "./components/cloud/CloudView"
 import { useAddNonInteractiveClickListener } from "./components/ui/hooks/useNonInteractiveClick"
 import { TooltipProvider } from "./components/ui/tooltip"
 import { STANDARD_TOOLTIP_DELAY } from "./components/ui/standard-tooltip"
+import NotificationProvider from "./components/ui/Notification"
 
 type Tab = "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
 
@@ -357,7 +358,9 @@ const AppWithProviders = () => (
 			<TranslationProvider>
 				<QueryClientProvider client={queryClient}>
 					<TooltipProvider delayDuration={STANDARD_TOOLTIP_DELAY}>
-						<App />
+						<NotificationProvider>
+							<App />
+						</NotificationProvider>
 					</TooltipProvider>
 				</QueryClientProvider>
 			</TranslationProvider>

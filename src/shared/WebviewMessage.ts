@@ -229,6 +229,11 @@ export interface WebviewMessage {
 		| "editQueuedMessage"
 		| "dismissUpsell"
 		| "getDismissedUpsells"
+		| "getAnhRoles"
+		| "anhRolesLoaded"
+		| "loadAnhRole"
+		| "anhRoleLoaded"
+		| "selectAnhRole"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -277,6 +282,10 @@ export interface WebviewMessage {
 	upsellId?: string // For dismissUpsell
 	list?: string[] // For dismissedUpsells response
 	organizationId?: string | null // For organization switching
+	// ANH role-related properties
+	roles?: any[] // For anhRolesLoaded
+	roleUuid?: string // For loadAnhRole
+	role?: any // For anhRoleLoaded
 	codeIndexSettings?: {
 		// Global state settings
 		codebaseIndexEnabled: boolean

@@ -7,6 +7,7 @@ import { mentionRegex, mentionRegexGlobal, commandRegexGlobal, unescapeSpaces } 
 import { WebviewMessage } from "@roo/WebviewMessage"
 import { Mode, getAllModes } from "@roo/modes"
 import { ExtensionMessage } from "@roo/ExtensionMessage"
+import { type Role } from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
@@ -26,6 +27,7 @@ import { StandardTooltip } from "@src/components/ui"
 import Thumbnails from "../common/Thumbnails"
 import { ModeSelector } from "./ModeSelector"
 import { ApiConfigSelector } from "./ApiConfigSelector"
+import RoleSelector from "./RoleSelector"
 import { AutoApproveDropdown } from "./AutoApproveDropdown"
 import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import ContextMenu from "./ContextMenu"
@@ -89,6 +91,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			clineMessages,
 			commands,
 			cloudUserInfo,
+			currentAnhRole,
 		} = useExtensionState()
 
 		// Find the ID and display text for the currently selected API configuration.
@@ -902,6 +905,15 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			[setMode],
 		)
 
+		// Role selector handler
+		const handleRoleChange = useCallback((role: Role) => {
+			// Send role selection to backend
+			vscode.postMessage({
+				type: "selectAnhRole",
+				role: role
+			})
+		}, [])
+
 		// Helper function to handle API config change
 		const handleApiConfigChange = useCallback((value: string) => {
 			vscode.postMessage({ type: "loadApiConfigurationById", text: value })
@@ -1220,6 +1232,14 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							modeShortcutText={modeShortcutText}
 							customModes={customModes}
 							customModePrompts={customModePrompts}
+						/>
+						<RoleSelector
+							value={currentAnhRole}
+							title={t("chat:roleSelector.selectRole")}
+							onChange={handleRoleChange}
+							disabled={selectApiConfigDisabled}
+							triggerClassName="text-ellipsis overflow-hidden flex-shrink-0"
+							roleShortcutText="Ctrl+R"
 						/>
 						<ApiConfigSelector
 							value={currentConfigId}

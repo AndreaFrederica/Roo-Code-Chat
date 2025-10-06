@@ -28,6 +28,7 @@ import {
 	type CodeActionName,
 	type TerminalActionId,
 	type TerminalActionPromptType,
+	type Role,
 	type HistoryItem,
 	type CloudUserInfo,
 	type CloudOrganizationMembership,
@@ -2248,6 +2249,16 @@ export class ClineProvider
 
 	public getValue<K extends keyof RooCodeSettings>(key: K) {
 		return this.contextProxy.getValue(key)
+	}
+
+	// ANH (Advanced Novel Helper) methods
+	public async setCurrentAnhRole(role: Role | undefined) {
+		await this.setValue("currentAnhRole", role)
+		await this.postStateToWebview()
+	}
+
+	public getCurrentAnhRole() {
+		return this.getValue("currentAnhRole")
 	}
 
 	public getValues() {

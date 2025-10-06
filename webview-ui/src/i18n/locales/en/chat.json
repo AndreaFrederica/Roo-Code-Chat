@@ -28,6 +28,17 @@
 		"openInCloud": "Open task in Roo CHAT Cloud",
 		"openInCloudIntro": "Keep monitoring or interacting with Roo from anywhere. Scan, click or copy to open."
 	},
+	"roleSelector": {
+		"selectRole": "Select Character Role",
+		"defaultRole": "Default Assistant",
+		"noRoles": "No character roles found",
+		"character": "Character",
+		"title": "Character Roles",
+		"description": "Select a character role to interact with",
+		"searchPlaceholder": "Search character roles...",
+		"noResults": "No matching character roles found",
+		"loadError": "Failed to load ANH character roles"
+	},
 	"unpin": "Unpin",
 	"pin": "Pin",
 	"retry": {

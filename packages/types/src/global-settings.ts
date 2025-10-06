@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import { type Keys } from "./type-fu.js"
+import { roleSchema, type Role } from "./anh-chat.js"
 import {
 	type ProviderSettings,
 	PROVIDER_SETTINGS_KEYS,
@@ -152,6 +153,9 @@ export const globalSettingsSchema = z.object({
 	hasOpenedModeSelector: z.boolean().optional(),
 	lastModeExportPath: z.string().optional(),
 	lastModeImportPath: z.string().optional(),
+
+	// ANH (Advanced Novel Helper) settings
+	currentAnhRole: roleSchema.optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>

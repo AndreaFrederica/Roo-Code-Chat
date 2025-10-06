@@ -3110,5 +3110,99 @@ export const webviewMessageHandler = async (
 			})
 			break
 		}
+		case "getAnhRoles": {
+			try {
+				const { RoleRegistry } = await import("../../services/anh-chat")
+				const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+				if (!workspaceRoot) {
+					throw new Error("No workspace folder found")
+				}
+				const registry = await RoleRegistry.create(workspaceRoot)
+				const roles = registry.listSummaries()
+				await provider.postMessageToWebview({
+					type: "anhRolesLoaded",
+					roles: roles,
+				})
+			} catch (error) {
+				provider.log(`Error loading ANH roles: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "anhRolesLoaded",
+					roles: [],
+				})
+			}
+			break
+		}
+		case "loadAnhRole": {
+			try {
+			if (!message.roleUuid) {
+				// Default role requested
+				await provider.setCurrentAnhRole(undefined)
+				await provider.postMessageToWebview({
+					type: "anhRoleLoaded",
+					role: undefined,
+				})
+				break
+			}				const { RoleRegistry } = await import("../../services/anh-chat")
+				const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+				if (!workspaceRoot) {
+					throw new Error("No workspace folder found")
+				}
+				const registry = await RoleRegistry.create(workspaceRoot)
+				const role = await registry.loadRole(message.roleUuid)
+
+				if (role) {
+					provider.log(`ANH role loaded successfully: ${role.name}`)
+					provider.log(`Role has profile: ${!!role.profile}`)
+					
+					// Load timeline data if available
+					try {
+						const { StorylineRepository } = await import("../../services/anh-chat")
+						const storylineRepo = await StorylineRepository.create(workspaceRoot)
+						const storyline = await storylineRepo.getStoryline(role.uuid)
+						if (storyline) {
+							provider.log(`Timeline loaded: ${storyline.arcs.length} arcs`)
+							// Attach timeline to role for frontend display
+							;(role as any).timeline = storyline
+						} else {
+							provider.log("No timeline file found")
+						}
+					} catch (timelineError) {
+						provider.log(`Error loading timeline: ${timelineError instanceof Error ? timelineError.message : String(timelineError)}`)
+					}
+					
+					await provider.setCurrentAnhRole(role)
+					await provider.postMessageToWebview({
+						type: "anhRoleLoaded",
+						role: role,
+					})
+				} else {
+					provider.log(`ANH role not found: ${message.roleUuid}`)
+					await provider.postMessageToWebview({
+						type: "anhRoleLoaded",
+						role: undefined,
+					})
+				}
+			} catch (error) {
+				provider.log(`Error loading ANH role: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "anhRoleLoaded",
+					role: undefined,
+				})
+			}
+			break
+		}
+		case "selectAnhRole": {
+			try {
+				const role = message.role
+				if (role) {
+					// Save selected role to global state
+					await provider.setCurrentAnhRole(role)
+					provider.log(`ANH role selected: ${role.name} (${role.uuid})`)
+				}
+			} catch (error) {
+				provider.log(`Error selecting ANH role: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
 	}
 }

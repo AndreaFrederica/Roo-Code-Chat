@@ -28,6 +28,17 @@
 		"openInCloud": "在 Roo CHAT Cloud 中打开任务",
 		"openInCloudIntro": "从任何地方继续监控或与 Roo 交互。扫描、点击或复制以打开。"
 	},
+	"roleSelector": {
+		"selectRole": "选择角色",
+		"defaultRole": "默认助手",
+		"noRoles": "未找到角色",
+		"character": "角色",
+		"title": "角色列表",
+		"description": "选择一个角色进行交互",
+		"searchPlaceholder": "搜索角色...",
+		"noResults": "未找到匹配的角色",
+		"loadError": "未能加载到ANH角色"
+	},
 	"unpin": "取消置顶",
 	"pin": "置顶",
 	"tokenProgress": {

@@ -1,7 +1,7 @@
 import * as path from "path"
 import * as fs from "fs/promises"
 
-import type { EpisodicMemory, GoalMemory, RoleMemory, SemanticMemory, TraitMemory } from "../../types/anh-chat"
+import type { Role, RoleSummary } from "@roo-code/types"
 import { fileExistsAtPath } from "../../utils/fs"
 import { safeWriteJson } from "../../utils/safeWriteJson"
 

@@ -1,7 +1,7 @@
 import * as path from "path"
 import * as fs from "fs/promises"
 
-import type { StorylineFile } from "../../types/anh-chat"
+import type { StorylineFile } from "@roo-code/types"
 import { fileExistsAtPath } from "../../utils/fs"
 import { safeWriteJson } from "../../utils/safeWriteJson"
 
