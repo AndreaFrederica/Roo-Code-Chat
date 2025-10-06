@@ -1,0 +1,13 @@
+[
+  {
+    name: '示例角色',
+    type: '配角',
+    affiliation: '示例阵营',
+    aliases: [
+      '示例',
+    ],
+    color: '#FFA500',
+    description: '这是一个示例角色，用于说明角色库格式。',
+    uuid: '0199ba28-c008-7fec-9d82-73f149c3169c',
+  },
+]

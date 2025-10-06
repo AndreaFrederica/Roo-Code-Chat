@@ -1,0 +1,21 @@
+[
+  {
+    name: '灵能',
+    type: '词汇',
+    color: '#1890FF',
+    description: '世界观核心能量。',
+    category: '世界观',
+    uuid: '0199ba28-c19b-7284-a85d-7704d8973431',
+  },
+  {
+    name: '聚能阵列',
+    type: '词汇',
+    description: '用于聚焦灵能的装置。',
+    aliases: [
+      '阵列',
+      '聚能器',
+    ],
+    category: '科技',
+    uuid: '0199ba28-c19b-74f7-8593-2c047cde52f2',
+  },
+]

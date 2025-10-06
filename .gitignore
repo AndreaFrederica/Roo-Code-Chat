@@ -49,3 +49,5 @@ logs
 
 # Qdrant
 qdrant_storage/
+novel-helper/.anh-fsdb/
+.history/

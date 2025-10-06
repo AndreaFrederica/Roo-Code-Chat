@@ -1,0 +1,26 @@
+[
+  {
+    name: '禁用词',
+    type: '敏感词',
+    color: '#FF4D4F',
+    description: '需要避免使用的词汇，成稿前需替换。',
+    aliases: [
+      '禁用词2',
+    ],
+    fixes: [
+      '不是禁用',
+    ],
+    category: '内容安全',
+    severity: 'high',
+    uuid: '0199ba28-c16a-7e6b-b1d7-efaddbb6d782',
+  },
+  {
+    name: '剧透点',
+    type: '敏感词',
+    color: '#FFA940',
+    description: '尚未公开的剧情关键词。',
+    category: '剧情',
+    severity: 'medium',
+    uuid: '0199ba28-c16a-7f02-982a-3e873e6f3001',
+  },
+]
