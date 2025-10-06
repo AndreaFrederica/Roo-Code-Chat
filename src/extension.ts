@@ -28,6 +28,13 @@ import { TerminalRegistry } from "./integrations/terminal/TerminalRegistry"
 import { McpServerManager } from "./services/mcp/McpServerManager"
 import { CodeIndexManager } from "./services/code-index/manager"
 import { MdmService } from "./services/mdm/MdmService"
+import {
+	RoleRegistry,
+	StorylineRepository,
+	RoleMemoryService,
+	ConversationLogService,
+	type AnhChatServices,
+} from "./services/anh-chat"
 import { migrateSettings } from "./utils/migrateSettings"
 import { autoImportSettings } from "./utils/autoImportSettings"
 import { API } from "./extension/api"
@@ -56,6 +63,7 @@ let cloudService: CloudService | undefined
 let authStateChangedHandler: ((data: { state: AuthState; previousState: AuthState }) => Promise<void>) | undefined
 let settingsUpdatedHandler: (() => void) | undefined
 let userInfoHandler: ((data: { userInfo: CloudUserInfo }) => Promise<void>) | undefined
+let anhChatServices: AnhChatServices | undefined
 
 // This method is called when your extension is activated.
 // Your extension is activated the very first time the command is executed.
@@ -98,7 +106,29 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 	const contextProxy = await ContextProxy.getInstance(context)
+	try {
+		const anhChatBasePath = context.extensionPath
+		const [roleRegistry, storylineRepository, roleMemoryService, conversationLogService] = await Promise.all([
+			RoleRegistry.create(anhChatBasePath),
+			StorylineRepository.create(anhChatBasePath),
+			RoleMemoryService.create(anhChatBasePath),
+			ConversationLogService.create(anhChatBasePath),
+		])
 
+		anhChatServices = {
+			basePath: path.join(anhChatBasePath, "novel-helper", ".anh-chat"),
+			roleRegistry,
+			storylineRepository,
+			roleMemoryService,
+			conversationLogService,
+		}
+
+		outputChannel.appendLine(`[AnhChat] Services initialized at ${anhChatServices.basePath}`)
+	} catch (error) {
+		outputChannel.appendLine(
+			`[AnhChat] Failed to initialize services: ${error instanceof Error ? error.message : String(error)}`,
+		)
+	}
 	// Initialize code index managers for all workspace folders.
 	const codeIndexManagers: CodeIndexManager[] = []
 
@@ -123,8 +153,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 	// Initialize the provider *before* the Roo Code Cloud service.
-	const provider = new ClineProvider(context, outputChannel, "sidebar", contextProxy, mdmService)
-
+	const provider = new ClineProvider(context, outputChannel, "sidebar", contextProxy, mdmService, anhChatServices)
 	// Initialize Roo Code Cloud service.
 	const postStateListener = () => ClineProvider.getVisibleInstance()?.postStateToWebview()
 
@@ -225,7 +254,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		)
 	}
 
-	registerCommands({ context, outputChannel, provider })
+	registerCommands({ context, outputChannel, provider, anhChatServices })
 
 	/**
 	 * We use the text document content provider API to show the left side for diff

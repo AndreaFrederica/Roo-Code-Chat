@@ -17,5 +17,7 @@
 			"path": "./.vscode/cspell-roles.txt",
 			"addWords": true
 		}
-	}
+	},
+	"AndreaNovelHelper.autoGit.compactStatus": true,
+	"andrea.typeset.statusBar.compact": true
 }

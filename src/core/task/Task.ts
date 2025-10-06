@@ -112,6 +112,7 @@ import { processUserContentMentions } from "../mentions/processUserContentMentio
 import { getMessagesSinceLastSummary, summarizeConversation } from "../condense"
 import { Gpt5Metadata, ClineMessageWithMetadata } from "./types"
 import { MessageQueueService } from "../message-queue/MessageQueueService"
+import type { RolePromptData } from "../../types/anh-chat"
 
 import { AutoApprovalHandler } from "./AutoApprovalHandler"
 
@@ -138,6 +139,7 @@ export interface TaskOptions extends CreateTaskOptions {
 	taskNumber?: number
 	onCreated?: (task: Task) => void
 	initialTodos?: TodoItem[]
+	rolePromptData?: RolePromptData
 	workspacePath?: string
 }
 
@@ -156,6 +158,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	readonly parentTask: Task | undefined = undefined
 	readonly taskNumber: number
 	readonly workspacePath: string
+	private readonly rolePromptData?: RolePromptData
 
 	/**
 	 * The mode associated with this task. Persisted across sessions
@@ -316,6 +319,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		onCreated,
 		initialTodos,
 		workspacePath,
+		rolePromptData,
 	}: TaskOptions) {
 		super()
 
@@ -332,6 +336,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			task: historyItem ? historyItem.task : task,
 			images: historyItem ? [] : images,
 		}
+		this.rolePromptData = rolePromptData
 
 		// Normal use-case is usually retry similar history task with new workspace.
 		this.workspacePath = parentTask
@@ -2445,6 +2450,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				},
 				undefined, // todoList
 				this.api.getModel().id,
+				this.rolePromptData,
 			)
 		})()
 	}

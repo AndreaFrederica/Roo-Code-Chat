@@ -69,6 +69,7 @@ import { ShadowCheckpointService } from "../../services/checkpoints/ShadowCheckp
 import { CodeIndexManager } from "../../services/code-index/manager"
 import type { IndexProgressUpdate } from "../../services/code-index/interfaces/manager"
 import { MdmService } from "../../services/mdm/MdmService"
+import type { AnhChatServices } from "../../services/anh-chat"
 
 import { fileExistsAtPath } from "../../utils/fs"
 import { setTtsEnabled, setTtsSpeed } from "../../utils/tts"
@@ -134,11 +135,15 @@ export class ClineProvider
 	protected mcpHub?: McpHub // Change from private to protected
 	private marketplaceManager: MarketplaceManager
 	private mdmService?: MdmService
+	public readonly anhChatServices?: AnhChatServices
 	private taskCreationCallback: (task: Task) => void
 	private taskEventListeners: WeakMap<Task, Array<() => void>> = new WeakMap()
 	private currentWorkspacePath: string | undefined
 
 	private recentTasksCache?: string[]
+	private activeRoleUuid?: string
+	private cachedRoleUuid?: string
+	private cachedRolePromptData?: RolePromptData
 	private pendingOperations: Map<string, PendingEditOperation> = new Map()
 	private static readonly PENDING_OPERATION_TIMEOUT_MS = 30000 // 30 seconds
 
@@ -154,6 +159,7 @@ export class ClineProvider
 		private readonly renderContext: "sidebar" | "editor" = "sidebar",
 		public readonly contextProxy: ContextProxy,
 		mdmService?: MdmService,
+		anhChatServices?: AnhChatServices,
 	) {
 		super()
 		this.currentWorkspacePath = getWorkspacePath()
@@ -161,6 +167,13 @@ export class ClineProvider
 		ClineProvider.activeInstances.add(this)
 
 		this.mdmService = mdmService
+		this.anhChatServices = anhChatServices
+		if (anhChatServices) {
+			this.activeRoleUuid = anhChatServices.roleRegistry.getDefaultRoleUuid()
+			if (this.activeRoleUuid) {
+				this.outputChannel.appendLine(`[AnhChat] Active role set to ${this.activeRoleUuid}`)
+			}
+		}
 		this.updateGlobalState("codebaseIndexModels", EMBEDDING_MODEL_PROFILES)
 
 		// Start configuration loading (which might trigger indexing) in the background.
@@ -901,6 +914,8 @@ export class ClineProvider
 			taskSyncEnabled,
 		} = await this.getState()
 
+		const rolePromptData = await this.getRolePromptData()
+
 		const task = new Task({
 			provider: this,
 			apiConfiguration,
@@ -909,6 +924,7 @@ export class ClineProvider
 			fuzzyMatchThreshold,
 			consecutiveMistakeLimit: apiConfiguration.consecutiveMistakeLimit,
 			historyItem,
+			rolePromptData,
 			experiments,
 			rootTask: historyItem.rootTask,
 			parentTask: historyItem.parentTask,
@@ -2487,6 +2503,49 @@ export class ClineProvider
 		return this.recentTasksCache
 	}
 
+	private async getRolePromptData(): Promise<RolePromptData | undefined> {
+		if (!this.anhChatServices) {
+			return undefined
+		}
+
+		const roleUuid = this.activeRoleUuid ?? this.anhChatServices.roleRegistry.getDefaultRoleUuid()
+		if (!roleUuid) {
+			return undefined
+		}
+
+		if (this.cachedRolePromptData && this.cachedRoleUuid === roleUuid) {
+			return this.cachedRolePromptData
+		}
+
+		try {
+			const role = await this.anhChatServices.roleRegistry.loadRole(roleUuid)
+			if (!role) {
+				return undefined
+			}
+
+			const [storyline, memory] = await Promise.all([
+				this.anhChatServices.storylineRepository.getStoryline(roleUuid),
+				this.anhChatServices.roleMemoryService.loadMemory(roleUuid),
+			])
+
+			const promptData: RolePromptData = {
+				role: { ...role, uuid: role.uuid ?? roleUuid },
+				storyline,
+				memory,
+			}
+
+			this.cachedRolePromptData = promptData
+			this.cachedRoleUuid = roleUuid
+
+			return promptData
+		} catch (error) {
+			this.outputChannel.appendLine(
+				`[AnhChat] Failed to load role context for ${roleUuid}: ${error instanceof Error ? error.message : String(error)}`,
+			)
+			return undefined
+		}
+	}
+
 	// When initializing a new task, (not from history but from a tool command
 	// new_task) there is no need to remove the previous task since the new
 	// task is a subtask of the previous one, and when it finishes it is removed
@@ -2541,6 +2600,8 @@ export class ClineProvider
 			remoteControlEnabled,
 		} = await this.getState()
 
+		const rolePromptData = await this.getRolePromptData()
+
 		if (!ProfileValidator.isProfileAllowed(apiConfiguration, organizationAllowList)) {
 			throw new OrganizationAllowListViolationError(t("common:errors.violated_organization_allowlist"))
 		}
@@ -2555,6 +2616,7 @@ export class ClineProvider
 			task: text,
 			images,
 			experiments,
+			rolePromptData,
 			rootTask: this.clineStack.length > 0 ? this.clineStack[0] : undefined,
 			parentTask,
 			taskNumber: this.clineStack.length + 1,

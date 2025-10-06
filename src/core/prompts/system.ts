@@ -42,6 +42,95 @@ export function getPromptComponent(
 	return component
 }
 
+function buildRolePromptSection(rolePromptData?: RolePromptData): string {
+	if (!rolePromptData) {
+		return ""
+	}
+
+	const { role, storyline, memory } = rolePromptData
+	const sections: string[] = []
+
+	const overviewItems: string[] = [`- Name: ${role.name}`, `- Type: ${role.type}`]
+	if (role.affiliation) {
+		overviewItems.push(`- Affiliation: ${role.affiliation}`)
+	}
+	if (role.aliases && role.aliases.length > 0) {
+		overviewItems.push(`- Aliases: ${role.aliases.join(" / ")}`)
+	}
+	if (role.color) {
+		overviewItems.push(`- Signature Color: ${role.color}`)
+	}
+	if (role.description) {
+		overviewItems.push(`- Summary: ${role.description}`)
+	}
+
+	sections.push(`### Character Overview\n${overviewItems.join("\n")}`)
+
+	const { profile } = role
+	if (profile?.background) {
+		sections.push(`### Background\n${profile.background}`)
+	}
+
+	const addListSection = (title: string, values?: string[]) => {
+		if (!values || values.length === 0) {
+			return
+		}
+
+		sections.push(`${title}\n${values.map((value) => `- ${value}`).join("\n")}`)
+	}
+
+	addListSection("### Appearance", profile?.appearance)
+	addListSection("### Personality", profile?.personality)
+	addListSection("### Skills", profile?.skills)
+	addListSection("### Titles", profile?.titles)
+	addListSection("### Hobbies", profile?.hobbies)
+	addListSection("### Relationships", profile?.relationships)
+	addListSection("### Notes", profile?.notes)
+
+	const arcs = storyline?.arcs?.slice(0, 3)
+	if (arcs && arcs.length > 0) {
+		sections.push(`### Storyline Highlights\n${arcs.map((arc) => `- ${arc.title}: ${arc.summary}`).join("\n")}`)
+	}
+
+	if (memory) {
+		if (memory.traits && memory.traits.length > 0) {
+			sections.push(
+				`### Persistent Traits\n${memory.traits
+					.map((trait) => {
+						const confidence = trait.confidence !== undefined ? ` (confidence: ${trait.confidence})` : ""
+						return `- ${trait.name}: ${trait.value}${confidence}`
+					})
+					.join("\n")}`,
+			)
+		}
+
+		if (memory.goals && memory.goals.length > 0) {
+			sections.push(
+				`### Goals\n${memory.goals
+					.map((goal) => {
+						const priority = goal.priority !== undefined ? ` (priority: ${goal.priority})` : ""
+						return `- ${goal.value}${priority}`
+					})
+					.join("\n")}`,
+			)
+		}
+
+		if (memory.episodic && memory.episodic.length > 0) {
+			const recent = memory.episodic.slice(-3)
+			sections.push(
+				`### Recent Memories\n${recent
+					.map((record) => {
+						const timestamp = new Date(record.timestamp).toISOString()
+						return `- [${timestamp}] ${record.content}`
+					})
+					.join("\n")}`,
+			)
+		}
+	}
+
+	return sections.filter(Boolean).join("\n\n")
+}
+
 async function generatePrompt(
 	context: vscode.ExtensionContext,
 	cwd: string,
@@ -62,6 +151,7 @@ async function generatePrompt(
 	settings?: SystemPromptSettings,
 	todoList?: TodoItem[],
 	modelId?: string,
+	rolePromptData?: RolePromptData,
 ): Promise<string> {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -88,9 +178,16 @@ async function generatePrompt(
 
 	const codeIndexManager = CodeIndexManager.getInstance(context, cwd)
 
+	const roleSection = buildRolePromptSection(rolePromptData)
+	const roleSectionBlock = roleSection
+		? `${roleSection}
+
+`
+		: ""
+
 	const basePrompt = `${roleDefinition}
 
-${markdownFormattingSection()}
+${roleSectionBlock}${markdownFormattingSection()}
 
 ${getSharedToolUseSection()}
 
@@ -153,6 +250,7 @@ export const SYSTEM_PROMPT = async (
 	settings?: SystemPromptSettings,
 	todoList?: TodoItem[],
 	modelId?: string,
+	rolePromptData?: RolePromptData,
 ): Promise<string> => {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -197,7 +295,7 @@ export const SYSTEM_PROMPT = async (
 		// For file-based prompts, don't include the tool sections
 		return `${roleDefinition}
 
-${fileCustomSystemPrompt}
+${roleSectionBlock}${fileCustomSystemPrompt}
 
 ${customInstructions}`
 	}
@@ -225,5 +323,6 @@ ${customInstructions}`
 		settings,
 		todoList,
 		modelId,
+		rolePromptData,
 	)
 }
