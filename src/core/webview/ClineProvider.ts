@@ -921,6 +921,12 @@ export class ClineProvider
 		// Auto-switch to saved role if available
 		if (historyItem.anhRoleName && historyItem.anhRoleUuid) {
 			try {
+				// Check if anhChatServices is available before trying to use it
+				if (!this.anhChatServices) {
+					this.log(`[AnhChat] Cannot load saved role '${historyItem.anhRoleName}' (${historyItem.anhRoleUuid}): AnhChatServices not available. Continuing with current role.`)
+					return
+				}
+				
 				// Try to load the saved role
 				const savedRole = await this.anhChatServices.roleRegistry.loadRole(historyItem.anhRoleUuid)
 

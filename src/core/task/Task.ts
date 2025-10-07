@@ -100,6 +100,7 @@ import {
 	saveTaskMessages,
 	taskMetadata,
 } from "../task-persistence"
+import { extractLastMessage, type ExtractedMessages } from "../task-persistence/messageExtractor"
 import { getEnvironmentDetails } from "../environment/getEnvironmentDetails"
 import { checkContextWindowExceededError } from "../context/context-management/context-error-handling"
 import {
@@ -261,6 +262,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	// LLM Messages & Chat Messages
 	apiConversationHistory: ApiMessage[] = []
 	clineMessages: ClineMessage[] = []
+
+	// 缓存最后一条有效消息，用于聊天模式显示
+	private anhLastMessageCache?: string
 
 	// Ask
 	private askResponse?: ClineAskResponse
@@ -624,6 +628,10 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 	private async addToClineMessages(message: ClineMessage) {
 		this.clineMessages.push(message)
+
+		// 实时更新最后一条有效消息缓存
+		this.updateLastMessageCache(message)
+
 		const provider = this.providerRef.deref()
 		await provider?.postStateToWebview()
 		this.emit(RooCodeEventName.Message, { action: "created", message })
@@ -636,6 +644,21 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				event: TelemetryEventName.TASK_MESSAGE,
 				properties: { taskId: this.taskId, message },
 			})
+		}
+	}
+
+	/**
+	 * 更新最后一条有效消息的缓存
+	 * 直接复用 messageExtractor.ts 的逻辑
+	 * @param message 新添加的消息
+	 */
+	private updateLastMessageCache(message: ClineMessage) {
+		// 如果新消息是有效的，则用 extractLastMessage 处理当前消息历史
+		// 这样可以确保与原有过滤逻辑完全一致
+		const tempMessages = [message]
+		const { anhLastMessage } = extractLastMessage(tempMessages)
+		if (anhLastMessage) {
+			this.anhLastMessageCache = anhLastMessage
 		}
 	}
 
@@ -692,6 +715,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				anhRoleName: this.rolePromptData?.role?.name,
 				anhRoleUuid: this.rolePromptData?.role?.uuid,
 				anhPersonaMode: this.anhPersonaMode,
+				anhLastMessage: this.anhLastMessageCache, // 传入缓存值
 			})
 
 			if (hasTokenUsageChanged(tokenUsage, this.tokenUsageSnapshot)) {

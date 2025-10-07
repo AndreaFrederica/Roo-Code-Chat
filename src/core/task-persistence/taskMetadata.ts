@@ -2,7 +2,7 @@ import NodeCache from "node-cache"
 import getFolderSize from "get-folder-size"
 
 import type { ClineMessage, HistoryItem, RolePersona } from "@roo-code/types"
-import { extractFirstAndLastMessages } from "./messageExtractor"
+import { extractLastMessage } from "./messageExtractor"
 
 import { combineApiRequests } from "../../shared/combineApiRequests"
 import { combineCommandSequences } from "../../shared/combineCommandSequences"
@@ -25,6 +25,7 @@ export type TaskMetadataOptions = {
 	anhRoleName?: string
 	anhRoleUuid?: string
 	anhPersonaMode?: RolePersona
+	anhLastMessage?: string  // 缓存值，避免重复过滤
 }
 
 export async function taskMetadata({
@@ -39,6 +40,7 @@ export async function taskMetadata({
 	anhRoleName,
 	anhRoleUuid,
 	anhPersonaMode,
+	anhLastMessage,
 }: TaskMetadataOptions) {
 	const taskDir = await getTaskDirectoryPath(globalStoragePath, id)
 
@@ -90,10 +92,9 @@ export async function taskMetadata({
 		}
 	}
 
-	// Extract first and last messages for chat mode optimization
-	const { anhFirstMessage, anhLastMessage } = hasMessages
-		? extractFirstAndLastMessages(messages)
-		: {}
+	// Extract last message for chat mode optimization
+	// 如果有缓存值就直接使用，否则提取
+	const finalAnhLastMessage = anhLastMessage ?? (hasMessages ? extractLastMessage(messages).anhLastMessage : undefined)
 
 	// Create historyItem once with pre-calculated values.
 	const historyItem: HistoryItem = {
@@ -115,8 +116,7 @@ export async function taskMetadata({
 		mode,
 		anhRoleName,
 		anhRoleUuid,
-		anhFirstMessage,
-		anhLastMessage,
+		anhLastMessage: finalAnhLastMessage,
 	}
 
 	return { historyItem, tokenUsage }

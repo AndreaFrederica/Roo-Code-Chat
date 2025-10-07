@@ -68,7 +68,8 @@ const HistoryPreview = () => {
 					id: key,
 					name: task.anhRoleName || t('history:role.unknown'),
 					uuid: task.anhRoleUuid,
-					tasks: []
+					tasks: [],
+					latestTime: task.ts || 0
 				})
 			}
 			roleMap.get(key)!.tasks.push(task)
@@ -76,9 +77,10 @@ const HistoryPreview = () => {
 
 		// Convert map to array and sort by most recent activity
 		const sortedRoles = Array.from(roleMap.values()).sort((a, b) => {
-			const aLatest = Math.max(...a.tasks.map(t => t.ts || 0))
-			const bLatest = Math.max(...b.tasks.map(t => t.ts || 0))
-			return bLatest - aLatest
+			// Update latestTime for each role based on their tasks
+			a.latestTime = Math.max(...a.tasks.map(t => t.ts || 0))
+			b.latestTime = Math.max(...b.tasks.map(t => t.ts || 0))
+			return b.latestTime - a.latestTime
 		})
 
 		// Add regular roles to the list

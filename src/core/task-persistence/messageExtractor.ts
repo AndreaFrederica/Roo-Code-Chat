@@ -6,11 +6,11 @@ export interface ExtractedMessages {
 }
 
 /**
- * 从消息历史中提取第一句话和最后一句话
+ * 从消息历史中提取最后一句话
  * @param messages 消息历史数组
- * @returns 提取的第一句话和最后一句话
+ * @returns 提取的最后一句话
  */
-export function extractFirstAndLastMessages(messages: ClineMessage[]): ExtractedMessages {
+export function extractLastMessage(messages: ClineMessage[]): ExtractedMessages {
 	if (!messages || messages.length === 0) {
 		return {}
 	}
@@ -21,14 +21,12 @@ export function extractFirstAndLastMessages(messages: ClineMessage[]): Extracted
 	// - say === 'user_feedback' 是用户的反馈/消息
 	const validMessages = messages.filter(msg => {
 		const hasText = msg.text?.trim()
-		console.log('[ANH-Chat] Checking message:', msg, 'Has text:', !!hasText)
+		// console.log('[ANH-Chat] Checking message:', msg, 'Has text:', !!hasText)
 		if (!hasText) return false
-		
 		// 用户消息: ask === 'followup' 或 say === 'user_feedback'（但排除空的 completion_result）
 		if ((msg.ask === 'followup' || msg.say === 'user_feedback') && msg.ask !== 'completion_result') {
 			return true
 		}
-		
 		// 助手文本消息: say === 'text' 或 say === 'completion_result'
 		if (msg.say === 'text' || msg.say === 'completion_result') {
 			return true
@@ -41,16 +39,11 @@ export function extractFirstAndLastMessages(messages: ClineMessage[]): Extracted
 		return {}
 	}
 
-	// 提取第一条消息
-	const firstMessage = validMessages[0]
-	const firstMessageText = firstMessage.text?.trim() || ''
-
 	// 提取最后一条消息
 	const lastMessage = validMessages[validMessages.length - 1]
 	const lastMessageText = lastMessage.text?.trim() || ''
 
 	return {
-		anhFirstMessage: extractFirstSentence(firstMessageText),
 		anhLastMessage: extractLastSentence(lastMessageText)
 	}
 }
