@@ -227,6 +227,13 @@ export const clineMessageSchema = z.object({
 				.optional(),
 		})
 		.optional(),
+	userAvatarSnapshot: z.object({
+		enabled: z.boolean(),
+		role: z.object({
+			name: z.string(),
+			color: z.string().optional(),
+		}).optional(),
+	}).optional(),
 })
 
 export type ClineMessage = z.infer<typeof clineMessageSchema>

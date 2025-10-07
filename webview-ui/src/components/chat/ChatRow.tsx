@@ -1141,26 +1141,31 @@ export const ChatRowContent = ({
 						</div>
 					)
 				case "user_feedback":
+					// Prioritize saved avatar info from message, fallback to current configuration
+					const avatarSnapshot = message.userAvatarSnapshot
+					const shouldShowAvatar = avatarSnapshot?.enabled ?? enableUserAvatar
+					const avatarRole = avatarSnapshot?.role ?? userAvatarRole
+					
 					return (
 						<div className="group">
 							<div style={headerStyle}>
-								{enableUserAvatar && userAvatarRole ? (
+								{shouldShowAvatar && avatarRole ? (
 									<div className="flex items-center gap-2">
-										{userAvatarRole.color && (
+										{avatarRole.color && (
 											<div
 												className="w-4 h-4 rounded-full flex-shrink-0"
-												style={{ backgroundColor: userAvatarRole.color }}
+												style={{ backgroundColor: avatarRole.color }}
 												aria-label="User avatar"
 											/>
 										)}
-										<span style={{ fontWeight: "bold" }}>{userAvatarRole.name}</span>
+										<span style={{ fontWeight: "bold" }}>{avatarRole.name}</span>
 									</div>
 								) : (
-									<User className="w-4 shrink-0" aria-label="User icon" />
+									<>
+										<User className="w-4 shrink-0" aria-label="User icon" />
+										<span style={{ fontWeight: "bold" }}>{t("chat:feedback.youSaid")}</span>
+									</>
 								)}
-								<span style={{ fontWeight: "bold" }}>
-									{enableUserAvatar && userAvatarRole ? userAvatarRole.name : t("chat:feedback.youSaid")}
-								</span>
 							</div>
 							<div
 								className={cn(

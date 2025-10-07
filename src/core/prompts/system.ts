@@ -350,6 +350,7 @@ async function generatePrompt(
 		: ""
 
 	// Build user avatar role section if enabled
+	// TODO 完成用户代理角色的
 	let userAvatarSectionBlock = ""
 	if (enableUserAvatar && userAvatarRole) {
 		console.log("[ANH-Chat:SystemPrompt] Building user avatar section for role:", userAvatarRole.name)
@@ -364,6 +365,7 @@ async function generatePrompt(
 			? `
 
 USER AVATAR
+这是用户的角色，现在用户的角色是：${userAvatarRole.name}
 ${userAvatarSection}
 
 `

@@ -1095,6 +1095,41 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		)
 	}
 
+	/**
+	 * Get current user avatar snapshot from provider
+	 */
+	private async getUserAvatarSnapshot() {
+		const provider = this.providerRef.deref()
+		if (!provider) {
+			// console.log('[DEBUG] getUserAvatarSnapshot: provider is undefined')
+			return undefined
+		}
+
+		const state = await provider.getState()
+		const userAvatarRole = state.userAvatarRole
+
+		// Debug logging
+		// console.log('[DEBUG] getUserAvatarSnapshot called')
+		// console.log('[DEBUG] enableUserAvatar:', state.enableUserAvatar)
+		// console.log('[DEBUG] userAvatarRole:', userAvatarRole)
+
+		if (!state.enableUserAvatar || !userAvatarRole) {
+			// console.log('[DEBUG] returning { enabled: false } - enableUserAvatar:', state.enableUserAvatar, 'userAvatarRole exists:', !!userAvatarRole)
+			return { enabled: false }
+		}
+
+		const snapshot = {
+			enabled: true,
+			role: userAvatarRole.name ? {
+				name: userAvatarRole.name,
+				color: userAvatarRole.color
+			} : undefined
+		}
+		
+		// console.log('[DEBUG] returning snapshot:', snapshot)
+		return snapshot
+	}
+
 	async say(
 		type: ClineSay,
 		text?: string,
@@ -1112,6 +1147,11 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			throw new Error(`[RooCode#say] task ${this.taskId}.${this.instanceId} aborted`)
 		}
 
+		// Get user avatar snapshot for user_feedback messages
+		// console.log(`[DEBUG] say method called with type: ${type}`)
+		const userAvatarSnapshot = type === "user_feedback" ? await this.getUserAvatarSnapshot() : undefined
+		// console.log(`[DEBUG] userAvatarSnapshot for type ${type}:`, userAvatarSnapshot)
+
 		if (partial !== undefined) {
 			const lastMessage = this.clineMessages.at(-1)
 
@@ -1125,6 +1165,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 					lastMessage.images = images
 					lastMessage.partial = partial
 					lastMessage.progressStatus = progressStatus
+					if (userAvatarSnapshot) {
+						lastMessage.userAvatarSnapshot = userAvatarSnapshot
+					}
 					this.updateClineMessage(lastMessage)
 				} else {
 					// This is a new partial message, so add it with partial state.
@@ -1143,6 +1186,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						partial,
 						contextCondense,
 						metadata: options.metadata,
+						...(userAvatarSnapshot && { userAvatarSnapshot })
 					})
 				}
 			} else {
@@ -1158,6 +1202,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 					lastMessage.images = images
 					lastMessage.partial = false
 					lastMessage.progressStatus = progressStatus
+					if (userAvatarSnapshot) {
+						lastMessage.userAvatarSnapshot = userAvatarSnapshot
+					}
 					if (options.metadata) {
 						// Add metadata to the message
 						const messageWithMetadata = lastMessage as ClineMessage & ClineMessageWithMetadata
@@ -1189,6 +1236,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						images,
 						contextCondense,
 						metadata: options.metadata,
+						...(userAvatarSnapshot && { userAvatarSnapshot })
 					})
 				}
 			}
@@ -1212,6 +1260,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				images,
 				checkpoint,
 				contextCondense,
+				...(userAvatarSnapshot && { userAvatarSnapshot })
 			})
 		}
 	}

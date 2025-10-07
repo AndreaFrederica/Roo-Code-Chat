@@ -915,16 +915,16 @@
 	"userAvatar": {
 		"title": "用户代理角色",
 		"enable": "启用用户代理角色",
-		"enableDescription": "启用后，AI将扮演您选择的角色与您进行对话",
+		"enableDescription": "启用后，这是你在AI面前的角色",
 		"selectRole": "选择角色",
-		"selectRoleDescription": "选择AI在对话中扮演的角色",
+		"selectRoleDescription": "选择你在AI面前的角色",
 		"selectRoleTooltip": "点击选择角色",
 		"noRole": "无角色",
 		"noRoleDescription": "不使用特定角色，以默认方式对话",
 		"aliases": "别名",
 		"loadError": "加载角色列表失败",
 		"searchPlaceholder": "搜索角色...",
-		"description": "配置用户代理角色，让AI在对话中扮演特定角色",
+		"description": "配置用户代理角色，让你使用特定角色与AI对话",
 		"noResults": "未找到匹配的角色"
 	}
 }

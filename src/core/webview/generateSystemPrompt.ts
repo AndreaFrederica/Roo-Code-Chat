@@ -76,12 +76,9 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	const todoList = currentTask?.todoList
 	const modelId = currentTask?.api?.getModel().id
 
-	// Get user avatar role if enabled
-	let userAvatarRoleData = undefined
-	if (enableUserAvatar && userAvatarRole) {
-		userAvatarRoleData = userAvatarRole
-	}
-
+	// Get user avatar role if enabled - align with Task.getSystemPrompt() implementation
+	console.log('[DEBUG] generateSystemPrompt - enableUserAvatar:', enableUserAvatar, 'userAvatarRole:', userAvatarRole)
+	
 	const systemPrompt = await SYSTEM_PROMPT(
 		provider.context,
 		cwd,
@@ -113,7 +110,8 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		anhPersonaMode,
 		anhToneStrict,
 		anhUseAskTool,
-		userAvatarRoleData, // 传递用户头像角色数据
+		userAvatarRole, // 直接传递 userAvatarRole，与 Task.getSystemPrompt() 保持一致
+		enableUserAvatar, // 直接传递 enableUserAvatar
 	)
 
 	return systemPrompt
