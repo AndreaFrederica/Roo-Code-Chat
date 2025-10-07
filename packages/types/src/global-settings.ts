@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 import { type Keys } from "./type-fu.js"
-import { roleSchema, type Role } from "./anh-chat.js"
+import { roleSchema } from "./anh-chat.js"
 import {
 	type ProviderSettings,
 	PROVIDER_SETTINGS_KEYS,
