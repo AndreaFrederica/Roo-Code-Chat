@@ -5,6 +5,8 @@ import { UISettings } from "../UISettings"
 describe("UISettings", () => {
 	const defaultProps = {
 		reasoningBlockCollapsed: false,
+		anhChatModeHideTaskCompletion: false,
+		anhShowRoleCardOnSwitch: false,
 		setCachedStateField: vi.fn(),
 	}
 

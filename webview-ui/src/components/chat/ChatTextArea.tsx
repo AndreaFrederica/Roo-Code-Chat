@@ -28,6 +28,7 @@ import Thumbnails from "../common/Thumbnails"
 import { ModeSelector } from "./ModeSelector"
 import { ApiConfigSelector } from "./ApiConfigSelector"
 import RoleSelector from "./RoleSelector"
+import { UserAvatarRoleSelector } from "./UserAvatarRoleSelector"
 import { PersonaModeSelector } from "./PersonaModeSelector"
 import { ToneStrictSelector } from "./ToneStrictSelector"
 import { AutoApproveDropdown } from "./AutoApproveDropdown"
@@ -1264,6 +1265,11 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							disabled={selectApiConfigDisabled}
 							triggerClassName="text-ellipsis overflow-hidden flex-shrink-0"
 							roleShortcutText="Ctrl+R"
+						/>
+						<UserAvatarRoleSelector
+							title={t("chat:userAvatarRole.title") || "用户代理角色"}
+							disabled={selectApiConfigDisabled}
+							triggerClassName="text-ellipsis overflow-hidden flex-shrink-0"
 						/>
 						<AskToolSelector />
 						<PersonaModeSelector

@@ -45,7 +45,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 	const scrollContainerRef = React.useRef<HTMLDivElement>(null)
 	const portalContainer = useRooPortal("roo-portal")
 	const { t } = useAppTranslation()
-	const { showRoleDebugInfo } = useNotification()
+	const { showRoleDebugInfo, addNotification } = useNotification()
 	const { currentTaskItem, clineMessages, anhShowRoleCardOnSwitch } = useExtensionState()
 
 	// Track whether role switching is allowed
@@ -230,10 +230,11 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 		(role: Role) => {
 			// Prevent role switching if not allowed
 			if (!allowRoleSwitching) {
-				showRoleDebugInfo({
+				addNotification({
 					title: t("chat:roleSelector.taskActiveTitle"),
 					message: t("chat:roleSelector.taskActiveMessage"),
-					type: "warning"
+					type: "warning",
+					duration: 3000
 				})
 				return
 			}

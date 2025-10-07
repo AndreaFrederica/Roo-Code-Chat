@@ -50,7 +50,7 @@ const TaskHeader = ({
 	todos,
 }: TaskHeaderProps) => {
 	const { t } = useTranslation()
-	const { apiConfiguration, currentTaskItem, clineMessages, anhPersonaMode } = useExtensionState()
+	const { apiConfiguration, currentTaskItem, clineMessages, anhPersonaMode, currentAnhRole } = useExtensionState()
 	const { id: modelId, info: model } = useSelectedModel(apiConfiguration)
 	const [isTaskExpanded, setIsTaskExpanded] = useState(false)
 	const [showLongRunningTaskMessage, setShowLongRunningTaskMessage] = useState(false)
@@ -89,8 +89,10 @@ const TaskHeader = ({
 	const condenseButton = (
 		<StandardTooltip content={t("chat:task.condenseContext")}>
 			<button
+				type="button"
 				disabled={buttonsDisabled}
 				onClick={() => currentTaskItem && handleCondenseContext(currentTaskItem.id)}
+				title={t("chat:task.condenseContext")}
 				className="shrink-0 min-h-[20px] min-w-[20px] p-[2px] cursor-pointer disabled:cursor-not-allowed opacity-85 hover:opacity-100 bg-transparent border-none rounded-md">
 				<FoldVertical size={16} />
 			</button>
@@ -162,6 +164,15 @@ const TaskHeader = ({
 						</div>
 					</div>
 				</div>
+				{/* Current role description display */}
+				{currentAnhRole && currentAnhRole.name && (
+					<div className="text-xs text-vscode-descriptionForeground opacity-80 mt-1">
+						当前角色: {currentAnhRole.name}
+						{currentAnhRole.description && currentAnhRole.description !== currentAnhRole.name && (
+							<span className="ml-2 opacity-70">- {currentAnhRole.description}</span>
+						)}
+					</div>
+				)}
 				{!isTaskExpanded && contextWindow > 0 && (
 					<div className="flex items-center gap-2 text-sm" onClick={(e) => e.stopPropagation()}>
 						<StandardTooltip
