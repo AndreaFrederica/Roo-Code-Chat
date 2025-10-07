@@ -197,8 +197,9 @@ function applyGentleRoleOverride(
 	// Create tone instructions
 	const toneInstructions = createToneInstructions(role, persona, toneStrict)
 
-	// New roleDefinition: persona header + original roleDefinition
-	const newRoleDefinition = `${personaHeader}\n\n${selection.roleDefinition}`
+	// 完全替换角色定义，而不是追加
+	// 当选择了非默认角色时，完全替换默认的 "You are Roo..." 定义
+	const newRoleDefinition = personaHeader
 
 	// New baseInstructions: tone instructions + original baseInstructions
 	const newBaseInstructions = toneInstructions
@@ -296,6 +297,7 @@ async function generatePrompt(
 	rolePromptData?: RolePromptData,
 	anhPersonaMode?: RolePersona,
 	anhToneStrict?: boolean,
+	anhUseAskTool?: boolean,
 ): Promise<string> {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -371,6 +373,13 @@ You are engaging in conversation with the user as your character. Focus on:
 3. Providing helpful and engaging conversation
 4. Avoiding technical programming discussions unless specifically requested`
 
+		// Add natural conversation guidance when ask tool is disabled
+		const conversationGuidance = anhUseAskTool === false ? `
+- 尽量避免使用提问工具，直接与用户自然对话
+- 如果需要澄清问题，直接在对话中询问，不要使用正式的提问工具
+- 保持对话的流畅性和自然感，减少机械化的交互
+- 像真人一样交流，而不是像机器人一样按流程操作` : ""
+
 		const chatRulesSection = `====
 
 RULES
@@ -379,7 +388,7 @@ RULES
 - Feel free to use friendly greetings and expressions like "好的", "当然", "很高兴" etc.
 - You can ask questions to better understand the user or to continue the conversation
 - Focus on building a good conversational experience
-- If the user requests programming help, you can switch to a more technical mode`
+- If the user requests programming help, you can switch to a more technical mode${conversationGuidance}`
 
 		promptSections = promptSections.concat([
 			getSystemInfoSection(cwd),
@@ -421,6 +430,17 @@ RULES
 			"",
 			getRulesSection(cwd, supportsComputerUse, effectiveDiffStrategy, codeIndexManager, mode),
 			"",
+			// Add natural conversation guidance when ask tool is disabled
+			anhUseAskTool === false ? `
+====
+
+CONVERSATION GUIDANCE
+
+- 尽量避免使用提问工具，直接与用户自然对话
+- 如果需要澄清问题，直接在对话中询问，不要使用正式的提问工具
+- 保持对话的流畅性和自然感，减少机械化的交互
+- 像真人一样交流，而不是像机器人一样按流程操作
+` : "",
 			getSystemInfoSection(cwd),
 			"",
 			getObjectiveSection(codeIndexManager, experiments),
@@ -563,5 +583,6 @@ ${customInstructions}`
 		rolePromptData,
 		anhPersonaMode,
 		anhToneStrict,
+		anhUseAskTool,
 	)
 }
