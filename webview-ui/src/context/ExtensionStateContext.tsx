@@ -165,8 +165,12 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setAnhPersonaMode: (value: "hybrid" | "chat") => void
 	anhToneStrict?: boolean
 	setAnhToneStrict: (value: boolean) => void
+	anhUseAskTool?: boolean
+	setAnhUseAskTool: (value: boolean) => void
 	anhChatModeHideTaskCompletion?: boolean
 	setAnhChatModeHideTaskCompletion: (value: boolean) => void
+	displayMode?: "coding" | "chat"
+	setDisplayMode: (value: "coding" | "chat") => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -289,6 +293,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	const [marketplaceItems, setMarketplaceItems] = useState<any[]>([])
 	const [alwaysAllowFollowupQuestions, setAlwaysAllowFollowupQuestions] = useState(false) // Add state for follow-up questions auto-approve
 	const [followupAutoApproveTimeoutMs, setFollowupAutoApproveTimeoutMs] = useState<number | undefined>(undefined) // Will be set from global settings
+	const [anhUseAskTool, setAnhUseAskTool] = useState(true) // Default to true (use ask tool)
 	const [marketplaceInstalledMetadata, setMarketplaceInstalledMetadata] = useState<MarketplaceInstalledMetadata>({
 		project: {},
 		global: {},
@@ -330,6 +335,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update includeTaskHistoryInEnhance if present in state message
 					if ((newState as any).includeTaskHistoryInEnhance !== undefined) {
 						setIncludeTaskHistoryInEnhance((newState as any).includeTaskHistoryInEnhance)
+					}
+					// Update anhUseAskTool if present in state message
+					if ((newState as any).anhUseAskTool !== undefined) {
+						setAnhUseAskTool((newState as any).anhUseAskTool)
 					}
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {
@@ -574,8 +583,12 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setAnhPersonaMode: (value) => setState((prevState) => ({ ...prevState, anhPersonaMode: value })),
 		anhToneStrict: state.anhToneStrict ?? true,
 		setAnhToneStrict: (value) => setState((prevState) => ({ ...prevState, anhToneStrict: value })),
+		anhUseAskTool: state.anhUseAskTool ?? true,
+		setAnhUseAskTool: (value) => setState((prevState) => ({ ...prevState, anhUseAskTool: value })),
 		anhChatModeHideTaskCompletion: state.anhChatModeHideTaskCompletion ?? true,
 		setAnhChatModeHideTaskCompletion: (value) => setState((prevState) => ({ ...prevState, anhChatModeHideTaskCompletion: value })),
+		displayMode: state.displayMode ?? "coding",
+		setDisplayMode: (value) => setState((prevState) => ({ ...prevState, displayMode: value })),
 	}
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>

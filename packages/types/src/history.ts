@@ -19,6 +19,12 @@ export const historyItemSchema = z.object({
 	size: z.number().optional(),
 	workspace: z.string().optional(),
 	mode: z.string().optional(),
+	// ANH (Advanced Novel Helper) role information
+	anhRoleName: z.string().optional(),
+	anhRoleUuid: z.string().optional(),
+	// Chat mode display optimization
+	anhFirstMessage: z.string().optional(),
+	anhLastMessage: z.string().optional(),
 })
 
 export type HistoryItem = z.infer<typeof historyItemSchema>

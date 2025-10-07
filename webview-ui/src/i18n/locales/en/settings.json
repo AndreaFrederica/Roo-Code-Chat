@@ -50,6 +50,16 @@
 		"anhShowRoleCardOnSwitch": {
 			"label": "Show role card popup when switching roles",
 			"description": "When enabled, a popup card showing role details will appear when switching roles"
+		},
+		"anhHistoryDisplayMode": {
+			"label": "History display mode",
+			"description": "Choose how to display task history in the sidebar"
+		},
+		"historyDisplayModes": {
+			"coding": "Coding Mode",
+			"codingDescription": "Show task titles as main content with first message as preview",
+			"chat": "Chat Mode",
+			"chatDescription": "Show last message as title with first message as preview"
 		}
 	},
 	"prompts": {

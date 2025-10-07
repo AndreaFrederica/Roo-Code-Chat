@@ -1,7 +1,8 @@
 import NodeCache from "node-cache"
 import getFolderSize from "get-folder-size"
 
-import type { ClineMessage, HistoryItem } from "@roo-code/types"
+import type { ClineMessage, HistoryItem, RolePersona } from "@roo-code/types"
+import { extractFirstAndLastMessages } from "./messageExtractor"
 
 import { combineApiRequests } from "../../shared/combineApiRequests"
 import { combineCommandSequences } from "../../shared/combineCommandSequences"
@@ -21,6 +22,9 @@ export type TaskMetadataOptions = {
 	globalStoragePath: string
 	workspace: string
 	mode?: string
+	anhRoleName?: string
+	anhRoleUuid?: string
+	anhPersonaMode?: RolePersona
 }
 
 export async function taskMetadata({
@@ -32,6 +36,9 @@ export async function taskMetadata({
 	globalStoragePath,
 	workspace,
 	mode,
+	anhRoleName,
+	anhRoleUuid,
+	anhPersonaMode,
 }: TaskMetadataOptions) {
 	const taskDir = await getTaskDirectoryPath(globalStoragePath, id)
 
@@ -83,6 +90,11 @@ export async function taskMetadata({
 		}
 	}
 
+	// Extract first and last messages for chat mode optimization
+	const { anhFirstMessage, anhLastMessage } = hasMessages
+		? extractFirstAndLastMessages(messages)
+		: {}
+
 	// Create historyItem once with pre-calculated values.
 	const historyItem: HistoryItem = {
 		id,
@@ -101,6 +113,10 @@ export async function taskMetadata({
 		size: taskDirSize,
 		workspace,
 		mode,
+		anhRoleName,
+		anhRoleUuid,
+		anhFirstMessage,
+		anhLastMessage,
 	}
 
 	return { historyItem, tokenUsage }

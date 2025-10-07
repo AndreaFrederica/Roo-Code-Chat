@@ -4,6 +4,7 @@ import type { HistoryItem } from "@roo-code/types"
 import { vscode } from "@/utils/vscode"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
+import { getChatModeTitleFromHistoryItem, getCodingModeTitle } from "@/utils/messageParser"
 
 import TaskItemFooter from "./TaskItemFooter"
 
@@ -20,6 +21,7 @@ interface TaskItemProps {
 	onToggleSelection?: (taskId: string, isSelected: boolean) => void
 	onDelete?: (taskId: string) => void
 	className?: string
+	displayMode?: 'coding' | 'chat'
 }
 
 const TaskItem = ({
@@ -31,6 +33,7 @@ const TaskItem = ({
 	onToggleSelection,
 	onDelete,
 	className,
+	displayMode = 'coding',
 }: TaskItemProps) => {
 	const handleClick = () => {
 		if (isSelectionMode && onToggleSelection) {
@@ -78,13 +81,18 @@ const TaskItem = ({
 						)}
 						data-testid="task-content"
 						{...(item.highlight ? { dangerouslySetInnerHTML: { __html: item.highlight } } : {})}>
-						{item.highlight ? undefined : item.task}
+						{item.highlight ? undefined : (
+							displayMode === 'chat'
+								? getChatModeTitleFromHistoryItem(item, 100)
+								: getCodingModeTitle(item.task, 100)
+						)}
 					</div>
 					<TaskItemFooter
 						item={item}
 						variant={variant}
 						isSelectionMode={isSelectionMode}
 						onDelete={onDelete}
+						displayMode={displayMode}
 					/>
 
 					{showWorkspace && item.workspace && (

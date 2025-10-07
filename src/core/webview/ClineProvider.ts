@@ -918,6 +918,26 @@ export class ClineProvider
 			}
 		}
 
+		// Auto-switch to saved role if available
+		if (historyItem.anhRoleName && historyItem.anhRoleUuid) {
+			try {
+				// Try to load the saved role
+				const savedRole = await this.anhChatServices.roleRegistry.loadRole(historyItem.anhRoleUuid)
+
+				if (savedRole && savedRole.name === historyItem.anhRoleName) {
+					// Role found and name matches, switch to it
+					await this.setCurrentAnhRole(savedRole)
+					this.log(`[AnhChat] Auto-switched to saved role: ${savedRole.name} (${historyItem.anhRoleUuid})`)
+				} else {
+					// Role not found or name mismatch, log but continue
+					this.log(`[AnhChat] Saved role '${historyItem.anhRoleName}' (${historyItem.anhRoleUuid}) not found or name mismatch. Continuing with current role.`)
+				}
+			} catch (error) {
+				// Error loading role, log but continue
+				this.log(`[AnhChat] Error loading saved role '${historyItem.anhRoleName}' (${historyItem.anhRoleUuid}): ${error instanceof Error ? error.message : String(error)}. Continuing with current role.`)
+			}
+		}
+
 		const {
 			apiConfiguration,
 			diffEnabled: enableDiff,
@@ -1851,6 +1871,7 @@ export class ClineProvider
 			featureRoomoteControlEnabled,
 			anhPersonaMode,
 			anhToneStrict,
+			displayMode,
 		} = await this.getState()
 
 		// Get role prompt data to include in state
@@ -1994,6 +2015,7 @@ export class ClineProvider
 			rolePromptData,
 			anhPersonaMode: anhPersonaMode ?? "hybrid",
 			anhToneStrict: anhToneStrict ?? true,
+			displayMode: displayMode ?? "coding",
 			cloudApiUrl: getRooCodeApiUrl(),
 			hasOpenedModeSelector: this.getGlobalState("hasOpenedModeSelector") ?? false,
 			alwaysAllowFollowupQuestions: alwaysAllowFollowupQuestions ?? false,
@@ -2240,6 +2262,7 @@ export class ClineProvider
 			})(),
 			anhPersonaMode: stateValues.anhPersonaMode,
 			anhToneStrict: stateValues.anhToneStrict,
+			displayMode: stateValues.displayMode,
 		}
 	}
 
@@ -2324,6 +2347,22 @@ export class ClineProvider
 
 	public getAnhToneStrict() {
 		return this.getValue("anhToneStrict")
+	}
+
+	public async setAnhUseAskTool(value: boolean) {
+		await this.setValue("anhUseAskTool", value)
+		await this.postStateToWebview()
+		console.log("[ANH-Chat:Roles] Set ANH use ask tool:", value)
+	}
+
+	public async setDisplayMode(value: "coding" | "chat") {
+		await this.setValue("displayMode", value)
+		await this.postStateToWebview()
+		console.log("[DisplayMode] Set display mode:", value)
+	}
+
+	public getAnhUseAskTool() {
+		return this.getValue("anhUseAskTool")
 	}
 
 	public getValues() {

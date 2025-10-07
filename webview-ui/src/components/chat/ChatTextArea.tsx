@@ -31,6 +31,7 @@ import RoleSelector from "./RoleSelector"
 import { PersonaModeSelector } from "./PersonaModeSelector"
 import { ToneStrictSelector } from "./ToneStrictSelector"
 import { AutoApproveDropdown } from "./AutoApproveDropdown"
+import { AskToolSelector } from "./AskToolSelector"
 import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import ContextMenu from "./ContextMenu"
 import { IndexingStatusBadge } from "./IndexingStatusBadge"
@@ -1264,6 +1265,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							triggerClassName="text-ellipsis overflow-hidden flex-shrink-0"
 							roleShortcutText="Ctrl+R"
 						/>
+						<AskToolSelector />
 						<PersonaModeSelector
 							value={anhPersonaMode || "hybrid"}
 							onChange={handlePersonaModeChange}

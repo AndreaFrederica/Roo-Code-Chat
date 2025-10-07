@@ -47,6 +47,24 @@
 		"chat": "Chat",
 		"hybrid": "Hybrid"
 	},
+	"askTool": {
+		"enabled": "Use Ask Tool: Model will use ask_followup_question tool to actively ask questions",
+		"disabled": "Normal Chat: Model will ask questions directly without using tools",
+		"useAskTool": "Ask Tool",
+		"normalChat": "Direct Chat"
+	},
+	"codingHelp": {
+		"questionTitle": "Programming Help Preference",
+		"question": "How would you like to proceed with programming help?",
+		"serious": {
+			"title": "Serious Coding",
+			"description": "For complex programming tasks, refactoring, or professional development work"
+		},
+		"casual": {
+			"title": "Casual Editing",
+			"description": "For simple code changes, quick fixes, or minor edits"
+		}
+	},
 	"toneStrict": {
 		"strict": "Strict Tone",
 		"friendly": "Friendly Tone"

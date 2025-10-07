@@ -76,6 +76,7 @@ export function getToolDescriptionsForMode(
 	settings?: Record<string, any>,
 	enableMcpServerCreation?: boolean,
 	modelId?: string,
+	disableAskFollowupQuestion?: boolean,
 ): string {
 	const config = getModeConfig(mode, customModes)
 	const args: ToolArgs = {
@@ -119,6 +120,11 @@ export function getToolDescriptionsForMode(
 
 	// Add always available tools
 	ALWAYS_AVAILABLE_TOOLS.forEach((tool) => tools.add(tool))
+
+	// Conditionally exclude ask_followup_question if disabled
+	if (disableAskFollowupQuestion) {
+		tools.delete("ask_followup_question")
+	}
 
 	// Conditionally exclude codebase_search if feature is disabled or not configured
 	if (

@@ -41,5 +41,16 @@
 		"mostTokens": "Most Tokens",
 		"mostRelevant": "Most Relevant"
 	},
+	"group": {
+		"prefix": "Group:",
+		"role": "By Role",
+		"all": "All Tasks"
+	},
+	"role": {
+		"unknown": "Unknown Role",
+		"default": "Default Assistant"
+	},
+	"allConversations": "All Conversations",
+	"selectedCount": "{{count}} of {{total}} selected",
 	"viewAllHistory": "View all tasks"
 }

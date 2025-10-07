@@ -689,6 +689,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				globalStoragePath: this.globalStoragePath,
 				workspace: this.cwd,
 				mode: this._taskMode || defaultModeSlug, // Use the task's own mode, not the current provider mode.
+				anhRoleName: this.rolePromptData?.role?.name,
+				anhRoleUuid: this.rolePromptData?.role?.uuid,
+				anhPersonaMode: this.anhPersonaMode,
 			})
 
 			if (hasTokenUsageChanged(tokenUsage, this.tokenUsageSnapshot)) {

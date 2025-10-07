@@ -898,6 +898,16 @@
 		"anhShowRoleCardOnSwitch": {
 			"label": "切换角色时显示角色卡片弹窗",
 			"description": "启用后，在切换角色时会显示包含角色详情的弹窗卡片"
+		},
+		"anhHistoryDisplayMode": {
+			"label": "历史记录显示模式",
+			"description": "选择在侧边栏中如何显示任务历史记录"
+		},
+		"historyDisplayModes": {
+			"coding": "编码模式",
+			"codingDescription": "显示任务标题作为主要内容，第一句话作为预览",
+			"chat": "聊天模式",
+			"chatDescription": "显示最后一句话作为标题，第一句话作为预览"
 		}
 	}
 }

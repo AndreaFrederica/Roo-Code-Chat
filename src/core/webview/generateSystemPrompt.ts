@@ -27,6 +27,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		maxConcurrentFileReads,
 		anhPersonaMode,
 		anhToneStrict,
+		anhUseAskTool,
 	} = await provider.getState()
 
 	// Check experiment to determine which diff strategy to use
@@ -103,6 +104,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		rolePromptData, // 修复：传递正确的角色数据
 		anhPersonaMode,
 		anhToneStrict,
+		anhUseAskTool,
 	)
 
 	return systemPrompt

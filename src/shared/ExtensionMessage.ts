@@ -370,6 +370,9 @@ export type ExtensionState = Pick<
 	currentAnhRole?: Role // Currently selected ANH role
 	anhPersonaMode?: "chat" | "hybrid" // Current persona mode
 	anhToneStrict?: boolean // Whether to use strict tone
+	anhUseAskTool?: boolean // Whether to use Ask Tool for direct queries
+	anhChatModeHideTaskCompletion?: boolean // Whether to hide task completion in chat mode
+	displayMode?: "coding" | "chat" // Current display mode for history view
 	rolePromptData?: RolePromptData // Role prompt data for system prompt generation (optional, not part of core state)
 }
 

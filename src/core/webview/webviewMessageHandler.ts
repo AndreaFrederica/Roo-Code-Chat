@@ -3258,6 +3258,30 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
+		case "setAnhUseAskTool": {
+			try {
+				const useAskTool = message.bool ?? true
+				await provider.setAnhUseAskTool(useAskTool)
+				provider.log(`ANH use ask tool set to: ${useAskTool}`)
+			} catch (error) {
+				provider.log(`Error setting ANH use ask tool: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
+		case "setDisplayMode": {
+			try {
+				const displayMode = message.text as "coding" | "chat"
+				if (displayMode === "coding" || displayMode === "chat") {
+					await provider.setDisplayMode(displayMode)
+					provider.log(`Display mode set to: ${displayMode}`)
+				} else {
+					provider.log(`Invalid display mode: ${displayMode}`)
+				}
+			} catch (error) {
+				provider.log(`Error setting display mode: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
 		case "showSystemPrompt": {
 			try {
 				const currentTask = provider.getCurrentTask()

@@ -408,6 +408,7 @@ RULES
 				settings,
 				enableMcpServerCreation,
 				modelId,
+				anhUseAskTool === false, // Disable ask tool when anhUseAskTool is false
 			),
 			"",
 			getToolUseGuidelinesSection(codeIndexManager),
@@ -468,6 +469,7 @@ export const SYSTEM_PROMPT = async (
 	rolePromptData?: RolePromptData,
 	anhPersonaMode?: RolePersona,
 	anhToneStrict?: boolean,
+	anhUseAskTool?: boolean,
 ): Promise<string> => {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")

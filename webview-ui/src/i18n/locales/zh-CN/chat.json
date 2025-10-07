@@ -47,6 +47,24 @@
 		"chat": "聊天",
 		"hybrid": "混合"
 	},
+	"askTool": {
+		"enabled": "使用提问工具：模型将使用 ask_followup_question 工具主动提问",
+		"disabled": "正常聊天：模型将直接向用户提问而不使用工具",
+		"useAskTool": "主动提问",
+		"normalChat": "直接提问"
+	},
+	"codingHelp": {
+		"questionTitle": "编程帮助偏好",
+		"question": "您希望如何进行编程帮助？",
+		"serious": {
+			"title": "认真编码",
+			"description": "用于复杂的编程任务、重构或专业开发工作"
+		},
+		"casual": {
+			"title": "随意编辑",
+			"description": "用于简单的代码更改、快速修复或小修改"
+		}
+	},
 	"toneStrict": {
 		"strict": "严格语气",
 		"friendly": "友好语气"

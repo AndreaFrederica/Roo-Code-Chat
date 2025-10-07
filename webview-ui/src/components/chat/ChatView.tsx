@@ -1838,8 +1838,9 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							onClick={() => setShowAnnouncementModal(true)}
 							className="absolute top-2 right-3 z-10"
 						/>
-
+						{/* TODO 这个是图标 能关或者替换 */}
 						<RooHero />
+						{/* TODO 这个要能关掉<RooTips /> */}
 
 						<div className="mb-2.5">
 							{cloudIsAuthenticated || taskHistory.length < 4 ? (

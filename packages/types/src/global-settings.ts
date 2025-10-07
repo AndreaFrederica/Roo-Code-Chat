@@ -158,8 +158,12 @@ export const globalSettingsSchema = z.object({
 	currentAnhRole: roleSchema.optional(),
 	anhPersonaMode: z.enum(["hybrid", "chat"]).optional(),
 	anhToneStrict: z.boolean().optional(),
+	anhUseAskTool: z.boolean().optional(),
 	anhChatModeHideTaskCompletion: z.boolean().optional(),
 	anhShowRoleCardOnSwitch: z.boolean().optional(),
+
+	// UI Display settings
+	displayMode: z.enum(["coding", "chat"]).optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>
@@ -324,6 +328,9 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 
 	anhPersonaMode: "hybrid",
 	anhToneStrict: true,
+	anhUseAskTool: true,
+	anhChatModeHideTaskCompletion: true,
+	displayMode: "coding",
 	mcpEnabled: false,
 
 	mode: "code", // "architect",

@@ -41,5 +41,16 @@
 		"mostTokens": "最多 Token",
 		"mostRelevant": "最相关"
 	},
+	"group": {
+		"prefix": "分组:",
+		"role": "按角色",
+		"all": "全部任务"
+	},
+	"role": {
+		"unknown": "未知角色",
+		"default": "默认助手"
+	},
+	"allConversations": "全部对话",
+	"selectedCount": "已选择 {{count}}/{{total}} 项",
 	"viewAllHistory": "查看所有历史记录"
 }
