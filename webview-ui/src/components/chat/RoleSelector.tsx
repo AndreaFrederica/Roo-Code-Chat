@@ -11,6 +11,7 @@ import { useAppTranslation } from "@/i18n/TranslationContext"
 import { useRooPortal } from "@/components/ui/hooks/useRooPortal"
 import { Popover, PopoverContent, PopoverTrigger, StandardTooltip } from "@/components/ui"
 import { useNotification } from "@/components/ui/Notification"
+import { useExtensionState } from "@/context/ExtensionStateContext"
 
 // Re-export types for backward compatibility
 export type { Role, RoleSummary } from "@roo-code/types"
@@ -45,11 +46,36 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 	const portalContainer = useRooPortal("roo-portal")
 	const { t } = useAppTranslation()
 	const { showRoleDebugInfo } = useNotification()
+	const { currentTaskItem, clineMessages, anhShowRoleCardOnSwitch } = useExtensionState()
+
+	// Track whether role switching is allowed
+	const [allowRoleSwitching, setAllowRoleSwitching] = React.useState(true)
+
+	// Reset role switching permission when a new task starts
+	React.useEffect(() => {
+		// When clineMessages is empty or reset, allow role switching
+		if (clineMessages.length === 0) {
+			console.log("RoleSelector: New task detected, allowing role switching")
+			setAllowRoleSwitching(true)
+		}
+		// When there are messages (task started), disable role switching
+		else if (clineMessages.length > 0) {
+			console.log("RoleSelector: Task in progress, disabling role switching")
+			setAllowRoleSwitching(false)
+		}
+	}, [clineMessages])
+
+	// Also reset when currentTaskItem changes (new task created)
+	React.useEffect(() => {
+		if (!currentTaskItem) {
+			setAllowRoleSwitching(true)
+		}
+	}, [currentTaskItem])
 
 	// Load available roles
 	React.useEffect(() => {
 		vscode.postMessage({
-			type: "getAnhRoles"
+			type: "getAnhRoles",
 		})
 
 		// Set timeout to detect loading failure
@@ -69,19 +95,28 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 
 			switch (message.type) {
 				case "anhRolesLoaded":
-					console.log('=== ANH Roles Loaded ===');
-					console.log('Received roles:', message.roles);
+					console.log("=== ANH Roles Loaded ===")
+					console.log("Received roles:", message.roles)
 					setHasLoaded(true)
 					setRoles(message.roles || [])
 					break
 				case "anhRoleLoaded":
-					console.log('=== ANH Role Loaded ===');
-					console.log('Received role:', message.role);
+					console.log("=== ANH Role Loaded ===")
+					console.log("Received role:", message.role)
 					if (message.role) {
-						console.log('Role profile:', message.role.profile);
-						// Show role debug info with the complete role object
-						showRoleDebugInfo(message.role)
-						onChange?.(message.role)
+						console.log("Role profile:", message.role.profile)
+						// Show role debug info with the complete role object only if enabled in settings
+						if (anhShowRoleCardOnSwitch) {
+							showRoleDebugInfo(message.role)
+						}
+						// Don't call onChange here because backend already called setCurrentAnhRole
+						// The state will be updated via ExtensionState
+					}
+					break
+				case "invoke":
+					if (message.invoke === "newChat") {
+						console.log("RoleSelector: New task started, allowing role switching")
+						setAllowRoleSwitching(true)
 					}
 					break
 			}
@@ -97,23 +132,29 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 	}, [])
 
 	// Create default role for when no roles are loaded
-	const defaultRole: Role = React.useMemo(() => ({
-		uuid: "",
-		name: t("chat:roleSelector.defaultRole"),
-		type: "主角" as any,
-		description: t("chat:roleSelector.defaultRole"),
-		createdAt: Date.now(),
-		updatedAt: Date.now(),
-	}), [t])
+	const defaultRole: Role = React.useMemo(
+		() => ({
+			uuid: "",
+			name: t("chat:roleSelector.defaultRole"),
+			type: "主角" as any,
+			description: t("chat:roleSelector.defaultRole"),
+			createdAt: Date.now(),
+			updatedAt: Date.now(),
+		}),
+		[t],
+	)
 
 	// Combine all roles including default role for display
 	const allRoles = React.useMemo(() => {
-		const roleList = roles.map((summary) => ({
-			...summary,
-			description: summary.name, // Use name as description for display
-			createdAt: summary.lastUpdatedAt,
-			updatedAt: summary.lastUpdatedAt,
-		} as Role))
+		const roleList = roles.map(
+			(summary) =>
+				({
+					...summary,
+					description: summary.name, // Use name as description for display
+					createdAt: summary.lastUpdatedAt,
+					updatedAt: summary.lastUpdatedAt,
+				}) as Role,
+		)
 
 		// Add default role at the beginning
 		return [defaultRole, ...roleList]
@@ -122,6 +163,11 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 	// Find the selected role
 	const selectedRole = React.useMemo(() => {
 		if (value?.uuid) {
+			// If value is a complete role object (with profile), use it directly
+			if (value.profile && Object.keys(value.profile).length > 0) {
+				return value
+			}
+			// Otherwise, find the matching role from allRoles
 			return allRoles.find((role) => role.uuid === value.uuid) || defaultRole
 		}
 		return defaultRole
@@ -182,26 +228,36 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 
 	const handleSelect = React.useCallback(
 		(role: Role) => {
-			onChange(role)
-			setOpen(false)
-			// Clear search after selection
-			setSearchValue("")
+			// Prevent role switching if not allowed
+			if (!allowRoleSwitching) {
+				showRoleDebugInfo({
+					title: t("chat:roleSelector.taskActiveTitle"),
+					message: t("chat:roleSelector.taskActiveMessage"),
+					type: "warning"
+				})
+				return
+			}
 
-			// Send message to backend to load the role
+			setOpen(false)
+			setSearchValue("")
+			onChange(role)
+
 			if (role.uuid) {
 				vscode.postMessage({
 					type: "loadAnhRole",
-					roleUuid: role.uuid
+					roleUuid: role.uuid,
 				})
 			} else {
-				// Default role selected
 				vscode.postMessage({
-					type: "loadAnhRole",
-					roleUuid: ""
+					type: "selectAnhRole",
+					role: undefined,
 				})
 			}
+
+			// After selecting a role, disable further switching until next task
+			setAllowRoleSwitching(false)
 		},
-		[onChange],
+		[onChange, allowRoleSwitching, showRoleDebugInfo, t],
 	)
 
 	const onOpenChange = React.useCallback(
@@ -259,15 +315,15 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 
 	return (
 		<Popover open={open} onOpenChange={onOpenChange} data-testid="role-selector-root">
-			<StandardTooltip content={title}>
+			<StandardTooltip content={!allowRoleSwitching ? t("chat:roleSelector.taskActiveTooltip") : title}>
 				<PopoverTrigger
-					disabled={disabled}
+					disabled={disabled || !allowRoleSwitching}
 					data-testid="role-selector-trigger"
 					className={cn(
 						"inline-flex items-center relative whitespace-nowrap px-1.5 py-1 text-xs",
 						"bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md text-vscode-foreground",
 						"transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-vscode-focusBorder focus-visible:ring-inset",
-						disabled
+						(disabled || !allowRoleSwitching)
 							? "opacity-50 cursor-not-allowed"
 							: "opacity-90 hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)] cursor-pointer",
 						triggerClassName,
@@ -377,3 +433,5 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 }
 
 export default RoleSelector
+
+

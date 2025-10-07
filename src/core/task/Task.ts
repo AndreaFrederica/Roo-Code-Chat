@@ -35,6 +35,8 @@ import {
 	isInteractiveAsk,
 	isResumableAsk,
 	QueuedMessage,
+	RolePromptData,
+	RolePersona,
 } from "@roo-code/types"
 import { TelemetryService } from "@roo-code/telemetry"
 import { CloudService, BridgeOrchestrator } from "@roo-code/cloud"
@@ -112,7 +114,7 @@ import { processUserContentMentions } from "../mentions/processUserContentMentio
 import { getMessagesSinceLastSummary, summarizeConversation } from "../condense"
 import { Gpt5Metadata, ClineMessageWithMetadata } from "./types"
 import { MessageQueueService } from "../message-queue/MessageQueueService"
-import type { RolePromptData } from "../../types/anh-chat"
+
 
 import { AutoApprovalHandler } from "./AutoApprovalHandler"
 
@@ -141,6 +143,8 @@ export interface TaskOptions extends CreateTaskOptions {
 	initialTodos?: TodoItem[]
 	rolePromptData?: RolePromptData
 	workspacePath?: string
+	anhPersonaMode?: RolePersona
+	anhToneStrict?: boolean
 }
 
 export class Task extends EventEmitter<TaskEvents> implements TaskLike {
@@ -158,7 +162,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	readonly parentTask: Task | undefined = undefined
 	readonly taskNumber: number
 	readonly workspacePath: string
-	private readonly rolePromptData?: RolePromptData
+	private rolePromptData?: RolePromptData
+	private anhPersonaMode?: RolePersona
+	private anhToneStrict?: boolean
 
 	/**
 	 * The mode associated with this task. Persisted across sessions
@@ -320,6 +326,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		initialTodos,
 		workspacePath,
 		rolePromptData,
+		anhPersonaMode,
+		anhToneStrict,
 	}: TaskOptions) {
 		super()
 
@@ -337,6 +345,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			images: historyItem ? [] : images,
 		}
 		this.rolePromptData = rolePromptData
+		this.anhPersonaMode = anhPersonaMode
+		this.anhToneStrict = anhToneStrict
 
 		// Normal use-case is usually retry similar history task with new workspace.
 		this.workspacePath = parentTask
@@ -969,10 +979,10 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 				provider.postMessageToWebview({ type: "invoke", invoke: "sendMessage", text, images })
 			} else {
-				console.error("[Task#submitUserMessage] Provider reference lost")
+				console.error("[ANH-Chat:Task#submitUserMessage] Provider reference lost")
 			}
 		} catch (error) {
-			console.error("[Task#submitUserMessage] Failed to submit user message:", error)
+			console.error("[ANH-Chat:Task#submitUserMessage] Failed to submit user message:", error)
 		}
 	}
 
@@ -1198,7 +1208,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				await BridgeOrchestrator.subscribeToTask(this)
 			} catch (error) {
 				console.error(
-					`[Task#startTask] BridgeOrchestrator.subscribeToTask() failed: ${error instanceof Error ? error.message : String(error)}`,
+					`[ANH-Chat:Task#startTask] BridgeOrchestrator.subscribeToTask() failed: ${error instanceof Error ? error.message : String(error)}`,
 				)
 			}
 		}
@@ -1239,7 +1249,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				await BridgeOrchestrator.subscribeToTask(this)
 			} catch (error) {
 				console.error(
-					`[Task#resumeTaskFromHistory] BridgeOrchestrator.subscribeToTask() failed: ${error instanceof Error ? error.message : String(error)}`,
+					`[ANH-Chat:Task#resumeTaskFromHistory] BridgeOrchestrator.subscribeToTask() failed: ${error instanceof Error ? error.message : String(error)}`,
 				)
 			}
 		}
@@ -1530,7 +1540,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	}
 
 	public dispose(): void {
-		console.log(`[Task#dispose] disposing task ${this.taskId}.${this.instanceId}`)
+		console.log(`[ANH-Chat:Task#dispose] disposing task ${this.taskId}.${this.instanceId}`)
 
 		// Dispose message queue and remove event listeners.
 		try {
@@ -1562,7 +1572,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				?.unsubscribeFromTask(this.taskId)
 				.catch((error) =>
 					console.error(
-						`[Task#dispose] BridgeOrchestrator#unsubscribeFromTask() failed: ${error instanceof Error ? error.message : String(error)}`,
+						`[ANH-Chat:Task#dispose] BridgeOrchestrator#unsubscribeFromTask() failed: ${error instanceof Error ? error.message : String(error)}`,
 					),
 				)
 		}
@@ -2414,7 +2424,13 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			maxConcurrentFileReads,
 			maxReadFileLine,
 			apiConfiguration,
+			anhPersonaMode: globalAnhPersonaMode,
+			anhToneStrict: globalAnhToneStrict,
 		} = state ?? {}
+
+		// Use the latest settings from global state, falling back to task's local settings
+		const currentPersonaMode = globalAnhPersonaMode ?? this.anhPersonaMode
+		const currentToneStrict = globalAnhToneStrict ?? this.anhToneStrict
 
 		return await (async () => {
 			const provider = this.providerRef.deref()
@@ -2423,7 +2439,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				throw new Error("Provider not available")
 			}
 
-			return SYSTEM_PROMPT(
+			const prompt = await SYSTEM_PROMPT(
 				provider.context,
 				this.cwd,
 				(this.api.getModel().info.supportsComputerUse ?? false) && (browserToolEnabled ?? true),
@@ -2448,10 +2464,22 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						.getConfiguration("anh-cline")
 						.get<boolean>("newTaskRequireTodos", false),
 				},
-				undefined, // todoList
+				this.todoList, // 修复：传递实际的 todoList
 				this.api.getModel().id,
 				this.rolePromptData,
+				currentPersonaMode,
+				currentToneStrict,
 			)
+
+			const appliedRole = this.rolePromptData?.role?.name ?? "none"
+			const appliedPersona = currentPersonaMode ?? "default"
+			const toneSetting =
+				currentToneStrict === undefined ? "default" : currentToneStrict ? "strict" : "relaxed"
+			provider.log(
+				`[ANH-Chat:Task#${this.taskId}] System prompt role context applied: role=${appliedRole}, persona=${appliedPersona}, toneStrict=${toneSetting}`,
+			)
+
+			return prompt
 		})()
 	}
 
@@ -2482,7 +2510,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 		// Log the context window error for debugging
 		console.warn(
-			`[Task#${this.taskId}] Context window exceeded for model ${this.api.getModel().id}. ` +
+			`[ANH-Chat:Task#${this.taskId}] Context window exceeded for model ${this.api.getModel().id}. ` +
 				`Current tokens: ${contextTokens}, Context window: ${contextWindow}. ` +
 				`Forcing truncation to ${FORCED_CONTEXT_REDUCTION_PERCENT}% of current context.`,
 		)
@@ -2683,7 +2711,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				// Skipping previous_response_id due to recent condense operation - will send full conversation context
 			}
 		} catch (error) {
-			console.error(`[Task#${this.taskId}] Error retrieving GPT-5 response ID:`, error)
+			console.error(`[ANH-Chat:Task#${this.taskId}] Error retrieving GPT-5 response ID:`, error)
 			// non-fatal
 		}
 
@@ -2717,7 +2745,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			// If it's a context window error and we haven't exceeded max retries for this error type
 			if (isContextWindowExceededError && retryAttempt < MAX_CONTEXT_WINDOW_RETRIES) {
 				console.warn(
-					`[Task#${this.taskId}] Context window exceeded for model ${this.api.getModel().id}. ` +
+					`[ANH-Chat:Task#${this.taskId}] Context window exceeded for model ${this.api.getModel().id}. ` +
 						`Retry attempt ${retryAttempt + 1}/${MAX_CONTEXT_WINDOW_RETRIES}. ` +
 						`Attempting automatic truncation...`,
 				)
@@ -2889,7 +2917,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				msg.metadata.gpt5 = gpt5Metadata
 			}
 		} catch (error) {
-			console.error(`[Task#${this.taskId}] Error persisting GPT-5 metadata:`, error)
+			console.error(`[ANH-Chat:Task#${this.taskId}] Error persisting GPT-5 metadata:`, error)
 			// Non-fatal error in metadata persistence
 		}
 	}
@@ -2957,5 +2985,43 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		} catch (e) {
 			console.error(`[Task] Queue processing error:`, e)
 		}
+	}
+
+	/**
+	 * Update the persona mode for this task during conversation.
+	 * This allows dynamic switching between chat and hybrid modes.
+	 *
+	 * @param personaMode - The new persona mode to set
+	 */
+	public updatePersonaMode(personaMode: RolePersona): void {
+		this.anhPersonaMode = personaMode
+
+		// Log the update for debugging
+		const provider = this.providerRef.deref()
+		if (provider) {
+			provider.log(`[ANH-Chat:Task#${this.taskId}] Persona mode updated to: ${personaMode}`)
+		}
+
+		// Emit persona mode change event
+		this.emit(RooCodeEventName.TaskPersonaModeChanged, this.taskId, personaMode)
+	}
+
+	/**
+	 * Update the tone strict setting for this task during conversation.
+	 * This allows dynamic switching between strict and relaxed tone enforcement.
+	 *
+	 * @param toneStrict - The new tone strict setting to set
+	 */
+	public updateToneStrict(toneStrict: boolean): void {
+		this.anhToneStrict = toneStrict
+
+		// Log the update for debugging
+		const provider = this.providerRef.deref()
+		if (provider) {
+			provider.log(`[ANH-Chat:Task#${this.taskId}] Tone strict updated to: ${toneStrict}`)
+		}
+
+		// Emit tone strict change event
+		this.emit(RooCodeEventName.TaskToneStrictChanged, this.taskId, toneStrict)
 	}
 }

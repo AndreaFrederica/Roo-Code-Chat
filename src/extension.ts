@@ -107,7 +107,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const contextProxy = await ContextProxy.getInstance(context)
 	try {
-		const anhChatBasePath = context.extensionPath
+		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+		const anhChatBasePath = workspaceRoot ?? context.globalStorageUri.fsPath ?? context.extensionPath
 		const [roleRegistry, storylineRepository, roleMemoryService, conversationLogService] = await Promise.all([
 			RoleRegistry.create(anhChatBasePath),
 			StorylineRepository.create(anhChatBasePath),
@@ -115,15 +116,17 @@ export async function activate(context: vscode.ExtensionContext) {
 			ConversationLogService.create(anhChatBasePath),
 		])
 
+		const resolvedBasePath = path.join(anhChatBasePath, "novel-helper", ".anh-chat")
+
 		anhChatServices = {
-			basePath: path.join(anhChatBasePath, "novel-helper", ".anh-chat"),
+			basePath: resolvedBasePath,
 			roleRegistry,
 			storylineRepository,
 			roleMemoryService,
 			conversationLogService,
 		}
 
-		outputChannel.appendLine(`[AnhChat] Services initialized at ${anhChatServices.basePath}`)
+		outputChannel.appendLine(`[AnhChat] Services initialized at ${resolvedBasePath}`)
 	} catch (error) {
 		outputChannel.appendLine(
 			`[AnhChat] Failed to initialize services: ${error instanceof Error ? error.message : String(error)}`,

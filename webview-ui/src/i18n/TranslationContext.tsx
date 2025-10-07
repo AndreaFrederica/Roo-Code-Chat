@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import i18next, { loadTranslations } from "./setup"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 
+
 // Create context for translations
 export const TranslationContext = createContext<{
 	t: (key: string, options?: Record<string, any>) => string
@@ -35,9 +36,16 @@ export const TranslationProvider: React.FC<{ children: ReactNode }> = ({ childre
 	// Memoize the translation function to prevent unnecessary re-renders
 	const translate = useCallback(
 		(key: string, options?: Record<string, any>) => {
-			return i18n.t(key, options)
+			let translatedText = i18n.t(key, options)
+			
+			// 获取当前角色名称，如果没有则使用默认的"Roo"
+			const roleName = extensionState.currentAnhRole?.name || "Roo"
+			// 替换所有出现的"{{roleName}}"为角色名称
+			translatedText = translatedText.replace(/\{\{roleName\}\}/g, roleName)
+			
+			return translatedText
 		},
-		[i18n],
+		[i18n, extensionState.currentAnhRole],
 	)
 
 	return (

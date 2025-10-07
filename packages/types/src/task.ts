@@ -6,6 +6,7 @@ import type { ClineMessage, QueuedMessage, TokenUsage } from "./message.js"
 import type { ToolUsage, ToolName } from "./tool.js"
 import type { StaticAppProperties, GitProperties, TelemetryProperties } from "./telemetry.js"
 import type { TodoItem } from "./todo.js"
+import type { RolePersona } from "./anh-chat.js"
 
 /**
  * TaskProviderLike
@@ -79,6 +80,8 @@ export type TaskProviderEvents = {
 
 	[RooCodeEventName.ModeChanged]: [mode: string]
 	[RooCodeEventName.ProviderProfileChanged]: [config: { name: string; provider?: string }]
+	[RooCodeEventName.TaskPersonaModeChanged]: [taskId: string, personaMode: RolePersona]
+	[RooCodeEventName.TaskToneStrictChanged]: [taskId: string, toneStrict: boolean]
 }
 
 /**
@@ -155,4 +158,8 @@ export type TaskEvents = {
 	// Task Analytics
 	[RooCodeEventName.TaskToolFailed]: [taskId: string, tool: ToolName, error: string]
 	[RooCodeEventName.TaskTokenUsageUpdated]: [taskId: string, tokenUsage: TokenUsage]
+	
+	// ANH-Chat Events
+	[RooCodeEventName.TaskPersonaModeChanged]: [taskId: string, personaMode: RolePersona]
+	[RooCodeEventName.TaskToneStrictChanged]: [taskId: string, toneStrict: boolean]
 }

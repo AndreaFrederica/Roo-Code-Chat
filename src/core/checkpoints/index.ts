@@ -40,13 +40,13 @@ export async function getCheckpointService(
 		}
 	}
 
-	console.log("[Task#getCheckpointService] initializing checkpoints service")
+	console.log("[ANH-Chat:Task#getCheckpointService] initializing checkpoints service")
 
 	try {
 		const workspaceDir = task.cwd || getWorkspacePath()
 
 		if (!workspaceDir) {
-			log("[Task#getCheckpointService] workspace folder not found, disabling checkpoints")
+			log("[ANH-Chat:Task#getCheckpointService] workspace folder not found, disabling checkpoints")
 			task.enableCheckpoints = false
 			return undefined
 		}
@@ -54,7 +54,7 @@ export async function getCheckpointService(
 		const globalStorageDir = provider?.context.globalStorageUri.fsPath
 
 		if (!globalStorageDir) {
-			log("[Task#getCheckpointService] globalStorageDir not found, disabling checkpoints")
+			log("[ANH-Chat:Task#getCheckpointService] globalStorageDir not found, disabling checkpoints")
 			task.enableCheckpoints = false
 			return undefined
 		}
@@ -69,7 +69,7 @@ export async function getCheckpointService(
 		if (task.checkpointServiceInitializing) {
 			await pWaitFor(
 				() => {
-					console.log("[Task#getCheckpointService] waiting for service to initialize")
+					console.log("[ANH-Chat:Task#getCheckpointService] waiting for service to initialize")
 					return !!task.checkpointService && !!task?.checkpointService?.isInitialized
 				},
 				{ interval, timeout },
@@ -91,7 +91,7 @@ export async function getCheckpointService(
 		task.checkpointService = service
 		return service
 	} catch (err) {
-		log(`[Task#getCheckpointService] ${err.message}`)
+		log(`[ANH-Chat:Task#getCheckpointService] ${err.message}`)
 		task.enableCheckpoints = false
 		task.checkpointServiceInitializing = false
 		return undefined
@@ -108,7 +108,7 @@ async function checkGitInstallation(
 		const gitInstalled = await checkGitInstalled()
 
 		if (!gitInstalled) {
-			log("[Task#getCheckpointService] Git is not installed, disabling checkpoints")
+			log("[ANH-Chat:Task#getCheckpointService] Git is not installed, disabling checkpoints")
 			task.enableCheckpoints = false
 			task.checkpointServiceInitializing = false
 
@@ -127,7 +127,7 @@ async function checkGitInstallation(
 
 		// Git is installed, proceed with initialization
 		service.on("initialize", () => {
-			log("[Task#getCheckpointService] service initialized")
+			log("[ANH-Chat:Task#getCheckpointService] service initialized")
 			task.checkpointServiceInitializing = false
 		})
 
@@ -151,26 +151,26 @@ async function checkGitInstallation(
 					undefined,
 					{ isNonInteractive: true },
 				).catch((err) => {
-					log("[Task#getCheckpointService] caught unexpected error in say('checkpoint_saved')")
+					log("[ANH-Chat:Task#getCheckpointService] caught unexpected error in say('checkpoint_saved')")
 					console.error(err)
 				})
 			} catch (err) {
-				log("[Task#getCheckpointService] caught unexpected error in on('checkpoint'), disabling checkpoints")
+				log("[ANH-Chat:Task#getCheckpointService] caught unexpected error in on('checkpoint'), disabling checkpoints")
 				console.error(err)
 				task.enableCheckpoints = false
 			}
 		})
 
-		log("[Task#getCheckpointService] initializing shadow git")
+		log("[ANH-Chat:Task#getCheckpointService] initializing shadow git")
 
 		try {
 			await service.initShadowGit()
 		} catch (err) {
-			log(`[Task#getCheckpointService] initShadowGit -> ${err.message}`)
+			log(`[ANH-Chat:Task#getCheckpointService] initShadowGit -> ${err.message}`)
 			task.enableCheckpoints = false
 		}
 	} catch (err) {
-		log(`[Task#getCheckpointService] Unexpected error during Git check: ${err.message}`)
+		log(`[ANH-Chat:Task#getCheckpointService] Unexpected error during Git check: ${err.message}`)
 		console.error("Git check error:", err)
 		task.enableCheckpoints = false
 		task.checkpointServiceInitializing = false
@@ -190,7 +190,7 @@ export async function checkpointSave(task: Task, force = false, suppressMessage 
 	return service
 		.saveCheckpoint(`Task: ${task.taskId}, Time: ${Date.now()}`, { allowEmpty: force, suppressMessage })
 		.catch((err) => {
-			console.error("[Task#checkpointSave] caught unexpected error, disabling checkpoints", err)
+			console.error("[ANH-Chat:Task#checkpointSave] caught unexpected error, disabling checkpoints", err)
 			task.enableCheckpoints = false
 		})
 }

@@ -1606,7 +1606,7 @@ describe("Cline", () => {
 				// Should log error but not throw
 				task.submitUserMessage("test message")
 
-				expect(consoleErrorSpy).toHaveBeenCalledWith("[Task#submitUserMessage] Provider reference lost")
+				expect(consoleErrorSpy).toHaveBeenCalledWith("[ANH-Chat:Task#submitUserMessage] Provider reference lost")
 				expect(mockProvider.postMessageToWebview).not.toHaveBeenCalled()
 
 				// Restore console.error
@@ -1774,6 +1774,100 @@ describe("Cline", () => {
 
 			// Restore console.error
 			consoleErrorSpy.mockRestore()
+		})
+	})
+
+	describe("ANH Chat Settings Update", () => {
+		it("should update persona mode and emit event", async () => {
+			const task = new Task({
+				provider: mockProvider,
+				apiConfiguration: mockApiConfig,
+				task: "test task",
+				startTask: false,
+			})
+
+			// Spy on emit method
+			const emitSpy = vi.spyOn(task, "emit")
+
+			// Update persona mode
+			task.updatePersonaMode("hybrid")
+
+			// Verify the persona mode was updated
+			expect(task.getPersonaMode()).toBe("hybrid")
+
+			// Verify the event was emitted
+			expect(emitSpy).toHaveBeenCalledWith("taskPersonaModeChanged", task.taskId, "hybrid")
+		})
+
+		it("should update tone strict and emit event", async () => {
+			const task = new Task({
+				provider: mockProvider,
+				apiConfiguration: mockApiConfig,
+				task: "test task",
+				startTask: false,
+			})
+
+			// Spy on emit method
+			const emitSpy = vi.spyOn(task, "emit")
+
+			// Update tone strict
+			task.updateToneStrict(true)
+
+			// Verify the tone strict was updated
+			expect(task.getToneStrict()).toBe(true)
+
+			// Verify the event was emitted
+			expect(emitSpy).toHaveBeenCalledWith("taskToneStrictChanged", task.taskId, true)
+		})
+
+		it("should handle multiple persona mode updates", async () => {
+			const task = new Task({
+				provider: mockProvider,
+				apiConfiguration: mockApiConfig,
+				task: "test task",
+				startTask: false,
+			})
+
+			// Spy on emit method
+			const emitSpy = vi.spyOn(task, "emit")
+
+			// Update persona mode multiple times
+			task.updatePersonaMode("chat")
+			task.updatePersonaMode("hybrid")
+			task.updatePersonaMode("chat")
+
+			// Verify the final state
+			expect(task.getPersonaMode()).toBe("chat")
+
+			// Verify all events were emitted
+			expect(emitSpy).toHaveBeenNthCalledWith(1, "taskPersonaModeChanged", task.taskId, "chat")
+			expect(emitSpy).toHaveBeenNthCalledWith(2, "taskPersonaModeChanged", task.taskId, "hybrid")
+			expect(emitSpy).toHaveBeenNthCalledWith(3, "taskPersonaModeChanged", task.taskId, "chat")
+		})
+
+		it("should handle multiple tone strict updates", async () => {
+			const task = new Task({
+				provider: mockProvider,
+				apiConfiguration: mockApiConfig,
+				task: "test task",
+				startTask: false,
+			})
+
+			// Spy on emit method
+			const emitSpy = vi.spyOn(task, "emit")
+
+			// Update tone strict multiple times
+			task.updateToneStrict(true)
+			task.updateToneStrict(false)
+			task.updateToneStrict(true)
+
+			// Verify the final state
+			expect(task.getToneStrict()).toBe(true)
+
+			// Verify all events were emitted
+			expect(emitSpy).toHaveBeenNthCalledWith(1, "taskToneStrictChanged", task.taskId, true)
+			expect(emitSpy).toHaveBeenNthCalledWith(2, "taskToneStrictChanged", task.taskId, false)
+			expect(emitSpy).toHaveBeenNthCalledWith(3, "taskToneStrictChanged", task.taskId, true)
 		})
 	})
 })

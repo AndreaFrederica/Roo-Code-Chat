@@ -92,7 +92,7 @@ import { Task } from "../task/Task"
 import { getSystemPromptFilePath } from "../prompts/sections/custom-system-prompt"
 
 import { webviewMessageHandler } from "./webviewMessageHandler"
-import type { ClineMessage } from "@roo-code/types"
+import type { ClineMessage, RolePromptData } from "@roo-code/types"
 import { readApiMessages, saveApiMessages, saveTaskMessages } from "../task-persistence"
 import { getNonce } from "./getNonce"
 import { getUri } from "./getUri"
@@ -169,10 +169,14 @@ export class ClineProvider
 
 		this.mdmService = mdmService
 		this.anhChatServices = anhChatServices
-		if (anhChatServices) {
+		const storedRole = this.getCurrentAnhRole()
+		if (storedRole?.uuid) {
+			this.activeRoleUuid = storedRole.uuid
+			this.outputChannel.appendLine(`[AnhChat] Active role restored from state: ${storedRole.uuid}`)
+		} else if (anhChatServices) {
 			this.activeRoleUuid = anhChatServices.roleRegistry.getDefaultRoleUuid()
 			if (this.activeRoleUuid) {
-				this.outputChannel.appendLine(`[AnhChat] Active role set to ${this.activeRoleUuid}`)
+				this.outputChannel.appendLine(`[AnhChat] Active role set to default: ${this.activeRoleUuid}`)
 			}
 		}
 		this.updateGlobalState("codebaseIndexModels", EMBEDDING_MODEL_PROFILES)
@@ -254,6 +258,11 @@ export class ClineProvider
 			const onTaskUserMessage = (taskId: string) => this.emit(RooCodeEventName.TaskUserMessage, taskId)
 			const onTaskTokenUsageUpdated = (taskId: string, tokenUsage: TokenUsage) =>
 				this.emit(RooCodeEventName.TaskTokenUsageUpdated, taskId, tokenUsage)
+			const onTaskPersonaModeChanged = (taskId: string, personaMode: "hybrid" | "chat") =>
+				this.emit(RooCodeEventName.TaskPersonaModeChanged, taskId, personaMode)
+			const onTaskToneStrictChanged = (taskId: string, toneStrict: boolean) => {
+				this.emit(RooCodeEventName.TaskToneStrictChanged, taskId, toneStrict)
+			}
 
 			// Attach the listeners.
 			instance.on(RooCodeEventName.TaskStarted, onTaskStarted)
@@ -270,6 +279,8 @@ export class ClineProvider
 			instance.on(RooCodeEventName.TaskSpawned, onTaskSpawned)
 			instance.on(RooCodeEventName.TaskUserMessage, onTaskUserMessage)
 			instance.on(RooCodeEventName.TaskTokenUsageUpdated, onTaskTokenUsageUpdated)
+			instance.on(RooCodeEventName.TaskPersonaModeChanged, onTaskPersonaModeChanged)
+			instance.on(RooCodeEventName.TaskToneStrictChanged, onTaskToneStrictChanged)
 
 			// Store the cleanup functions for later removal.
 			this.taskEventListeners.set(instance, [
@@ -287,6 +298,8 @@ export class ClineProvider
 				() => instance.off(RooCodeEventName.TaskUnpaused, onTaskUnpaused),
 				() => instance.off(RooCodeEventName.TaskSpawned, onTaskSpawned),
 				() => instance.off(RooCodeEventName.TaskTokenUsageUpdated, onTaskTokenUsageUpdated),
+				() => instance.off(RooCodeEventName.TaskPersonaModeChanged, onTaskPersonaModeChanged),
+				() => instance.off(RooCodeEventName.TaskToneStrictChanged, onTaskToneStrictChanged),
 			])
 		}
 
@@ -913,6 +926,8 @@ export class ClineProvider
 			experiments,
 			cloudUserInfo,
 			taskSyncEnabled,
+			anhPersonaMode,
+			anhToneStrict,
 		} = await this.getState()
 
 		const rolePromptData = await this.getRolePromptData()
@@ -926,6 +941,8 @@ export class ClineProvider
 			consecutiveMistakeLimit: apiConfiguration.consecutiveMistakeLimit,
 			historyItem,
 			rolePromptData,
+			anhPersonaMode,
+			anhToneStrict,
 			experiments,
 			rootTask: historyItem.rootTask,
 			parentTask: historyItem.parentTask,
@@ -1738,7 +1755,7 @@ export class ClineProvider
 		}
 	}
 
-	async getStateToPostToWebview(): Promise<ExtensionState> {
+		async getStateToPostToWebview(): Promise<ExtensionState> {
 		const {
 			apiConfiguration,
 			lastShownAnnouncementId,
@@ -1832,7 +1849,12 @@ export class ClineProvider
 			openRouterImageGenerationSelectedModel,
 			openRouterUseMiddleOutTransform,
 			featureRoomoteControlEnabled,
+			anhPersonaMode,
+			anhToneStrict,
 		} = await this.getState()
+
+		// Get role prompt data to include in state
+		const rolePromptData = await this.getRolePromptData()
 
 		let cloudOrganizations: CloudOrganizationMembership[] = []
 
@@ -1968,6 +1990,10 @@ export class ClineProvider
 			// undefined means no MDM policy, true means compliant, false means non-compliant
 			mdmCompliant: this.mdmService?.requiresCloudAuth() ? this.checkMdmCompliance() : undefined,
 			profileThresholds: profileThresholds ?? {},
+			currentAnhRole: this.getCurrentAnhRole(),
+			rolePromptData,
+			anhPersonaMode: anhPersonaMode ?? "hybrid",
+			anhToneStrict: anhToneStrict ?? true,
 			cloudApiUrl: getRooCodeApiUrl(),
 			hasOpenedModeSelector: this.getGlobalState("hasOpenedModeSelector") ?? false,
 			alwaysAllowFollowupQuestions: alwaysAllowFollowupQuestions ?? false,
@@ -2212,6 +2238,8 @@ export class ClineProvider
 					return false
 				}
 			})(),
+			anhPersonaMode: stateValues.anhPersonaMode,
+			anhToneStrict: stateValues.anhToneStrict,
 		}
 	}
 
@@ -2253,12 +2281,49 @@ export class ClineProvider
 
 	// ANH (Advanced Novel Helper) methods
 	public async setCurrentAnhRole(role: Role | undefined) {
+		const nextUuid = role?.uuid
+		if (this.activeRoleUuid !== nextUuid) {
+			this.activeRoleUuid = nextUuid
+			// Clear cached data when role changes
+			this.cachedRoleUuid = undefined
+			this.cachedRolePromptData = undefined
+			console.log("[ANH-Chat:Roles] Cleared role cache due to role change")
+		}
 		await this.setValue("currentAnhRole", role)
 		await this.postStateToWebview()
+		
+		// 修复：明确区分默认助手和角色
+		if (role && role.uuid) {
+			console.log(`[ANH-Chat:Roles] Set current ANH role: ${role.name} (${role.uuid})`)
+		} else {
+			console.log("[ANH-Chat:Roles] Set current ANH role: Default Assistant (no role)")
+			// 确保清除 activeRoleUuid
+			this.activeRoleUuid = undefined
+		}
 	}
 
 	public getCurrentAnhRole() {
 		return this.getValue("currentAnhRole")
+	}
+
+	public async setAnhPersonaMode(mode: "hybrid" | "chat") {
+		await this.setValue("anhPersonaMode", mode)
+		await this.postStateToWebview()
+		console.log("[ANH-Chat:Roles] Set ANH persona mode:", mode)
+	}
+
+	public getAnhPersonaMode() {
+		return this.getValue("anhPersonaMode") as "hybrid" | "chat" | undefined
+	}
+
+	public async setAnhToneStrict(value: boolean) {
+		await this.setValue("anhToneStrict", value)
+		await this.postStateToWebview()
+		console.log("[ANH-Chat:Roles] Set ANH tone strict:", value)
+	}
+
+	public getAnhToneStrict() {
+		return this.getValue("anhToneStrict")
 	}
 
 	public getValues() {
@@ -2514,13 +2579,29 @@ export class ClineProvider
 		return this.recentTasksCache
 	}
 
-	private async getRolePromptData(): Promise<RolePromptData | undefined> {
-		if (!this.anhChatServices) {
+	public async getRolePromptData(): Promise<RolePromptData | undefined> {
+		const storedRole = this.getCurrentAnhRole()
+		
+		// 修复：当用户明确选择默认助手时，应该返回 undefined
+		if (storedRole && storedRole.uuid === "") {
+			// 用户选择了默认助手，清除任何角色数据
+			if (this.cachedRoleUuid !== undefined) {
+				this.cachedRoleUuid = undefined
+				this.cachedRolePromptData = undefined
+				this.outputChannel.appendLine("[AnhChat] Cleared role data for default assistant")
+			}
 			return undefined
 		}
+		
+		const roleUuid = this.activeRoleUuid ?? storedRole?.uuid
 
-		const roleUuid = this.activeRoleUuid ?? this.anhChatServices.roleRegistry.getDefaultRoleUuid()
 		if (!roleUuid) {
+			// 没有角色时返回 undefined，而不是默认角色数据
+			if (this.cachedRoleUuid !== undefined) {
+				this.cachedRoleUuid = undefined
+				this.cachedRolePromptData = undefined
+				this.outputChannel.appendLine("[AnhChat] No role selected, using default behavior")
+			}
 			return undefined
 		}
 
@@ -2529,15 +2610,28 @@ export class ClineProvider
 		}
 
 		try {
-			const role = await this.anhChatServices.roleRegistry.loadRole(roleUuid)
+			let role = storedRole && storedRole.uuid === roleUuid ? storedRole : undefined
+
+			if (!role && this.anhChatServices) {
+				role = await this.anhChatServices.roleRegistry.loadRole(roleUuid)
+			}
+
 			if (!role) {
+				this.outputChannel.appendLine(`[AnhChat] Role ${roleUuid} not found when building prompt data`)
 				return undefined
 			}
 
-			const [storyline, memory] = await Promise.all([
-				this.anhChatServices.storylineRepository.getStoryline(roleUuid),
-				this.anhChatServices.roleMemoryService.loadMemory(roleUuid),
-			])
+			let storyline
+			let memory
+
+			if (this.anhChatServices) {
+				;[storyline, memory] = await Promise.all([
+					this.anhChatServices.storylineRepository.getStoryline(roleUuid),
+					this.anhChatServices.roleMemoryService.loadMemory(roleUuid),
+				])
+			} else {
+				storyline = (role as any)?.timeline
+			}
 
 			const promptData: RolePromptData = {
 				role: { ...role, uuid: role.uuid ?? roleUuid },
@@ -2547,6 +2641,9 @@ export class ClineProvider
 
 			this.cachedRolePromptData = promptData
 			this.cachedRoleUuid = roleUuid
+			this.outputChannel.appendLine(
+				`[AnhChat] Role prompt data prepared for ${role.name ?? roleUuid} (uuid=${roleUuid})`,
+			)
 
 			return promptData
 		} catch (error) {
@@ -2609,8 +2706,15 @@ export class ClineProvider
 			experiments,
 			cloudUserInfo,
 			remoteControlEnabled,
+			anhPersonaMode,
+			anhToneStrict,
 		} = await this.getState()
 
+		// Ensure we get the latest role data for the new task
+		// Clear cache to force fresh data retrieval
+		this.cachedRoleUuid = undefined
+		this.cachedRolePromptData = undefined
+		
 		const rolePromptData = await this.getRolePromptData()
 
 		if (!ProfileValidator.isProfileAllowed(apiConfiguration, organizationAllowList)) {
@@ -2628,6 +2732,8 @@ export class ClineProvider
 			images,
 			experiments,
 			rolePromptData,
+			anhPersonaMode,
+			anhToneStrict,
 			rootTask: this.clineStack.length > 0 ? this.clineStack[0] : undefined,
 			parentTask,
 			taskNumber: this.clineStack.length + 1,

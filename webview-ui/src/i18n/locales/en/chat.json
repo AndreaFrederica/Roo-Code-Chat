@@ -37,7 +37,19 @@
 		"description": "Select a character role to interact with",
 		"searchPlaceholder": "Search character roles...",
 		"noResults": "No matching character roles found",
-		"loadError": "Failed to load ANH character roles"
+		"loadError": "Failed to load ANH character roles",
+		"taskActiveTitle": "Cannot Switch Role During Task",
+		"taskActiveMessage": "Please finish or exit the current task before switching roles.",
+		"taskActiveTooltip": "Role switching is disabled during active tasks"
+	},
+	"personaMode": {
+		"title": "Toggle Persona Mode",
+		"chat": "Chat",
+		"hybrid": "Hybrid"
+	},
+	"toneStrict": {
+		"strict": "Strict Tone",
+		"friendly": "Friendly Tone"
 	},
 	"unpin": "Unpin",
 	"pin": "Pin",
@@ -183,50 +195,50 @@
 		"tokens": "tokens"
 	},
 	"instructions": {
-		"wantsToFetch": "Roo wants to fetch detailed instructions to assist with the current task"
+		"wantsToFetch": "{{roleName}} wants to fetch detailed instructions to assist with the current task"
 	},
 	"fileOperations": {
-		"wantsToRead": "Roo wants to read this file",
-		"wantsToReadMultiple": "Roo wants to read multiple files",
-		"wantsToReadAndXMore": "Roo wants to read this file and {{count}} more",
-		"wantsToReadOutsideWorkspace": "Roo wants to read this file outside of the workspace",
-		"didRead": "Roo read this file",
-		"wantsToEdit": "Roo wants to edit this file",
-		"wantsToEditOutsideWorkspace": "Roo wants to edit this file outside of the workspace",
-		"wantsToEditProtected": "Roo wants to edit a protected configuration file",
-		"wantsToApplyBatchChanges": "Roo wants to apply changes to multiple files",
-		"wantsToGenerateImage": "Roo wants to generate an image",
-		"wantsToGenerateImageOutsideWorkspace": "Roo wants to generate an image outside of the workspace",
-		"wantsToGenerateImageProtected": "Roo wants to generate an image in a protected location",
-		"didGenerateImage": "Roo generated an image",
-		"wantsToCreate": "Roo wants to create a new file",
-		"wantsToSearchReplace": "Roo wants to search and replace in this file",
-		"didSearchReplace": "Roo performed search and replace on this file",
-		"wantsToInsert": "Roo wants to insert content into this file",
-		"wantsToInsertWithLineNumber": "Roo wants to insert content into this file at line {{lineNumber}}",
-		"wantsToInsertAtEnd": "Roo wants to append content to the end of this file"
+		"wantsToRead": "{{roleName}} wants to read this file",
+		"wantsToReadMultiple": "{{roleName}} wants to read multiple files",
+		"wantsToReadAndXMore": "{{roleName}} wants to read this file and {{count}} more",
+		"wantsToReadOutsideWorkspace": "{{roleName}} wants to read this file outside of the workspace",
+		"didRead": "{{roleName}} read this file",
+		"wantsToEdit": "{{roleName}} wants to edit this file",
+		"wantsToEditOutsideWorkspace": "{{roleName}} wants to edit this file outside of the workspace",
+		"wantsToEditProtected": "{{roleName}} wants to edit a protected configuration file",
+		"wantsToApplyBatchChanges": "{{roleName}} wants to apply changes to multiple files",
+		"wantsToGenerateImage": "{{roleName}} wants to generate an image",
+		"wantsToGenerateImageOutsideWorkspace": "{{roleName}} wants to generate an image outside of the workspace",
+		"wantsToGenerateImageProtected": "{{roleName}} wants to generate an image in a protected location",
+		"didGenerateImage": "{{roleName}} generated an image",
+		"wantsToCreate": "{{roleName}} wants to create a new file",
+		"wantsToSearchReplace": "{{roleName}} wants to search and replace in this file",
+		"didSearchReplace": "{{roleName}} performed search and replace on this file",
+		"wantsToInsert": "{{roleName}} wants to insert content into this file",
+		"wantsToInsertWithLineNumber": "{{roleName}} wants to insert content into this file at line {{lineNumber}}",
+		"wantsToInsertAtEnd": "{{roleName}} wants to append content to the end of this file"
 	},
 	"directoryOperations": {
-		"wantsToViewTopLevel": "Roo wants to view the top level files in this directory",
-		"didViewTopLevel": "Roo viewed the top level files in this directory",
-		"wantsToViewTopLevelOutsideWorkspace": "Roo wants to view the top level files in this directory (outside workspace)",
-		"didViewTopLevelOutsideWorkspace": "Roo viewed the top level files in this directory (outside workspace)",
-		"wantsToViewRecursive": "Roo wants to recursively view all files in this directory",
-		"didViewRecursive": "Roo recursively viewed all files in this directory",
-		"wantsToViewRecursiveOutsideWorkspace": "Roo wants to recursively view all files in this directory (outside workspace)",
-		"didViewRecursiveOutsideWorkspace": "Roo recursively viewed all files in this directory (outside workspace)",
-		"wantsToViewDefinitions": "Roo wants to view source code definition names used in this directory",
-		"didViewDefinitions": "Roo viewed source code definition names used in this directory",
-		"wantsToViewDefinitionsOutsideWorkspace": "Roo wants to view source code definition names used in this directory (outside workspace)",
-		"didViewDefinitionsOutsideWorkspace": "Roo viewed source code definition names used in this directory (outside workspace)",
-		"wantsToSearch": "Roo wants to search this directory for <code>{{regex}}</code>",
-		"didSearch": "Roo searched this directory for <code>{{regex}}</code>",
-		"wantsToSearchOutsideWorkspace": "Roo wants to search this directory (outside workspace) for <code>{{regex}}</code>",
-		"didSearchOutsideWorkspace": "Roo searched this directory (outside workspace) for <code>{{regex}}</code>"
+		"wantsToViewTopLevel": "{{roleName}} wants to view the top level files in this directory",
+		"didViewTopLevel": "{{roleName}} viewed the top level files in this directory",
+		"wantsToViewTopLevelOutsideWorkspace": "{{roleName}} wants to view the top level files in this directory (outside workspace)",
+		"didViewTopLevelOutsideWorkspace": "{{roleName}} viewed the top level files in this directory (outside workspace)",
+		"wantsToViewRecursive": "{{roleName}} wants to recursively view all files in this directory",
+		"didViewRecursive": "{{roleName}} recursively viewed all files in this directory",
+		"wantsToViewRecursiveOutsideWorkspace": "{{roleName}} wants to recursively view all files in this directory (outside workspace)",
+		"didViewRecursiveOutsideWorkspace": "{{roleName}} recursively viewed all files in this directory (outside workspace)",
+		"wantsToViewDefinitions": "{{roleName}} wants to view source code definition names used in this directory",
+		"didViewDefinitions": "{{roleName}} viewed source code definition names used in this directory",
+		"wantsToViewDefinitionsOutsideWorkspace": "{{roleName}} wants to view source code definition names used in this directory (outside workspace)",
+		"didViewDefinitionsOutsideWorkspace": "{{roleName}} viewed source code definition names used in this directory (outside workspace)",
+		"wantsToSearch": "{{roleName}} wants to search this directory for <code>{{regex}}</code>",
+		"didSearch": "{{roleName}} searched this directory for <code>{{regex}}</code>",
+		"wantsToSearchOutsideWorkspace": "{{roleName}} wants to search this directory (outside workspace) for <code>{{regex}}</code>",
+		"didSearchOutsideWorkspace": "{{roleName}} searched this directory (outside workspace) for <code>{{regex}}</code>"
 	},
 	"codebaseSearch": {
-		"wantsToSearch": "Roo wants to search the codebase for <code>{{query}}</code>",
-		"wantsToSearchWithPath": "Roo wants to search the codebase for <code>{{query}}</code> in <code>{{path}}</code>",
+		"wantsToSearch": "{{roleName}} wants to search the codebase for <code>{{query}}</code>",
+		"wantsToSearchWithPath": "{{roleName}} wants to search the codebase for <code>{{query}}</code> in <code>{{path}}</code>",
 		"didSearch_one": "Found 1 result",
 		"didSearch_other": "Found {{count}} results",
 		"resultTooltip": "Similarity score: {{score}} (click to open file)"
@@ -251,24 +263,24 @@
 	"response": "Response",
 	"arguments": "Arguments",
 	"text": {
-		"rooSaid": "Roo said"
+		"rooSaid": "{{roleName}} said"
 	},
 	"feedback": {
 		"youSaid": "You said"
 	},
 	"mcp": {
-		"wantsToUseTool": "Roo wants to use a tool on the {{serverName}} MCP server",
-		"wantsToAccessResource": "Roo wants to access a resource on the {{serverName}} MCP server"
+		"wantsToUseTool": "{{roleName}} wants to use a tool on the {{serverName}} MCP server",
+		"wantsToAccessResource": "{{roleName}} wants to access a resource on the {{serverName}} MCP server"
 	},
 	"modes": {
-		"wantsToSwitch": "Roo wants to switch to {{mode}} mode",
-		"wantsToSwitchWithReason": "Roo wants to switch to {{mode}} mode because: {{reason}}",
-		"didSwitch": "Roo switched to {{mode}} mode",
-		"didSwitchWithReason": "Roo switched to {{mode}} mode because: {{reason}}"
+		"wantsToSwitch": "{{roleName}} wants to switch to {{mode}} mode",
+		"wantsToSwitchWithReason": "{{roleName}} wants to switch to {{mode}} mode because: {{reason}}",
+		"didSwitch": "{{roleName}} switched to {{mode}} mode",
+		"didSwitchWithReason": "{{roleName}} switched to {{mode}} mode because: {{reason}}"
 	},
 	"subtasks": {
-		"wantsToCreate": "Roo wants to create a new subtask in {{mode}} mode",
-		"wantsToFinish": "Roo wants to finish this subtask",
+		"wantsToCreate": "{{roleName}} wants to create a new subtask in {{mode}} mode",
+		"wantsToFinish": "{{roleName}} wants to finish this subtask",
 		"newTaskContent": "Subtask Instructions",
 		"completionContent": "Subtask Completed",
 		"resultContent": "Subtask Results",
@@ -276,14 +288,14 @@
 		"completionInstructions": "Subtask completed! You can review the results and suggest any corrections or next steps. If everything looks good, confirm to return the result to the parent task."
 	},
 	"questions": {
-		"hasQuestion": "Roo has a question"
+		"hasQuestion": "{{roleName}} has a question"
 	},
 	"taskCompleted": "Task Completed",
 	"error": "Error",
 	"diffError": {
 		"title": "Edit Unsuccessful"
 	},
-	"troubleMessage": "Roo is having trouble...",
+	"troubleMessage": "{{roleName}} is having trouble...",
 	"powershell": {
 		"issues": "It seems like you're having Windows PowerShell issues, please see this"
 	},
@@ -324,7 +336,7 @@
 		"countdownDisplay": "{{count}}s"
 	},
 	"browser": {
-		"rooWantsToUse": "Roo wants to use the browser",
+		"rooWantsToUse": "{{roleName}} wants to use the browser",
 		"consoleLogs": "Console Logs",
 		"noNewLogs": "(No new logs)",
 		"screenshot": "Browser screenshot",
@@ -405,8 +417,8 @@
 		}
 	},
 	"slashCommand": {
-		"wantsToRun": "Roo wants to run a slash command",
-		"didRun": "Roo ran a slash command"
+		"wantsToRun": "{{roleName}} wants to run a slash command",
+		"didRun": "{{roleName}} ran a slash command"
 	},
 	"queuedMessages": {
 		"title": "Queued Messages",

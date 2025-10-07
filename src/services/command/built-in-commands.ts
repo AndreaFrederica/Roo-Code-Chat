@@ -284,6 +284,11 @@ Please analyze this codebase and create an AGENTS.md file containing:
 
 Remember: The goal is to create documentation that enables AI assistants to be immediately productive in this codebase, focusing on project-specific knowledge that isn't obvious from the code structure alone.`,
 	},
+	"show-system-prompt": {
+		name: "show-system-prompt",
+		description: "Display the current task's system prompt in a VSCode popup",
+		content: `This command will display the current system prompt being used for the active task in a VSCode information popup. The system prompt includes all the instructions, context, and configuration that guides the AI's behavior in the current conversation.`,
+	},
 }
 
 /**

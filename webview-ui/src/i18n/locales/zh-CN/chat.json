@@ -37,7 +37,19 @@
 		"description": "选择一个角色进行交互",
 		"searchPlaceholder": "搜索角色...",
 		"noResults": "未找到匹配的角色",
-		"loadError": "未能加载到ANH角色"
+		"loadError": "未能加载到ANH角色",
+		"taskActiveTitle": "任务进行中无法切换角色",
+		"taskActiveMessage": "请先完成或退出当前任务，然后再切换角色。",
+		"taskActiveTooltip": "任务进行中时角色切换功能已禁用"
+	},
+	"personaMode": {
+		"title": "切换人格模式",
+		"chat": "聊天",
+		"hybrid": "混合"
+	},
+	"toneStrict": {
+		"strict": "严格语气",
+		"friendly": "友好语气"
 	},
 	"unpin": "取消置顶",
 	"pin": "置顶",
@@ -146,7 +158,7 @@
 	"diffError": {
 		"title": "编辑失败"
 	},
-	"troubleMessage": "Roo遇到问题...",
+	"troubleMessage": "{{roleName}}遇到问题...",
 	"apiRequest": {
 		"title": "API请求",
 		"failed": "API请求失败",
@@ -171,7 +183,7 @@
 		"current": "当前"
 	},
 	"instructions": {
-		"wantsToFetch": "Roo 想要获取详细指示以协助当前任务"
+		"wantsToFetch": "{{roleName}} 想要获取详细指示以协助当前任务"
 	},
 	"fileOperations": {
 		"wantsToRead": "需要读取文件",
@@ -186,9 +198,9 @@
 		"wantsToInsert": "需要在此文件中插入内容",
 		"wantsToInsertWithLineNumber": "需要在第 {{lineNumber}} 行插入内容",
 		"wantsToInsertAtEnd": "需要在文件末尾添加内容",
-		"wantsToReadAndXMore": "Roo 想读取此文件以及另外 {{count}} 个文件",
-		"wantsToReadMultiple": "Roo 想要读取多个文件",
-		"wantsToApplyBatchChanges": "Roo 想要对多个文件应用更改",
+		"wantsToReadAndXMore": "{{roleName}} 想读取此文件以及另外 {{count}} 个文件",
+		"wantsToReadMultiple": "{{roleName}} 想要读取多个文件",
+		"wantsToApplyBatchChanges": "{{roleName}} 想要对多个文件应用更改",
 		"wantsToGenerateImage": "需要生成图片",
 		"wantsToGenerateImageOutsideWorkspace": "需要在工作区外生成图片",
 		"wantsToGenerateImageProtected": "需要在受保护位置生成图片",
@@ -199,8 +211,8 @@
 		"didViewTopLevel": "已查看目录文件列表",
 		"wantsToViewRecursive": "需要查看目录所有文件",
 		"didViewRecursive": "已查看目录所有文件",
-		"wantsToViewDefinitions": "Roo想查看此目录中使用的源代码定义名称",
-		"didViewDefinitions": "Roo已查看此目录中使用的源代码定义名称",
+		"wantsToViewDefinitions": "{{roleName}}想查看此目录中使用的源代码定义名称",
+		"didViewDefinitions": "{{roleName}}已查看此目录中使用的源代码定义名称",
 		"wantsToSearch": "需要搜索内容: {{regex}}",
 		"didSearch": "已完成内容搜索: {{regex}}",
 		"wantsToSearchOutsideWorkspace": "需要搜索内容（工作区外）: {{regex}}",
@@ -209,8 +221,8 @@
 		"didViewTopLevelOutsideWorkspace": "已查看目录文件列表（工作区外）",
 		"wantsToViewRecursiveOutsideWorkspace": "需要查看目录所有文件（工作区外）",
 		"didViewRecursiveOutsideWorkspace": "已查看目录所有文件（工作区外）",
-		"wantsToViewDefinitionsOutsideWorkspace": "Roo想查看此目录中使用的源代码定义名称（工作区外）",
-		"didViewDefinitionsOutsideWorkspace": "Roo已查看此目录中使用的源代码定义名称（工作区外）"
+		"wantsToViewDefinitionsOutsideWorkspace": "{{roleName}}想查看此目录中使用的源代码定义名称（工作区外）",
+		"didViewDefinitionsOutsideWorkspace": "{{roleName}}已查看此目录中使用的源代码定义名称（工作区外）"
 	},
 	"commandOutput": "命令输出",
 	"commandExecution": {
@@ -233,24 +245,24 @@
 	"response": "响应",
 	"arguments": "参数",
 	"text": {
-		"rooSaid": "Roo 说"
+		"rooSaid": "{{roleName}} 说"
 	},
 	"feedback": {
 		"youSaid": "你说"
 	},
 	"mcp": {
-		"wantsToUseTool": "Roo想在{{serverName}} MCP上使用工具",
-		"wantsToAccessResource": "Roo想访问{{serverName}} MCP服务上的资源"
+		"wantsToUseTool": "{{roleName}}想在{{serverName}} MCP上使用工具",
+		"wantsToAccessResource": "{{roleName}}想访问{{serverName}} MCP服务上的资源"
 	},
 	"modes": {
-		"wantsToSwitch": "即将切换至{{mode}}模式",
-		"wantsToSwitchWithReason": "即将切换至{{mode}}模式（原因：{{reason}}）",
-		"didSwitch": "已切换至{{mode}}模式",
-		"didSwitchWithReason": "已切换至{{mode}}模式（原因：{{reason}}）"
+		"wantsToSwitch": "{{roleName}}即将切换至{{mode}}模式",
+		"wantsToSwitchWithReason": "{{roleName}}即将切换至{{mode}}模式（原因：{{reason}}）",
+		"didSwitch": "{{roleName}}已切换至{{mode}}模式",
+		"didSwitchWithReason": "{{roleName}}已切换至{{mode}}模式（原因：{{reason}}）"
 	},
 	"subtasks": {
-		"wantsToCreate": "Roo想在<code>{{mode}}</code>模式下创建新子任务",
-		"wantsToFinish": "Roo想完成此子任务",
+		"wantsToCreate": "{{roleName}}想在<code>{{mode}}</code>模式下创建新子任务",
+		"wantsToFinish": "{{roleName}}想完成此子任务",
 		"newTaskContent": "子任务说明",
 		"completionContent": "子任务已完成",
 		"resultContent": "子任务结果",
@@ -258,7 +270,7 @@
 		"completionInstructions": "子任务已完成！您可以查看结果并提出修改或下一步建议。如果一切正常，请确认以将结果返回给主任务。"
 	},
 	"questions": {
-		"hasQuestion": "Roo有一个问题"
+		"hasQuestion": "{{roleName}}有一个问题"
 	},
 	"taskCompleted": "任务完成",
 	"powershell": {
@@ -308,7 +320,7 @@
 		"socialLinks": "在 <xLink>X</xLink>、<discordLink>Discord</discordLink> 或 <redditLink>r/RooCode</redditLink> 上关注我们 🚀"
 	},
 	"browser": {
-		"rooWantsToUse": "Roo想使用浏览器",
+		"rooWantsToUse": "{{roleName}}想使用浏览器",
 		"consoleLogs": "控制台日志",
 		"noNewLogs": "(没有新日志)",
 		"screenshot": "浏览器截图",
@@ -356,8 +368,8 @@
 		}
 	},
 	"codebaseSearch": {
-		"wantsToSearch": "Roo 需要搜索代码库: <code>{{query}}</code>",
-		"wantsToSearchWithPath": "Roo 需要在 <code>{{path}}</code> 中搜索: <code>{{query}}</code>",
+		"wantsToSearch": "{{roleName}} 需要搜索代码库: <code>{{query}}</code>",
+		"wantsToSearchWithPath": "{{roleName}} 需要在 <code>{{path}}</code> 中搜索: <code>{{query}}</code>",
 		"didSearch_one": "找到 1 个结果",
 		"didSearch_other": "找到 {{count}} 个结果",
 		"resultTooltip": "相似度评分: {{score}} (点击打开文件)"
@@ -422,7 +434,7 @@
 		"clickToEdit": "点击编辑消息"
 	},
 	"slashCommand": {
-		"wantsToRun": "Roo 想要运行斜杠命令",
-		"didRun": "Roo 运行了斜杠命令"
+		"wantsToRun": "{{roleName}} 想要运行斜杠命令",
+		"didRun": "{{roleName}} 运行了斜杠命令"
 	}
 }

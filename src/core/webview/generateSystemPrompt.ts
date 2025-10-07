@@ -25,6 +25,8 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		language,
 		maxReadFileLine,
 		maxConcurrentFileReads,
+		anhPersonaMode,
+		anhToneStrict,
 	} = await provider.getState()
 
 	// Check experiment to determine which diff strategy to use
@@ -64,6 +66,13 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	// and browser tools are enabled in settings
 	const canUseBrowserTool = modelSupportsComputerUse && modeSupportsBrowser && (browserToolEnabled ?? true)
 
+	const rolePromptData = await provider.getRolePromptData()
+
+	// Get current task's todo list and model ID
+	const currentTask = provider.getCurrentTask()
+	const todoList = currentTask?.todoList
+	const modelId = currentTask?.api?.getModel().id
+
 	const systemPrompt = await SYSTEM_PROMPT(
 		provider.context,
 		cwd,
@@ -89,6 +98,11 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 				.getConfiguration("anh-cline")
 				.get<boolean>("newTaskRequireTodos", false),
 		},
+		todoList, // 修复：传递实际的 todoList
+		modelId, // 修复：传递实际的 modelId
+		rolePromptData, // 修复：传递正确的角色数据
+		anhPersonaMode,
+		anhToneStrict,
 	)
 
 	return systemPrompt

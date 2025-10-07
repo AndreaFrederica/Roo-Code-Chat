@@ -10,6 +10,7 @@ import {
 	type TelemetrySetting,
 	type OrganizationAllowList,
 	type CloudOrganizationMembership,
+	type Role,
 	ORGANIZATION_ALLOW_ALL,
 } from "@roo-code/types"
 
@@ -158,6 +159,14 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setMaxDiagnosticMessages: (value: number) => void
 	includeTaskHistoryInEnhance?: boolean
 	setIncludeTaskHistoryInEnhance: (value: boolean) => void
+	currentAnhRole?: Role
+	setCurrentAnhRole: (value: Role | undefined) => void
+	anhPersonaMode?: "hybrid" | "chat"
+	setAnhPersonaMode: (value: "hybrid" | "chat") => void
+	anhToneStrict?: boolean
+	setAnhToneStrict: (value: boolean) => void
+	anhChatModeHideTaskCompletion?: boolean
+	setAnhChatModeHideTaskCompletion: (value: boolean) => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -559,6 +568,14 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		},
 		includeTaskHistoryInEnhance,
 		setIncludeTaskHistoryInEnhance,
+		currentAnhRole: state.currentAnhRole,
+		setCurrentAnhRole: (value) => setState((prevState) => ({ ...prevState, currentAnhRole: value })),
+		anhPersonaMode: state.anhPersonaMode ?? "hybrid",
+		setAnhPersonaMode: (value) => setState((prevState) => ({ ...prevState, anhPersonaMode: value })),
+		anhToneStrict: state.anhToneStrict ?? true,
+		setAnhToneStrict: (value) => setState((prevState) => ({ ...prevState, anhToneStrict: value })),
+		anhChatModeHideTaskCompletion: state.anhChatModeHideTaskCompletion ?? true,
+		setAnhChatModeHideTaskCompletion: (value) => setState((prevState) => ({ ...prevState, anhChatModeHideTaskCompletion: value })),
 	}
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>

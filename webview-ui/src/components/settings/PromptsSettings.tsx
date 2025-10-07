@@ -17,7 +17,7 @@ import {
 } from "@src/components/ui"
 import { SectionHeader } from "./SectionHeader"
 import { Section } from "./Section"
-import { MessageSquare } from "lucide-react"
+import { MessageSquare, Eye } from "lucide-react"
 
 interface PromptsSettingsProps {
 	customSupportPrompts: Record<string, string | undefined>
@@ -134,6 +134,12 @@ const PromptsSettings = ({
 		})
 	}
 
+	const handleShowSystemPrompt = () => {
+		vscode.postMessage({
+			type: "showSystemPrompt"
+		})
+	}
+
 	return (
 		<div>
 			<SectionHeader description={t("settings:prompts.description")}>
@@ -144,6 +150,15 @@ const PromptsSettings = ({
 			</SectionHeader>
 
 			<Section>
+				<div className="flex justify-between items-center mb-4">
+					<h3 className="text-lg font-medium">{t("settings:prompts.systemPrompt")}</h3>
+					<StandardTooltip content={t("settings:prompts.showSystemPromptTooltip")}>
+						<Button variant="outline" size="sm" onClick={handleShowSystemPrompt}>
+							<Eye className="w-4 h-4 mr-2" />
+							{t("settings:prompts.showSystemPrompt")}
+						</Button>
+					</StandardTooltip>
+				</div>
 				<div>
 					<Select
 						value={activeSupportOption}

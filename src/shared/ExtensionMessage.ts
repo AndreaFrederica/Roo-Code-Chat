@@ -16,6 +16,7 @@ import type {
 	QueuedMessage,
 	Role,
 	RoleSummary,
+	RolePromptData,
 } from "@roo-code/types"
 
 import { GitCommit } from "../utils/git"
@@ -133,6 +134,8 @@ export interface ExtensionMessage {
 		| "loadAnhRole"
 		| "anhRoleLoaded"
 		| "selectAnhRole"
+		| "setAnhPersonaMode"
+		| "setAnhToneStrict"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -298,6 +301,7 @@ export type ExtensionState = Pick<
 	| "openRouterImageGenerationSelectedModel"
 	| "includeTaskHistoryInEnhance"
 	| "reasoningBlockCollapsed"
+	| "currentAnhRole"
 > & {
 	version: string
 	clineMessages: ClineMessage[]
@@ -364,6 +368,9 @@ export type ExtensionState = Pick<
 	taskSyncEnabled: boolean
 	featureRoomoteControlEnabled: boolean
 	currentAnhRole?: Role // Currently selected ANH role
+	anhPersonaMode?: "chat" | "hybrid" // Current persona mode
+	anhToneStrict?: boolean // Whether to use strict tone
+	rolePromptData?: RolePromptData // Role prompt data for system prompt generation (optional, not part of core state)
 }
 
 export interface ClineSayTool {

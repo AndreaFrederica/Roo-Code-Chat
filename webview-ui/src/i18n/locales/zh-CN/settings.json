@@ -39,7 +39,10 @@
 		"description": "管理您的斜杠命令，以快速执行自定义工作流和操作。 <DocsLink>了解更多</DocsLink>"
 	},
 	"prompts": {
-		"description": "配置用于快速操作的支持提示词，如增强提示词、解释代码和修复问题。这些提示词帮助 Roo 为常见开发任务提供更好的支持。"
+		"description": "配置用于快速操作的支持提示词，如增强提示词、解释代码和修复问题。这些提示词帮助 Roo 为常见开发任务提供更好的支持。",
+		"systemPrompt": "系统提示词",
+		"showSystemPrompt": "查看系统提示词",
+		"showSystemPromptTooltip": "查看发送给 AI 模型的完整系统提示词，包括所有上下文和指令。"
 	},
 	"codeIndex": {
 		"title": "代码库索引",
@@ -887,6 +890,14 @@
 		"collapseThinking": {
 			"label": "默认折叠“思考”消息",
 			"description": "启用后，“思考”块将默认折叠，直到您与其交互"
+		},
+		"anhChatModeHideTaskCompletion": {
+			"label": "聊天模式下隐藏任务完成",
+			"description": "启用后，在聊天模式下将隐藏任务完成消息，避免干扰对话"
+		},
+		"anhShowRoleCardOnSwitch": {
+			"label": "切换角色时显示角色卡片弹窗",
+			"description": "启用后，在切换角色时会显示包含角色详情的弹窗卡片"
 		}
 	}
 }

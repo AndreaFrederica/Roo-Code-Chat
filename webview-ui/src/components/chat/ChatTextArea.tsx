@@ -28,6 +28,8 @@ import Thumbnails from "../common/Thumbnails"
 import { ModeSelector } from "./ModeSelector"
 import { ApiConfigSelector } from "./ApiConfigSelector"
 import RoleSelector from "./RoleSelector"
+import { PersonaModeSelector } from "./PersonaModeSelector"
+import { ToneStrictSelector } from "./ToneStrictSelector"
 import { AutoApproveDropdown } from "./AutoApproveDropdown"
 import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import ContextMenu from "./ContextMenu"
@@ -92,6 +94,11 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			commands,
 			cloudUserInfo,
 			currentAnhRole,
+			setCurrentAnhRole,
+			anhPersonaMode,
+			setAnhPersonaMode,
+			anhToneStrict,
+			setAnhToneStrict,
 		} = useExtensionState()
 
 		// Find the ID and display text for the currently selected API configuration.
@@ -907,12 +914,28 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 
 		// Role selector handler
 		const handleRoleChange = useCallback((role: Role) => {
-			// Send role selection to backend
-			vscode.postMessage({
-				type: "selectAnhRole",
-				role: role
-			})
-		}, [])
+			if (role.uuid) {
+				setCurrentAnhRole(role)
+				vscode.postMessage({ type: "selectAnhRole", role })
+			} else {
+				setCurrentAnhRole(undefined)
+				vscode.postMessage({ type: "selectAnhRole", role: undefined })
+			}
+		}, [setCurrentAnhRole])
+
+		// Persona mode handler
+		const handlePersonaModeChange = useCallback((value: "chat" | "hybrid") => {
+			console.log("[ChatTextArea] Persona mode changing to:", value)
+			setAnhPersonaMode(value)
+			vscode.postMessage({ type: "setAnhPersonaMode", text: value })
+			console.log("[ChatTextArea] Sent setAnhPersonaMode message with text:", value)
+		}, [setAnhPersonaMode])
+
+		// Tone strict handler
+		const handleToneStrictChange = useCallback((value: boolean) => {
+			setAnhToneStrict(value)
+			vscode.postMessage({ type: "setAnhToneStrict", bool: value })
+		}, [setAnhToneStrict])
 
 		// Helper function to handle API config change
 		const handleApiConfigChange = useCallback((value: string) => {
@@ -1241,6 +1264,20 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							triggerClassName="text-ellipsis overflow-hidden flex-shrink-0"
 							roleShortcutText="Ctrl+R"
 						/>
+						<PersonaModeSelector
+							value={anhPersonaMode || "hybrid"}
+							onChange={handlePersonaModeChange}
+							disabled={selectApiConfigDisabled}
+							title={t("chat:personaMode.title")}
+							triggerClassName="flex-shrink-0"
+						/>
+						{anhPersonaMode === "hybrid" && (
+							<ToneStrictSelector
+								value={anhToneStrict || false}
+								onChange={handleToneStrictChange}
+								disabled={selectApiConfigDisabled}
+							/>
+						)}
 						<ApiConfigSelector
 							value={currentConfigId}
 							displayName={displayName}

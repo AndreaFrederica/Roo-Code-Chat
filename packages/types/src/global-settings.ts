@@ -156,6 +156,10 @@ export const globalSettingsSchema = z.object({
 
 	// ANH (Advanced Novel Helper) settings
 	currentAnhRole: roleSchema.optional(),
+	anhPersonaMode: z.enum(["hybrid", "chat"]).optional(),
+	anhToneStrict: z.boolean().optional(),
+	anhChatModeHideTaskCompletion: z.boolean().optional(),
+	anhShowRoleCardOnSwitch: z.boolean().optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>
@@ -318,6 +322,8 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 	language: "en",
 	telemetrySetting: "enabled",
 
+	anhPersonaMode: "hybrid",
+	anhToneStrict: true,
 	mcpEnabled: false,
 
 	mode: "code", // "architect",

@@ -57,7 +57,7 @@ import { applyDiffToolLegacy } from "../tools/applyDiffTool"
 
 export async function presentAssistantMessage(cline: Task) {
 	if (cline.abort) {
-		throw new Error(`[Task#presentAssistantMessage] task ${cline.taskId}.${cline.instanceId} aborted`)
+		throw new Error(`[ANH-Chat:Task#presentAssistantMessage] task ${cline.taskId}.${cline.instanceId} aborted`)
 	}
 
 	if (cline.presentAssistantMessageLocked) {
@@ -625,6 +625,6 @@ async function checkpointSaveAndMark(task: Task) {
 		await task.checkpointSave(true)
 		task.currentStreamingDidCheckpoint = true
 	} catch (error) {
-		console.error(`[Task#presentAssistantMessage] Error saving checkpoint: ${error.message}`, error)
+		console.error(`[ANH-Chat:Task#presentAssistantMessage] Error saving checkpoint: ${error.message}`, error)
 	}
 }

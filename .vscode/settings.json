@@ -11,7 +11,7 @@
 	// Turn off tsc task auto detection since we have the necessary tasks as npm scripts
 	"typescript.tsc.autoDetect": "off",
 	"vitest.disableWorkspaceWarning": true,
-	"AndreaNovelHelper.workspaceDisabled": false,
+	"AndreaNovelHelper.workspaceDisabled": true,
 	"cSpell.customDictionaries": {
 		"AndreaRoles": {
 			"path": "./.vscode/cspell-roles.txt",
@@ -21,6 +21,17 @@
 	"AndreaNovelHelper.autoGit.compactStatus": true,
 	"andrea.typeset.statusBar.compact": true,
 	"cSpell.words": [
-		"Reimu"
+		"agentically",
+		"deepinfra",
+		"Evals",
+		"glama",
+		"huggingface",
+		"litellm",
+		"lmstudio",
+		"ollama",
+		"openrouter",
+		"Reimu",
+		"requesty",
+		"rooignore"
 	]
 }

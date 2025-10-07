@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSize } from "react-use"
-import { useTranslation, Trans } from "react-i18next"
+import { useAppTranslation } from "@src/i18n/TranslationContext"
+import { Trans } from "react-i18next"
 import deepEqual from "fast-deep-equal"
 import { VSCodeBadge } from "@vscode/webview-ui-toolkit/react"
 
@@ -130,9 +131,9 @@ export const ChatRowContent = ({
 	isFollowUpAnswered,
 	editable,
 }: ChatRowContentProps) => {
-	const { t } = useTranslation()
+	const { t } = useAppTranslation()
 
-	const { mcpServers, alwaysAllowMcp, currentCheckpoint, mode, apiConfiguration } = useExtensionState()
+	const { mcpServers, alwaysAllowMcp, currentCheckpoint, mode, apiConfiguration, anhChatModeHideTaskCompletion } = useExtensionState()
 	const { info: model } = useSelectedModel(apiConfiguration)
 	const [isEditing, setIsEditing] = useState(false)
 	const [editedContent, setEditedContent] = useState("")
@@ -257,6 +258,10 @@ export const ChatRowContent = ({
 					</span>,
 				]
 			case "completion_result":
+				// 在 Chat 模式下且启用设置时，隐藏"任务完成"的显示，避免干扰对话
+				if (mode === "chat" && anhChatModeHideTaskCompletion) {
+					return [null, null]
+				}
 				return [
 					<span
 						className="codicon codicon-check"

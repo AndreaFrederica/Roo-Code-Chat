@@ -146,6 +146,7 @@ export interface WebviewMessage {
 		| "getSystemPrompt"
 		| "copySystemPrompt"
 		| "systemPrompt"
+		| "showSystemPrompt"
 		| "enhancementApiConfigId"
 		| "includeTaskHistoryInEnhance"
 		| "updateExperimental"
@@ -234,6 +235,8 @@ export interface WebviewMessage {
 		| "loadAnhRole"
 		| "anhRoleLoaded"
 		| "selectAnhRole"
+		| "setAnhPersonaMode"
+		| "setAnhToneStrict"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -260,6 +263,7 @@ export interface WebviewMessage {
 	setting?: string
 	slug?: string
 	modeConfig?: ModeConfig
+	persona?: "hybrid" | "chat"
 	timeout?: number
 	payload?: WebViewMessagePayload
 	source?: "global" | "project"

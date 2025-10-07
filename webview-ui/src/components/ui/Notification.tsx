@@ -21,7 +21,7 @@ export interface NotificationAction {
 // 通知Context
 interface NotificationContextType {
 	notifications: Notification[]
-	addNotification: (notification: Omit<Notification, "id">) => void
+	addNotification: (notification: Omit<Notification, "id">) => string
 	removeNotification: (id: string) => void
 	clearAllNotifications: () => void
 	showRoleDebugInfo: (role: Role) => void
@@ -42,9 +42,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 		// 如果设置了自动关闭时间，则定时移除
 		if (notification.duration && notification.duration > 0) {
 			setTimeout(() => {
-				removeNotification(id)
+				setNotifications(prev => prev.filter(n => n.id !== id))
 			}, notification.duration)
 		}
+		
+		return id
 	}, [])
 
 	const removeNotification = useCallback((id: string) => {
@@ -285,7 +287,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 			.join('\n\n')
 			.trim()
 
-		addNotification({
+		const id = addNotification({
 			type: "info",
 			title: `角色调试信息: ${role.name}`,
 			message: debugInfo,
@@ -293,7 +295,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 			actions: [
 				{
 					label: "确认",
-					onClick: () => removeNotification("debug-role"),
+					onClick: () => removeNotification(id),
 					primary: true
 				}
 			]
