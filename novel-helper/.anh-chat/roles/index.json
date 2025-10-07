@@ -5,5 +5,40 @@
 		"type": "主角",
 		"packagePath": "roles/01998c7a-113e-73ef-bf63-e9911c33665b.json",
 		"lastUpdatedAt": 1730918400000
+	},
+	{
+		"uuid": "0199bbe1-1bf1-72f3-8ce3-e7ea4b69648a",
+		"name": "雾雨魔理沙",
+		"type": "主角",
+		"packagePath": "roles/0199bbe1-1bf1-72f3-8ce3-e7ea4b69648a.json",
+		"lastUpdatedAt": 1730918400000
+	},
+	{
+		"uuid": "0199c000-0000-0000-0000-000000000001",
+		"name": "十六夜咲夜",
+		"type": "配角",
+		"packagePath": "roles/0199c000-0000-0000-0000-000000000001.json",
+		"lastUpdatedAt": 1730918400000
+	},
+	{
+		"uuid": "0199c000-0000-0000-0000-000000000002",
+		"name": "琪露诺",
+		"type": "配角",
+		"packagePath": "roles/0199c000-0000-0000-0000-000000000002.json",
+		"lastUpdatedAt": 1730918400000
+	},
+	{
+		"uuid": "0199c000-0000-0000-0000-000000000003",
+		"name": "大妖精",
+		"type": "配角",
+		"packagePath": "roles/0199c000-0000-0000-0000-000000000003.json",
+		"lastUpdatedAt": 1730918400000
+	},
+	{
+		"uuid": "0199c000-0000-0000-0000-000000000004",
+		"name": "稗田阿求",
+		"type": "配角",
+		"packagePath": "roles/0199c000-0000-0000-0000-000000000004.json",
+		"lastUpdatedAt": 1730918400000
 	}
 ]
