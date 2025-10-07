@@ -199,3 +199,14 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+
+---
+Modifications Copyright 2025 Andrea Frederica
+
+This work is based on the original Roo Code project by Roo Code, Inc.
+Significant modifications include:
+- Project renamed from "Roo Code" to "Anh-Chat"
+- All code references to "Roo" replaced with "Anh-Chat"  
+- Cloud service components removed
+- Various functionality improvements and customizations

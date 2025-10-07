@@ -161,6 +161,10 @@ export const globalSettingsSchema = z.object({
 	anhUseAskTool: z.boolean().optional(),
 	anhChatModeHideTaskCompletion: z.boolean().optional(),
 	anhShowRoleCardOnSwitch: z.boolean().optional(),
+	
+	// User avatar role settings
+	userAvatarRole: roleSchema.optional(),
+	enableUserAvatar: z.boolean().optional(),
 
 	// UI Display settings
 	displayMode: z.enum(["coding", "chat"]).optional(),
@@ -332,6 +336,7 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 	anhChatModeHideTaskCompletion: true,
 	displayMode: "coding",
 	mcpEnabled: false,
+	enableUserAvatar: false,
 
 	mode: "code", // "architect",
 

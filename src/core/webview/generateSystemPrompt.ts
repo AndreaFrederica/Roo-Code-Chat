@@ -28,6 +28,8 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		anhPersonaMode,
 		anhToneStrict,
 		anhUseAskTool,
+		userAvatarRole,
+		enableUserAvatar,
 	} = await provider.getState()
 
 	// Check experiment to determine which diff strategy to use
@@ -74,6 +76,12 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	const todoList = currentTask?.todoList
 	const modelId = currentTask?.api?.getModel().id
 
+	// Get user avatar role if enabled
+	let userAvatarRoleData = undefined
+	if (enableUserAvatar && userAvatarRole) {
+		userAvatarRoleData = userAvatarRole
+	}
+
 	const systemPrompt = await SYSTEM_PROMPT(
 		provider.context,
 		cwd,
@@ -105,6 +113,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		anhPersonaMode,
 		anhToneStrict,
 		anhUseAskTool,
+		userAvatarRoleData, // 传递用户头像角色数据
 	)
 
 	return systemPrompt

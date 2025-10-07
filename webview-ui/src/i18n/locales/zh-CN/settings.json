@@ -6,7 +6,9 @@
 		"reset": "恢复默认设置",
 		"select": "选择",
 		"add": "添加标头",
-		"remove": "移除"
+		"remove": "移除",
+		"enabled": "已启用",
+		"disabled": "已禁用"
 	},
 	"header": {
 		"title": "设置",
@@ -305,8 +307,8 @@
 		"groqApiKey": "Groq API 密钥",
 		"getSambaNovaApiKey": "获取 SambaNova API 密钥",
 		"sambaNovaApiKey": "SambaNova API 密钥",
-		"getHuggingFaceApiKey": "获取 Hugging Face API 密钥",
-		"huggingFaceApiKey": "Hugging Face API 密钥",
+		"getHuggingFaceApiKey": "获取 HuggingFace API 密钥",
+		"huggingFaceApiKey": "HuggingFace API 密钥",
 		"huggingFaceModelId": "模型 ID",
 		"huggingFaceLoading": "加载中...",
 		"huggingFaceModelsCount": "({{count}} 个模型)",
@@ -457,7 +459,7 @@
 		},
 		"consecutiveMistakeLimit": {
 			"label": "错误和重复限制",
-			"description": "在显示“Roo遇到问题”对话框前允许的连续错误或重复操作次数",
+			"description": "在显示\"Roo遇到问题\"对话框前允许的连续错误或重复操作次数",
 			"unlimitedDescription": "已启用无限重试（自动继续）。对话框将永远不会出现。",
 			"warning": "⚠️ 设置为 0 允许无限重试，这可能会消耗大量 API 使用量"
 		},
@@ -478,7 +480,7 @@
 		"setReasoningLevel": "启用推理工作量",
 		"claudeCode": {
 			"pathLabel": "Claude Code 路径",
-			"description": "您的 Claude Code CLI 的可选路径。如果未设置，则默认为 “claude”。",
+			"description": "您的 Claude Code CLI 的可选路径。如果未设置，则默认为 \"claude\"。",
 			"placeholder": "默认：claude",
 			"maxTokensLabel": "最大输出 Token",
 			"maxTokensDescription": "Claude Code 响应的最大输出 Token 数量。默认为 8000。"
@@ -888,8 +890,8 @@
 	},
 	"ui": {
 		"collapseThinking": {
-			"label": "默认折叠“思考”消息",
-			"description": "启用后，“思考”块将默认折叠，直到您与其交互"
+			"label": "默认折叠\"思考\"消息",
+			"description": "启用后，\"思考\"块将默认折叠，直到您与其交互"
 		},
 		"anhChatModeHideTaskCompletion": {
 			"label": "聊天模式下隐藏任务完成",
@@ -909,5 +911,20 @@
 			"chat": "聊天模式",
 			"chatDescription": "显示最后一句话作为标题，第一句话作为预览"
 		}
+	},
+	"userAvatar": {
+		"title": "用户代理角色",
+		"enable": "启用用户代理角色",
+		"enableDescription": "启用后，AI将扮演您选择的角色与您进行对话",
+		"selectRole": "选择角色",
+		"selectRoleDescription": "选择AI在对话中扮演的角色",
+		"selectRoleTooltip": "点击选择角色",
+		"noRole": "无角色",
+		"noRoleDescription": "不使用特定角色，以默认方式对话",
+		"aliases": "别名",
+		"loadError": "加载角色列表失败",
+		"searchPlaceholder": "搜索角色...",
+		"description": "配置用户代理角色，让AI在对话中扮演特定角色",
+		"noResults": "未找到匹配的角色"
 	}
 }

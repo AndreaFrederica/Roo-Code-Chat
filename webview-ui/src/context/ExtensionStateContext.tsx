@@ -171,6 +171,10 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setAnhChatModeHideTaskCompletion: (value: boolean) => void
 	displayMode?: "coding" | "chat"
 	setDisplayMode: (value: "coding" | "chat") => void
+	enableUserAvatar?: boolean
+	setEnableUserAvatar: (value: boolean) => void
+	userAvatarRole?: Role
+	setUserAvatarRole: (value: Role | undefined) => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -279,6 +283,8 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		maxDiagnosticMessages: 50,
 		openRouterImageApiKey: "",
 		openRouterImageGenerationSelectedModel: "",
+		enableUserAvatar: false,
+		userAvatarRole: undefined,
 	})
 
 	const [didHydrateState, setDidHydrateState] = useState(false)
@@ -339,6 +345,14 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update anhUseAskTool if present in state message
 					if ((newState as any).anhUseAskTool !== undefined) {
 						setAnhUseAskTool((newState as any).anhUseAskTool)
+					}
+					// Update enableUserAvatar if present in state message
+					if ((newState as any).enableUserAvatar !== undefined) {
+						setState((prevState) => ({ ...prevState, enableUserAvatar: (newState as any).enableUserAvatar }))
+					}
+					// Update userAvatarRole if present in state message
+					if ((newState as any).userAvatarRole !== undefined) {
+						setState((prevState) => ({ ...prevState, userAvatarRole: (newState as any).userAvatarRole }))
 					}
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {
@@ -589,6 +603,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setAnhChatModeHideTaskCompletion: (value) => setState((prevState) => ({ ...prevState, anhChatModeHideTaskCompletion: value })),
 		displayMode: state.displayMode ?? "coding",
 		setDisplayMode: (value) => setState((prevState) => ({ ...prevState, displayMode: value })),
+		enableUserAvatar: state.enableUserAvatar ?? false,
+		setEnableUserAvatar: (value) => setState((prevState) => ({ ...prevState, enableUserAvatar: value })),
+		userAvatarRole: state.userAvatarRole,
+		setUserAvatarRole: (value) => setState((prevState) => ({ ...prevState, userAvatarRole: value })),
 	}
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>

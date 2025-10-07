@@ -10,6 +10,7 @@ import {
 	type GlobalState,
 	type ClineMessage,
 	type TelemetrySetting,
+	type Role,
 	TelemetryEventName,
 	UserSettingsConfig,
 } from "@roo-code/types"
@@ -3216,9 +3217,50 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
+		case "loadUserAvatarRole": {
+			try {
+				if (!message.roleUuid) {
+					// Default role requested
+					await provider.postMessageToWebview({
+						type: "userAvatarRoleLoaded",
+						role: undefined,
+					})
+					break
+				}
+				
+				const { RoleRegistry } = await import("../../services/anh-chat")
+				const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+				if (!workspaceRoot) {
+					throw new Error("No workspace folder found")
+				}
+				const registry = await RoleRegistry.create(workspaceRoot)
+				const role = await registry.loadRole(message.roleUuid)
+
+				if (role) {
+					provider.log(`User Avatar role loaded successfully: ${role.name}`)
+					await provider.postMessageToWebview({
+						type: "userAvatarRoleLoaded",
+						role,
+					})
+				} else {
+					provider.log(`User Avatar role not found: ${message.roleUuid}`)
+					await provider.postMessageToWebview({
+						type: "userAvatarRoleLoaded",
+						role: undefined,
+					})
+				}
+			} catch (error) {
+				provider.log(`Error loading User Avatar role: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "userAvatarRoleLoaded",
+					role: undefined,
+				})
+			}
+			break
+		}
 		case "setAnhPersonaMode": {
 			try {
-				provider.log(`[ANH-Chat:Webview] Received setAnhPersonaMode message:`, message)
+				provider.log(`[ANH-Chat:Webview] Received setAnhPersonaMode message: ${JSON.stringify(message)}`)
 				const personaMode = message.text as "chat" | "hybrid"
 				provider.log(`[ANH-Chat:Webview] Extracted persona mode: ${personaMode}`)
 				if (personaMode === "chat" || personaMode === "hybrid") {
@@ -3279,6 +3321,64 @@ export const webviewMessageHandler = async (
 				}
 			} catch (error) {
 				provider.log(`Error setting display mode: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
+		case "enableUserAvatar": {
+			try {
+				const enableUserAvatar = message.bool ?? false
+				await updateGlobalState("enableUserAvatar", enableUserAvatar)
+				await provider.postStateToWebview()
+				provider.log(`User avatar enabled set to: ${enableUserAvatar}`)
+			} catch (error) {
+				provider.log(`Error setting user avatar enabled: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
+		case "userAvatarRole": {
+			try {
+				let userAvatarRole: Role | undefined
+
+				const roleFromValues = message.values as Role | undefined
+				const roleFromMessage = message.role as Role | undefined
+
+				if (roleFromValues && typeof roleFromValues === "object") {
+					userAvatarRole = roleFromValues
+				} else if (roleFromMessage && typeof roleFromMessage === "object") {
+					userAvatarRole = roleFromMessage
+				} else {
+					const userAvatarRoleText = message.text
+
+					if (typeof userAvatarRoleText === "string" && userAvatarRoleText.trim() !== "") {
+						try {
+							userAvatarRole = JSON.parse(userAvatarRoleText)
+						} catch (parseError) {
+							provider.log(
+								`Error parsing user avatar role JSON: ${
+									parseError instanceof Error ? parseError.message : String(parseError)
+								}`,
+							)
+							userAvatarRole = undefined
+						}
+					}
+				}
+
+				// Treat empty uuid as a cleared selection
+				if (
+					userAvatarRole &&
+					typeof userAvatarRole.uuid === "string" &&
+					userAvatarRole.uuid.trim() === ""
+				) {
+					userAvatarRole = undefined
+				}
+
+				await updateGlobalState("userAvatarRole", userAvatarRole)
+				await provider.postStateToWebview()
+				provider.log(`User avatar role set to: ${userAvatarRole ? userAvatarRole.name : "none"}`)
+			} catch (error) {
+				provider.log(
+					`Error setting user avatar role: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			break
 		}

@@ -235,10 +235,16 @@ export interface WebviewMessage {
 		| "loadAnhRole"
 		| "anhRoleLoaded"
 		| "selectAnhRole"
+		| "loadUserAvatarRole"
+		| "userAvatarRoleLoaded"
 		| "setAnhPersonaMode"
 		| "setAnhToneStrict"
 		| "setAnhUseAskTool"
 		| "setDisplayMode"
+		| "enableUserAvatar"
+		| "userAvatarRole"
+		| "anhChatModeHideTaskCompletion"
+		| "anhShowRoleCardOnSwitch"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"

@@ -134,8 +134,12 @@ export interface ExtensionMessage {
 		| "loadAnhRole"
 		| "anhRoleLoaded"
 		| "selectAnhRole"
+		| "loadUserAvatarRole"
+		| "userAvatarRoleLoaded"
 		| "setAnhPersonaMode"
 		| "setAnhToneStrict"
+		| "enableUserAvatar"
+		| "userAvatarRole"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -302,6 +306,9 @@ export type ExtensionState = Pick<
 	| "includeTaskHistoryInEnhance"
 	| "reasoningBlockCollapsed"
 	| "currentAnhRole"
+	| "anhShowRoleCardOnSwitch"
+	| "userAvatarRole"
+	| "enableUserAvatar"
 > & {
 	version: string
 	clineMessages: ClineMessage[]
@@ -372,8 +379,11 @@ export type ExtensionState = Pick<
 	anhToneStrict?: boolean // Whether to use strict tone
 	anhUseAskTool?: boolean // Whether to use Ask Tool for direct queries
 	anhChatModeHideTaskCompletion?: boolean // Whether to hide task completion in chat mode
+	anhShowRoleCardOnSwitch?: boolean // Whether to show role card when switching roles
 	displayMode?: "coding" | "chat" // Current display mode for history view
 	rolePromptData?: RolePromptData // Role prompt data for system prompt generation (optional, not part of core state)
+	userAvatarRole?: Role // Currently selected user avatar role
+	enableUserAvatar?: boolean // Whether to enable user avatar feature
 }
 
 export interface ClineSayTool {

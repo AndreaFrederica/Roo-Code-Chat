@@ -133,7 +133,7 @@ export const ChatRowContent = ({
 }: ChatRowContentProps) => {
 	const { t } = useAppTranslation()
 
-	const { mcpServers, alwaysAllowMcp, currentCheckpoint, mode, apiConfiguration, anhChatModeHideTaskCompletion } = useExtensionState()
+	const { mcpServers, alwaysAllowMcp, currentCheckpoint, mode, apiConfiguration, anhChatModeHideTaskCompletion, enableUserAvatar, userAvatarRole } = useExtensionState()
 	const { info: model } = useSelectedModel(apiConfiguration)
 	const [isEditing, setIsEditing] = useState(false)
 	const [editedContent, setEditedContent] = useState("")
@@ -1144,8 +1144,23 @@ export const ChatRowContent = ({
 					return (
 						<div className="group">
 							<div style={headerStyle}>
-								<User className="w-4 shrink-0" aria-label="User icon" />
-								<span style={{ fontWeight: "bold" }}>{t("chat:feedback.youSaid")}</span>
+								{enableUserAvatar && userAvatarRole ? (
+									<div className="flex items-center gap-2">
+										{userAvatarRole.color && (
+											<div
+												className="w-4 h-4 rounded-full flex-shrink-0"
+												style={{ backgroundColor: userAvatarRole.color }}
+												aria-label="User avatar"
+											/>
+										)}
+										<span style={{ fontWeight: "bold" }}>{userAvatarRole.name}</span>
+									</div>
+								) : (
+									<User className="w-4 shrink-0" aria-label="User icon" />
+								)}
+								<span style={{ fontWeight: "bold" }}>
+									{enableUserAvatar && userAvatarRole ? userAvatarRole.name : t("chat:feedback.youSaid")}
+								</span>
 							</div>
 							<div
 								className={cn(

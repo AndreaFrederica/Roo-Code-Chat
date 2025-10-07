@@ -2453,6 +2453,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			apiConfiguration,
 			anhPersonaMode: globalAnhPersonaMode,
 			anhToneStrict: globalAnhToneStrict,
+			userAvatarRole,
+			enableUserAvatar,
 		} = state ?? {}
 
 		// Use the latest settings from global state, falling back to task's local settings
@@ -2496,6 +2498,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				this.rolePromptData,
 				currentPersonaMode,
 				currentToneStrict,
+				undefined, // anhUseAskTool - not needed here
+				userAvatarRole as any, // Type assertion to fix type error
+				enableUserAvatar,
 			)
 
 			const appliedRole = this.rolePromptData?.role?.name ?? "none"

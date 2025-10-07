@@ -25,6 +25,7 @@ import {
 	LucideIcon,
 	SquareSlash,
 	Glasses,
+	User,
 } from "lucide-react"
 
 import type { ProviderSettings, ExperimentId, TelemetrySetting } from "@roo-code/types"
@@ -68,6 +69,7 @@ import { Section } from "./Section"
 import PromptsSettings from "./PromptsSettings"
 import { SlashCommandsSettings } from "./SlashCommandsSettings"
 import { UISettings } from "./UISettings"
+import UserAvatarSettings from "./UserAvatarSettings"
 
 export const settingsTabsContainer = "flex flex-1 overflow-hidden [&.narrow_.tab-label]:hidden"
 export const settingsTabList =
@@ -89,6 +91,7 @@ const sectionNames = [
 	"notifications",
 	"contextManagement",
 	"terminal",
+	"userAvatar",
 	"prompts",
 	"ui",
 	"experimental",
@@ -197,6 +200,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		reasoningBlockCollapsed,
 		anhChatModeHideTaskCompletion,
 		anhShowRoleCardOnSwitch,
+		userAvatarRole,
+		enableUserAvatar,
 	} = cachedState
 
 	const apiConfiguration = useMemo(() => cachedState.apiConfiguration ?? {}, [cachedState.apiConfiguration])
@@ -391,6 +396,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({ type: "profileThresholds", values: profileThresholds })
 			vscode.postMessage({ type: "anhChatModeHideTaskCompletion", bool: anhChatModeHideTaskCompletion ?? true })
 			vscode.postMessage({ type: "anhShowRoleCardOnSwitch", bool: anhShowRoleCardOnSwitch ?? false })
+			vscode.postMessage({ type: "enableUserAvatar", bool: enableUserAvatar })
+			vscode.postMessage({ type: "userAvatarRole", values: userAvatarRole })
 			vscode.postMessage({ type: "openRouterImageApiKey", text: openRouterImageApiKey })
 			vscode.postMessage({
 				type: "openRouterImageGenerationSelectedModel",
@@ -481,6 +488,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			{ id: "notifications", icon: Bell },
 			{ id: "contextManagement", icon: Database },
 			{ id: "terminal", icon: SquareTerminal },
+			{ id: "userAvatar", icon: User },
 			{ id: "prompts", icon: MessageSquare },
 			{ id: "ui", icon: Glasses },
 			{ id: "experimental", icon: FlaskConical },
@@ -766,6 +774,15 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							terminalZshP10k={terminalZshP10k}
 							terminalZdotdir={terminalZdotdir}
 							terminalCompressProgressBar={terminalCompressProgressBar}
+							setCachedStateField={setCachedStateField}
+						/>
+					)}
+
+					{/* User Avatar Section */}
+					{activeTab === "userAvatar" && (
+						<UserAvatarSettings
+							userAvatarRole={userAvatarRole}
+							enableUserAvatar={enableUserAvatar}
 							setCachedStateField={setCachedStateField}
 						/>
 					)}

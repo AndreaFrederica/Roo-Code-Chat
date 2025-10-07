@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import * as os from "os"
 
-import type { ModeConfig, PromptComponent, CustomModePrompts, TodoItem } from "@roo-code/types"
+import type { ModeConfig, PromptComponent, CustomModePrompts, TodoItem, Role } from "@roo-code/types"
 
 import type { SystemPromptSettings } from "./types"
 import type {
@@ -298,6 +298,8 @@ async function generatePrompt(
 	anhPersonaMode?: RolePersona,
 	anhToneStrict?: boolean,
 	anhUseAskTool?: boolean,
+	userAvatarRole?: Role,
+	enableUserAvatar?: boolean,
 ): Promise<string> {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -339,12 +341,36 @@ async function generatePrompt(
 
 	const codeIndexManager = CodeIndexManager.getInstance(context, cwd)
 
-	const roleSection = buildRolePromptSection(rolePromptData)
-	const roleSectionBlock = roleSection
-		? `${roleSection}
+	// Build role sections for both AI role and user avatar role
+	const aiRoleSection = buildRolePromptSection(rolePromptData)
+	const aiRoleSectionBlock = aiRoleSection
+		? `${aiRoleSection}
+
+	`
+		: ""
+
+	// Build user avatar role section if enabled
+	let userAvatarSectionBlock = ""
+	if (enableUserAvatar && userAvatarRole) {
+		console.log("[ANH-Chat:SystemPrompt] Building user avatar section for role:", userAvatarRole.name)
+		console.log("[ANH-Chat:SystemPrompt] User avatar role data:", userAvatarRole)
+		const userAvatarPromptData = {
+			role: userAvatarRole,
+			storyline: { arcs: [] },
+			memory: { traits: [], goals: [], episodic: [] }
+		}
+		const userAvatarSection = buildRolePromptSection(userAvatarPromptData)
+		userAvatarSectionBlock = userAvatarSection
+			? `
+
+USER AVATAR
+${userAvatarSection}
 
 `
-		: ""
+			: ""
+	}
+
+	const roleSectionBlock = aiRoleSectionBlock + userAvatarSectionBlock
 
 	// Determine if we're in pure chat mode
 	const isPureChatMode = anhPersonaMode === "chat"
@@ -490,6 +516,8 @@ export const SYSTEM_PROMPT = async (
 	anhPersonaMode?: RolePersona,
 	anhToneStrict?: boolean,
 	anhUseAskTool?: boolean,
+	userAvatarRole?: Role,
+	enableUserAvatar?: boolean,
 ): Promise<string> => {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -546,8 +574,24 @@ export const SYSTEM_PROMPT = async (
 			},
 		)
 
-		const roleSection = buildRolePromptSection(rolePromptData)
-		const roleSectionBlock = roleSection ? `${roleSection}\n\n` : ""
+		const aiRoleSection = buildRolePromptSection(rolePromptData)
+		const aiRoleSectionBlock = aiRoleSection ? `${aiRoleSection}\n\n` : ""
+
+		// Build user avatar role section if enabled
+		let userAvatarSectionBlock = ""
+		if (enableUserAvatar && userAvatarRole) {
+			const userAvatarPromptData = {
+				role: userAvatarRole,
+				storyline: { arcs: [] },
+				memory: { traits: [], goals: [], episodic: [] }
+			}
+			const userAvatarSection = buildRolePromptSection(userAvatarPromptData)
+			userAvatarSectionBlock = userAvatarSection
+				? `\n\nUSER AVATAR\n${userAvatarSection}\n\n`
+				: ""
+		}
+
+		const roleSectionBlock = aiRoleSectionBlock + userAvatarSectionBlock
 
 		// For file-based prompts, don't include the tool sections
 		return `${roleDefinition}
@@ -584,5 +628,7 @@ ${customInstructions}`
 		anhPersonaMode,
 		anhToneStrict,
 		anhUseAskTool,
+		userAvatarRole,
+		enableUserAvatar,
 	)
 }

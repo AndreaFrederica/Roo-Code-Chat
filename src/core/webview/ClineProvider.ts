@@ -1877,7 +1877,10 @@ export class ClineProvider
 			featureRoomoteControlEnabled,
 			anhPersonaMode,
 			anhToneStrict,
+			anhShowRoleCardOnSwitch,
 			displayMode,
+			userAvatarRole,
+			enableUserAvatar,
 		} = await this.getState()
 
 		// Get role prompt data to include in state
@@ -2035,6 +2038,8 @@ export class ClineProvider
 			openRouterImageGenerationSelectedModel,
 			openRouterUseMiddleOutTransform,
 			featureRoomoteControlEnabled,
+			userAvatarRole,
+			enableUserAvatar,
 		}
 	}
 
@@ -2269,6 +2274,8 @@ export class ClineProvider
 			anhPersonaMode: stateValues.anhPersonaMode,
 			anhToneStrict: stateValues.anhToneStrict,
 			displayMode: stateValues.displayMode,
+			userAvatarRole: stateValues.userAvatarRole,
+			enableUserAvatar: stateValues.enableUserAvatar,
 		}
 	}
 
