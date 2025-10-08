@@ -3420,5 +3420,293 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
+
+		// Worldset management cases
+		case "createWorldsetFolder": {
+			try {
+				const workspacePath = getWorkspacePath()
+				if (!workspacePath) {
+					vscode.window.showErrorMessage("No workspace folder found")
+					break
+				}
+
+				const worldsetDir = path.join(workspacePath, "worldset")
+				
+				// Create worldset directory if it doesn't exist
+				await fs.mkdir(worldsetDir, { recursive: true })
+				
+				// Create a default worldset if none exists
+				const defaultWorldsetPath = path.join(worldsetDir, "default_worldset.md")
+				if (!(await fs.access(defaultWorldsetPath).then(() => true).catch(() => false))) {
+					const defaultContent = `# 默认世界观设定
+
+## 世界背景
+这是一个默认的世界观设定文件。
+
+## 角色设定
+### 主要角色
+- 角色名称：描述
+
+## 规则设定
+- 规则1
+- 规则2
+`
+					await fs.writeFile(defaultWorldsetPath, defaultContent, "utf8")
+				}
+
+				provider.log(`Created worldset folder: ${worldsetDir}`)
+				
+				// Send success response
+				await provider.postMessageToWebview({
+					type: "worldsetFolderCreated",
+					text: worldsetDir
+				})
+			} catch (error) {
+				provider.log(`Error creating worldset folder: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				vscode.window.showErrorMessage("Failed to create worldset folder")
+			}
+			break
+		}
+
+		case "getWorldsetList": {
+			try {
+				const workspacePath = getWorkspacePath()
+				if (!workspacePath) {
+					await provider.postMessageToWebview({
+						type: "worldsetList",
+						worldsetFiles: []
+					})
+					break
+				}
+
+				const worldsetDir = path.join(workspacePath, "worldset")
+				
+				// Check if worldset directory exists
+				if (!(await fs.access(worldsetDir).then(() => true).catch(() => false))) {
+					await provider.postMessageToWebview({
+						type: "worldsetList",
+						worldsetFiles: []
+					})
+					break
+				}
+
+				// Read all .md files in worldset directory
+				const files = await fs.readdir(worldsetDir)
+				const mdFiles = files.filter(file => file.endsWith('.md'))
+
+				// Convert to WorldsetFile objects with name and path
+				const worldsetFiles = mdFiles.map(fileName => ({
+					name: fileName,
+					path: `worldset/${fileName}`
+				}))
+
+				await provider.postMessageToWebview({
+					type: "worldsetList",
+					worldsetFiles: worldsetFiles
+				})
+			} catch (error) {
+				provider.log(`Error getting worldset list: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				await provider.postMessageToWebview({
+					type: "worldsetList",
+					worldsetFiles: []
+				})
+			}
+			break
+		}
+
+		case "getWorldsetFiles": {
+			try {
+				const worldsetName = message.worldsetName
+				if (!worldsetName) {
+					break
+				}
+
+				const workspacePath = getWorkspacePath()
+				if (!workspacePath) {
+					await provider.postMessageToWebview({
+						type: "worldsetFiles",
+						worldsetName: worldsetName,
+						worldsetFiles: []
+					})
+					break
+				}
+
+				const worldsetDir = path.join(workspacePath, "worldset")
+				const worldsetPath = path.join(worldsetDir, worldsetName)
+
+				// For now, we just return the main worldset file
+				// In the future, this could be expanded to support multiple files per worldset
+				const files = [{
+					name: worldsetName,
+					path: worldsetPath
+				}]
+
+				await provider.postMessageToWebview({
+					type: "worldsetFiles",
+					worldsetName: worldsetName,
+					worldsetFiles: files
+				})
+			} catch (error) {
+				provider.log(`Error getting worldset files: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				await provider.postMessageToWebview({
+					type: "worldsetFiles",
+					worldsetName: message.worldsetName || "",
+					worldsetFiles: []
+				})
+			}
+			break
+		}
+
+		case "readWorldsetFile": {
+			try {
+				const worldsetName = message.worldsetName
+				if (!worldsetName) {
+					break
+				}
+
+				const workspacePath = getWorkspacePath()
+				if (!workspacePath) {
+					await provider.postMessageToWebview({
+						type: "worldsetContent",
+						worldsetName: worldsetName,
+						worldsetContent: ""
+					})
+					break
+				}
+
+				const worldsetDir = path.join(workspacePath, "worldset")
+				const worldsetPath = path.join(worldsetDir, worldsetName)
+
+				// Read the worldset file content
+				const content = await fs.readFile(worldsetPath, "utf8")
+
+				await provider.postMessageToWebview({
+					type: "worldsetContent",
+					worldsetName: worldsetName,
+					worldsetContent: content
+				})
+			} catch (error) {
+				provider.log(`Error reading worldset file: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				await provider.postMessageToWebview({
+					type: "worldsetContent",
+					worldsetName: message.worldsetName || "",
+					worldsetContent: ""
+				})
+			}
+			break
+		}
+
+		case "enableWorldset": {
+			try {
+				const worldsetName = message.worldsetName
+				if (!worldsetName) {
+					break
+				}
+
+				// Get current enabled worldsets
+				const currentEnabledWorldsets = getGlobalState("enabledWorldsets") || []
+				
+				// Add the worldset if not already enabled
+				if (!currentEnabledWorldsets.includes(worldsetName)) {
+					const updatedWorldsets = [...currentEnabledWorldsets, worldsetName]
+					await updateGlobalState("enabledWorldsets", updatedWorldsets)
+					
+					provider.log(`Enabled worldset: ${worldsetName}`)
+				} else {
+					provider.log(`Worldset already enabled: ${worldsetName}`)
+				}
+
+				// Send status update
+				const enabledWorldsets = getGlobalState("enabledWorldsets") || []
+				await provider.postMessageToWebview({
+					type: "worldsetStatusUpdate",
+					worldsetStatus: {
+						enabled: enabledWorldsets.length > 0,
+						enabledWorldsets: enabledWorldsets
+					}
+				})
+			} catch (error) {
+				provider.log(`Error enabling worldset: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+			}
+			break
+		}
+
+		case "disableWorldset": {
+			try {
+				const worldsetName = message.worldsetName
+				if (!worldsetName) {
+					break
+				}
+
+				// Get current enabled worldsets
+				const currentEnabledWorldsets = getGlobalState("enabledWorldsets") || []
+				
+				// Remove the worldset if currently enabled
+				const updatedWorldsets = currentEnabledWorldsets.filter(name => name !== worldsetName)
+				await updateGlobalState("enabledWorldsets", updatedWorldsets)
+				
+				provider.log(`Disabled worldset: ${worldsetName}`)
+
+				// Send status update
+				await provider.postMessageToWebview({
+					type: "worldsetStatusUpdate",
+					worldsetStatus: {
+						enabled: updatedWorldsets.length > 0,
+						enabledWorldsets: updatedWorldsets
+					}
+				})
+			} catch (error) {
+				provider.log(`Error disabling worldset: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+			}
+			break
+		}
+
+		case "getWorldsetStatus": {
+			try {
+				const enabledWorldsets = getGlobalState("enabledWorldsets") || []
+				
+				await provider.postMessageToWebview({
+					type: "worldsetStatusUpdate",
+					worldsetStatus: {
+						enabled: enabledWorldsets.length > 0,
+						enabledWorldsets: enabledWorldsets
+					}
+				})
+			} catch (error) {
+				provider.log(`Error getting worldset status: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				await provider.postMessageToWebview({
+					type: "worldsetStatusUpdate",
+					worldsetStatus: {
+						enabled: false,
+						enabledWorldsets: []
+					}
+				})
+			}
+			break
+		}
+
+		case "openWorldsetFolder": {
+			try {
+				const workspacePath = getWorkspacePath()
+				if (!workspacePath) {
+					vscode.window.showErrorMessage("No workspace folder found")
+					break
+				}
+
+				const worldsetDir = path.join(workspacePath, "worldset")
+				
+				// Create worldset directory if it doesn't exist
+				await fs.mkdir(worldsetDir, { recursive: true })
+				
+				// Open the worldset folder in file explorer
+				vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(worldsetDir), { forceNewWindow: false })
+				
+				provider.log(`Opened worldset folder: ${worldsetDir}`)
+			} catch (error) {
+				provider.log(`Error opening worldset folder: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				vscode.window.showErrorMessage("Failed to open worldset folder")
+			}
+			break
+		}
 	}
 }

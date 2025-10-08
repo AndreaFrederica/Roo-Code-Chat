@@ -300,6 +300,7 @@ async function generatePrompt(
 	anhUseAskTool?: boolean,
 	userAvatarRole?: Role,
 	enableUserAvatar?: boolean,
+	enabledWorldsets?: string[],
 ): Promise<string> {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -374,6 +375,43 @@ ${userAvatarSection}
 
 	const roleSectionBlock = aiRoleSectionBlock + userAvatarSectionBlock
 
+	// Load worldset content if enabled
+	let worldsetSectionBlock = ""
+	if (enabledWorldsets && enabledWorldsets.length > 0) {
+		try {
+			const path = require("path")
+			const fs = require("fs")
+			const worldsetContents: string[] = []
+			
+			for (const worldsetName of enabledWorldsets) {
+				const worldsetPath = path.join(cwd, "worldset", worldsetName)
+				
+				if (fs.existsSync(worldsetPath)) {
+					const worldsetContent = fs.readFileSync(worldsetPath, "utf-8")
+					worldsetContents.push(`## ${worldsetName}\n\n${worldsetContent}`)
+				}
+			}
+			
+			if (worldsetContents.length > 0) {
+				worldsetSectionBlock = `
+
+====
+
+WORLDVIEW SETTING
+
+The following worldview settings are currently active and should guide your responses:
+
+${worldsetContents.join('\n\n---\n\n')}
+
+====
+
+`
+			}
+		} catch (error) {
+			console.error("[ANH-Chat:SystemPrompt] Error loading worldsets:", error)
+		}
+	}
+
 	// Determine if we're in pure chat mode
 	const isPureChatMode = anhPersonaMode === "chat"
 
@@ -385,6 +423,7 @@ ${userAvatarSection}
 		roleDefinition,
 		"",
 		roleSectionBlock,
+		worldsetSectionBlock, // Add worldset content here
 		markdownFormattingSection(),
 		""
 	]
@@ -520,6 +559,7 @@ export const SYSTEM_PROMPT = async (
 	anhUseAskTool?: boolean,
 	userAvatarRole?: Role,
 	enableUserAvatar?: boolean,
+	enabledWorldsets?: string[],
 ): Promise<string> => {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -632,5 +672,6 @@ ${customInstructions}`
 		anhUseAskTool,
 		userAvatarRole,
 		enableUserAvatar,
+		enabledWorldsets,
 	)
 }

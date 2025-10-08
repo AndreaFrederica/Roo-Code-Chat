@@ -30,6 +30,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		anhUseAskTool,
 		userAvatarRole,
 		enableUserAvatar,
+		enabledWorldsets,
 	} = await provider.getState()
 
 	// Check experiment to determine which diff strategy to use
@@ -112,6 +113,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		anhUseAskTool,
 		userAvatarRole, // 直接传递 userAvatarRole，与 Task.getSystemPrompt() 保持一致
 		enableUserAvatar, // 直接传递 enableUserAvatar
+		enabledWorldsets, // 传递启用的世界观设定
 	)
 
 	return systemPrompt

@@ -1,0 +1,22 @@
+{
+  "worldsets": [
+    {
+      "id": "01998c7a-113e-73ef-bf63-e9911c33665c",
+      "name": "幻想乡世界观",
+      "description": "东方Project的幻想乡世界设定",
+      "packagePath": "gensokyo_worldset.md",
+      "lastUpdatedAt": "2025-01-27T10:00:00.000Z",
+      "tags": ["东方Project", "幻想乡", "同人"],
+      "enabled": true
+    },
+    {
+      "id": "01998c7a-113e-73ef-bf63-e9911c33665d",
+      "name": "现代都市世界观",
+      "description": "现代都市背景的世界设定",
+      "packagePath": "modern_city_worldset.md",
+      "lastUpdatedAt": "2025-01-27T10:00:00.000Z",
+      "tags": ["现代", "都市", "日常"],
+      "enabled": false
+    }
+  ]
+}

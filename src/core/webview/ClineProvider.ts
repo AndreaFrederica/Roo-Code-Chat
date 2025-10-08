@@ -1881,6 +1881,7 @@ export class ClineProvider
 			displayMode,
 			userAvatarRole,
 			enableUserAvatar,
+			enabledWorldsets,
 		} = await this.getState()
 
 		// Get role prompt data to include in state
@@ -2276,6 +2277,7 @@ export class ClineProvider
 			displayMode: stateValues.displayMode,
 			userAvatarRole: stateValues.userAvatarRole,
 			enableUserAvatar: stateValues.enableUserAvatar,
+			enabledWorldsets: stateValues.enabledWorldsets,
 		}
 	}
 

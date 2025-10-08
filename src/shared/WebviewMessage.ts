@@ -245,6 +245,14 @@ export interface WebviewMessage {
 		| "userAvatarRole"
 		| "anhChatModeHideTaskCompletion"
 		| "anhShowRoleCardOnSwitch"
+		| "createWorldsetFolder"
+		| "getWorldsetList"
+		| "getWorldsetFiles"
+		| "readWorldsetFile"
+		| "enableWorldset"
+		| "disableWorldset"
+		| "getWorldsetStatus"
+		| "openWorldsetFolder"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -323,6 +331,15 @@ export interface WebviewMessage {
 		codebaseIndexGeminiApiKey?: string
 		codebaseIndexMistralApiKey?: string
 		codebaseIndexVercelAiGatewayApiKey?: string
+	}
+	// Worldset-related properties
+	worldsetName?: string
+	worldsetFiles?: string[]
+	worldsetContent?: string
+	worldsetEnabled?: boolean
+	worldsetStatus?: {
+		enabled: boolean
+		currentWorldset?: string
 	}
 }
 

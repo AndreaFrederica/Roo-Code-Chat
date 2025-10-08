@@ -34,6 +34,12 @@ export interface Command {
 	argumentHint?: string
 }
 
+// Worldset file interface
+export interface WorldsetFile {
+	name: string
+	path: string
+}
+
 // Type for marketplace installed metadata
 export interface MarketplaceInstalledMetadata {
 	project: Record<string, { type: string }>
@@ -140,6 +146,12 @@ export interface ExtensionMessage {
 		| "setAnhToneStrict"
 		| "enableUserAvatar"
 		| "userAvatarRole"
+		| "worldsetList"
+		| "worldsetFiles"
+		| "worldsetContent"
+		| "worldsetStatus"
+		| "worldsetStatusUpdate"
+		| "worldsetFolderCreated"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -222,6 +234,11 @@ export interface ExtensionMessage {
 	roles?: RoleSummary[] // For anhRolesLoaded
 	roleUuid?: string // For loadAnhRole
 	role?: Role // For anhRoleLoaded
+	worldsetList?: string[] // For worldsetList
+	worldsetFiles?: WorldsetFile[] // For worldsetFiles
+	worldsetName?: string // For worldsetFiles and other worldset operations
+	worldsetContent?: string // For worldsetContent
+	worldsetStatus?: { enabled: boolean; enabledWorldsets?: string[] } // For worldsetStatus
 }
 
 export type ExtensionState = Pick<
@@ -309,6 +326,7 @@ export type ExtensionState = Pick<
 	| "anhShowRoleCardOnSwitch"
 	| "userAvatarRole"
 	| "enableUserAvatar"
+	| "enabledWorldsets"
 > & {
 	version: string
 	clineMessages: ClineMessage[]

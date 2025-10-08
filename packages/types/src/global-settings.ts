@@ -168,6 +168,9 @@ export const globalSettingsSchema = z.object({
 
 	// UI Display settings
 	displayMode: z.enum(["coding", "chat"]).optional(),
+
+	// Worldset settings
+	enabledWorldsets: z.array(z.string()).optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>

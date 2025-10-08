@@ -33,6 +33,7 @@
 		"slashCommands": "斜杠命令",
 		"prompts": "提示词",
 		"ui": "UI",
+		"worldview": "世界观",
 		"experimental": "实验性",
 		"language": "语言",
 		"userAvatar": "用户代理角色",
@@ -927,5 +928,18 @@
 		"searchPlaceholder": "搜索角色...",
 		"description": "配置用户代理角色，让你使用特定角色与AI对话",
 		"noResults": "未找到匹配的角色"
+	},
+	"worldview": {
+		"worldsetFiles": "世界观文件",
+		"characterSettings": "角色设定",
+		"worldsetPreview": "世界观预览",
+		"relatedCharacters": "相关角色",
+		"noWorldsets": "暂无世界观文件",
+		"noCharacters": "暂无角色",
+		"noContent": "暂无内容",
+		"selectWorldset": "请选择一个世界观文件",
+		"loading": "加载中...",
+		"openFolder": "打开文件夹",
+		"refresh": "刷新"
 	}
 }

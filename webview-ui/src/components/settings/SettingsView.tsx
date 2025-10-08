@@ -26,6 +26,7 @@ import {
 	SquareSlash,
 	Glasses,
 	User,
+	BookOpen,
 } from "lucide-react"
 
 import type { ProviderSettings, ExperimentId, TelemetrySetting } from "@roo-code/types"
@@ -70,6 +71,7 @@ import PromptsSettings from "./PromptsSettings"
 import { SlashCommandsSettings } from "./SlashCommandsSettings"
 import { UISettings } from "./UISettings"
 import UserAvatarSettings from "./UserAvatarSettings"
+import { WorldviewSettings } from "./WorldviewSettings"
 
 export const settingsTabsContainer = "flex flex-1 overflow-hidden [&.narrow_.tab-label]:hidden"
 export const settingsTabList =
@@ -94,6 +96,7 @@ const sectionNames = [
 	"userAvatar",
 	"prompts",
 	"ui",
+	"worldview",
 	"experimental",
 	"language",
 	"about",
@@ -491,6 +494,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			{ id: "userAvatar", icon: User },
 			{ id: "prompts", icon: MessageSquare },
 			{ id: "ui", icon: Glasses },
+			{ id: "worldview", icon: BookOpen },
 			{ id: "experimental", icon: FlaskConical },
 			{ id: "language", icon: Globe },
 			{ id: "about", icon: Info },
@@ -808,6 +812,9 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							setCachedStateField={setCachedStateField}
 						/>
 					)}
+
+					{/* Worldview Section */}
+					{activeTab === "worldview" && <WorldviewSettings />}
 
 					{/* Experimental Section */}
 					{activeTab === "experimental" && (
