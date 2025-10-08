@@ -48,6 +48,10 @@ logs
 .roo/mcp.json
 
 # Qdrant
+
+# Local publish scripts with keys
+scripts/publish-local.js
+scripts/publish-local.ps1
 qdrant_storage/
 novel-helper/.anh-fsdb/
 .history/
