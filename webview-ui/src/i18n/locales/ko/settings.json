@@ -798,7 +798,7 @@
 		"useCustomModel": "사용자 정의 사용: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "질문이나 피드백이 있으시면 <githubLink>github.com/RooCodeInc/Roo-Code</githubLink>에서 이슈를 열거나 <redditLink>reddit.com/r/RooCode</redditLink> 또는 <discordLink>discord.gg/roocode</discordLink>에 가입하세요",
+		"feedback": "질문이나 피드백이 있으시면 <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink>에서 이슈를 열거나 토론에 참여하세요",
 		"telemetry": {
 			"label": "익명 오류 및 사용 보고 허용",
 			"description": "익명 사용 데이터 및 오류 보고서를 전송하여 ANH CHAT 개선에 도움을 주세요. 이 텔레메트리는 코드, 프롬프트 또는 개인 정보를 수집하지 않습니다. 자세한 내용은 <privacyLink>개인정보 보호정책</privacyLink>을 참조하세요."
@@ -888,5 +888,20 @@
 			"label": "기본적으로 생각 메시지 접기",
 			"description": "활성화하면 상호 작용할 때까지 생각 블록이 기본적으로 접힙니다"
 		}
+	},
+	"userAvatar": {
+		"title": "사용자 아바타 역할",
+		"enable": "사용자 아바타 역할 활성화",
+		"enableDescription": "활성화하면 AI 앞에서의 당신의 역할입니다",
+		"selectRole": "역할 선택",
+		"selectRoleDescription": "AI 앞에서의 당신의 역할을 선택하세요",
+		"selectRoleTooltip": "클릭하여 역할 선택",
+		"noRole": "역할 없음",
+		"noRoleDescription": "특정 역할을 사용하지 않고 기본 모드로 대화",
+		"aliases": "별칭",
+		"loadError": "역할 목록 로드 실패",
+		"searchPlaceholder": "역할 검색...",
+		"description": "사용자 아바타 역할을 구성하여 특정 역할로 AI와 대화할 수 있습니다",
+		"noResults": "일치하는 역할을 찾을 수 없습니다"
 	}
 }

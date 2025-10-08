@@ -798,7 +798,7 @@
 		"useCustomModel": "Aangepast gebruiken: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "Heb je vragen of feedback? Open gerust een issue op <githubLink>github.com/RooCodeInc/Roo-Code</githubLink> of sluit je aan bij <redditLink>reddit.com/r/RooCode</redditLink> of <discordLink>discord.gg/roocode</discordLink>",
+		"feedback": "Heb je vragen of feedback? Open gerust een issue of sluit je aan bij discussies op <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink>",
 		"telemetry": {
 			"label": "Anonieme fout- en gebruiksrapportage toestaan",
 			"description": "Help ANH CHAT te verbeteren door anonieme gebruiksgegevens en foutmeldingen te versturen. Deze telemetrie verzamelt geen code, prompts of persoonlijke informatie. Zie ons <privacyLink>privacybeleid</privacyLink> voor meer details."
@@ -888,5 +888,20 @@
 			"label": "Denkberichten standaard samenvouwen",
 			"description": "Indien ingeschakeld, worden denkblokken standaard samengevouwen totdat je ermee interageert"
 		}
+	},
+	"userAvatar": {
+		"title": "Gebruiker Avatar Rol",
+		"enable": "Gebruiker Avatar Rol Inschakelen",
+		"enableDescription": "Wanneer ingeschakeld, is dit je rol voor de AI",
+		"selectRole": "Rol Selecteren",
+		"selectRoleDescription": "Selecteer je rol voor de AI",
+		"selectRoleTooltip": "Klik om rol te selecteren",
+		"noRole": "Geen Rol",
+		"noRoleDescription": "Geen specifieke rol gebruiken, chatten in standaardmodus",
+		"aliases": "Aliassen",
+		"loadError": "Fout bij laden van rollenlijst",
+		"searchPlaceholder": "Zoek rollen...",
+		"description": "Configureer gebruiker avatar rol om met AI te chatten met een specifieke rol",
+		"noResults": "Geen overeenkomende rollen gevonden"
 	}
 }

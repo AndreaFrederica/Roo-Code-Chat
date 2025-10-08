@@ -1,6 +1,6 @@
 {
 	"extension.displayName": "ANH CHAT",
-	"extension.description": "Ein komplettes KI-Agenten-Entwicklungsteam in deinem Editor.",
+	"extension.description": "ANH-CHAT: Spezialisierter KI-Chat-Assistent für Entwickler.",
 	"command.newTask.title": "Neue Aufgabe",
 	"command.explainCode.title": "Code Erklären",
 	"command.fixCode.title": "Code Reparieren",

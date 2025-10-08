@@ -293,7 +293,7 @@
 			"selectModel": "Wybierz <code>roo/code-supernova</code> od dostawcy Roo CHAT Cloud w Ustawieniach, aby rozpocząć.",
 			"goToSettingsButton": "Przejdź do Ustawień"
 		},
-		"socialLinks": "Dołącz do nas na <xLink>X</xLink>, <discordLink>Discord</discordLink>, lub <redditLink>r/RooCode</redditLink> 🚀"
+		"socialLinks": "Dołącz do naszej społeczności czatu: <communityLink>GitHub Discussions</communityLink> 🚀"
 	},
 	"browser": {
 		"rooWantsToUse": "Roo chce użyć przeglądarki",

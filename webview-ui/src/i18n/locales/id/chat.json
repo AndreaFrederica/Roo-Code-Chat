@@ -305,7 +305,7 @@
 			"selectModel": "Pilih <code>roo/code-supernova</code> dari penyedia Roo CHAT Cloud di Pengaturan untuk memulai.",
 			"goToSettingsButton": "Pergi ke Pengaturan"
 		},
-		"socialLinks": "Bergabunglah dengan kami di <xLink>X</xLink>, <discordLink>Discord</discordLink>, atau <redditLink>r/RooCode</redditLink> 🚀"
+		"socialLinks": "Bergabunglah dengan komunitas chat kami: <communityLink>GitHub Discussions</communityLink> 🚀"
 	},
 	"reasoning": {
 		"thinking": "Berpikir",

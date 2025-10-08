@@ -798,7 +798,7 @@
 		"useCustomModel": "Usar personalizado: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "Se tiver alguma dúvida ou feedback, sinta-se à vontade para abrir um problema em <githubLink>github.com/RooCodeInc/Roo-Code</githubLink> ou juntar-se a <redditLink>reddit.com/r/RooCode</redditLink> ou <discordLink>discord.gg/roocode</discordLink>",
+		"feedback": "Se tiver alguma dúvida ou feedback, sinta-se à vontade para abrir um problema ou juntar-se às discussões em <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink>",
 		"telemetry": {
 			"label": "Permitir relatórios anônimos de erros e uso",
 			"description": "Ajude a melhorar o ANH CHAT enviando dados de uso anônimos e relatórios de erros. Esta telemetria não coleta código, prompts ou informações pessoais. Consulte nossa <privacyLink>política de privacidade</privacyLink> para mais detalhes."
@@ -888,5 +888,20 @@
 			"label": "Recolher mensagens de pensamento por padrão",
 			"description": "Quando ativado, os blocos de pensamento serão recolhidos por padrão até que você interaja com eles"
 		}
+	},
+	"userAvatar": {
+		"title": "Papel do Avatar do Usuário",
+		"enable": "Ativar Papel do Avatar do Usuário",
+		"enableDescription": "Quando ativado, este é o seu papel diante da IA",
+		"selectRole": "Selecionar Papel",
+		"selectRoleDescription": "Selecione o seu papel diante da IA",
+		"selectRoleTooltip": "Clique para selecionar papel",
+		"noRole": "Sem Papel",
+		"noRoleDescription": "Não usar um papel específico, conversar no modo padrão",
+		"aliases": "Apelidos",
+		"loadError": "Falha ao carregar lista de papéis",
+		"searchPlaceholder": "Buscar papéis...",
+		"description": "Configure o papel do avatar do usuário para conversar com a IA usando um papel específico",
+		"noResults": "Nenhum papel correspondente encontrado"
 	}
 }

@@ -1,6 +1,6 @@
 {
 	"extension.displayName": "ANH CHAT",
-	"extension.description": "Một đội ngũ phát triển các tác nhân AI hoàn chỉnh trong trình soạn thảo của bạn.",
+	"extension.description": "ANH-CHAT: Trợ lý chat AI chuyên biệt dành cho các nhà phát triển.",
 	"command.newTask.title": "Tác Vụ Mới",
 	"command.explainCode.title": "Giải Thích Mã",
 	"command.fixCode.title": "Sửa Mã",

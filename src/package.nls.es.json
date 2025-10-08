@@ -1,6 +1,6 @@
 {
 	"extension.displayName": "ANH CHAT",
-	"extension.description": "Un equipo completo de desarrollo de agentes de IA en tu editor.",
+	"extension.description": "ANH-CHAT: Asistente de chat IA especializado para desarrolladores.",
 	"command.newTask.title": "Nueva Tarea",
 	"command.explainCode.title": "Explicar Código",
 	"command.fixCode.title": "Corregir Código",

@@ -797,7 +797,7 @@
 		"useCustomModel": "Benutzerdefiniert verwenden: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "Wenn du Fragen oder Feedback hast, kannst du gerne ein Issue auf <githubLink>github.com/RooCodeInc/Roo-Code</githubLink> eröffnen oder <redditLink>reddit.com/r/RooCode</redditLink> oder <discordLink>discord.gg/roocode</discordLink> beitreten",
+		"feedback": "Wenn du Fragen oder Feedback hast, kannst du gerne ein Issue eröffnen oder an Diskussionen teilnehmen unter <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink>",
 		"telemetry": {
 			"label": "Anonyme Fehler- und Nutzungsberichte zulassen",
 			"description": "Hilf mit, ANH CHAT zu verbessern, indem du anonyme Nutzungsdaten und Fehlerberichte sendest. Diese Telemetrie sammelt keine Code-, Prompt- oder persönliche Informationen. Weitere Einzelheiten findest du in unserer <privacyLink>Datenschutzrichtlinie</privacyLink>."
@@ -887,5 +887,20 @@
 			"label": "Gedankenblöcke standardmäßig ausblenden",
 			"description": "Wenn aktiviert, werden Gedankenblöcke standardmäßig ausgeblendet, bis du mit ihnen interagierst"
 		}
+	},
+	"userAvatar": {
+		"title": "Benutzer-Avatar-Rolle",
+		"enable": "Benutzer-Avatar-Rolle aktivieren",
+		"enableDescription": "Wenn aktiviert, ist dies deine Rolle vor der KI",
+		"selectRole": "Rolle auswählen",
+		"selectRoleDescription": "Wähle deine Rolle vor der KI aus",
+		"selectRoleTooltip": "Klicken, um Rolle auszuwählen",
+		"noRole": "Keine Rolle",
+		"noRoleDescription": "Keine spezifische Rolle verwenden, im Standardmodus chatten",
+		"aliases": "Aliase",
+		"loadError": "Fehler beim Laden der Rollenliste",
+		"searchPlaceholder": "Rollen suchen...",
+		"description": "Konfiguriere die Benutzer-Avatar-Rolle, um mit einer spezifischen Rolle mit der KI zu chatten",
+		"noResults": "Keine passenden Rollen gefunden"
 	}
 }

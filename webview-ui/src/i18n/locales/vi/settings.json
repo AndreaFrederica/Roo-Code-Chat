@@ -798,7 +798,7 @@
 		"useCustomModel": "Sử dụng tùy chỉnh: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "Nếu bạn có bất kỳ câu hỏi hoặc phản hồi nào, vui lòng mở một vấn đề tại <githubLink>github.com/RooCodeInc/Roo-Code</githubLink> hoặc tham gia <redditLink>reddit.com/r/RooCode</redditLink> hoặc <discordLink>discord.gg/roocode</discordLink>",
+		"feedback": "Nếu bạn có bất kỳ câu hỏi hoặc phản hồi nào, vui lòng mở một vấn đề hoặc tham gia thảo luận tại <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink>",
 		"telemetry": {
 			"label": "Cho phép báo cáo lỗi và sử dụng ẩn danh",
 			"description": "Giúp cải thiện ANH CHAT bằng cách gửi dữ liệu sử dụng ẩn danh và báo cáo lỗi. Telemetry này không thu thập mã, prompt hoặc thông tin cá nhân. Xem <privacyLink>chính sách bảo mật</privacyLink> của chúng tôi để biết thêm chi tiết. Bạn có thể tắt tính năng này bất cứ lúc nào."
@@ -888,5 +888,20 @@
 			"label": "Thu gọn tin nhắn Suy nghĩ theo mặc định",
 			"description": "Khi được bật, các khối suy nghĩ sẽ được thu gọn theo mặc định cho đến khi bạn tương tác với chúng"
 		}
+	},
+	"userAvatar": {
+		"title": "Vai Trò Avatar Người Dùng",
+		"enable": "Bật Vai Trò Avatar Người Dùng",
+		"enableDescription": "Khi được bật, đây là vai trò của bạn trước AI",
+		"selectRole": "Chọn Vai Trò",
+		"selectRoleDescription": "Chọn vai trò của bạn trước AI",
+		"selectRoleTooltip": "Nhấp để chọn vai trò",
+		"noRole": "Không Có Vai Trò",
+		"noRoleDescription": "Không sử dụng vai trò cụ thể, trò chuyện ở chế độ mặc định",
+		"aliases": "Bí Danh",
+		"loadError": "Lỗi tải danh sách vai trò",
+		"searchPlaceholder": "Tìm kiếm vai trò...",
+		"description": "Cấu hình vai trò avatar người dùng để trò chuyện với AI bằng vai trò cụ thể",
+		"noResults": "Không tìm thấy vai trò phù hợp"
 	}
 }

@@ -1,6 +1,6 @@
 {
 	"extension.displayName": "ANH CHAT",
-	"extension.description": "Целая команда ИИ-разработчиков в вашем редакторе.",
+	"extension.description": "ANH-CHAT: Специализированный ИИ-чат-ассистент для разработчиков.",
 	"views.contextMenu.label": "ANH CHAT",
 	"views.terminalMenu.label": "ANH CHAT",
 	"views.activitybar.title": "ANH CHAT",

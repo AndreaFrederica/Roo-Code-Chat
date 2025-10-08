@@ -279,7 +279,7 @@
 			"selectModel": "Выберите <code>roo/code-supernova</code> от провайдера Roo CHAT Cloud в Настройках для начала работы.",
 			"goToSettingsButton": "Перейти к Настройкам"
 		},
-		"socialLinks": "Присоединяйтесь к нам в <xLink>X</xLink>, <discordLink>Discord</discordLink>, или <redditLink>r/RooCode</redditLink> 🚀"
+		"socialLinks": "Присоединяйтесь к нашему чат-сообществу: <communityLink>GitHub Discussions</communityLink> 🚀"
 	},
 	"reasoning": {
 		"thinking": "Обдумывание",

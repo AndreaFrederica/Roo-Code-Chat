@@ -798,7 +798,7 @@
 		"useCustomModel": "कस्टम उपयोग करें: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "यदि आपके कोई प्रश्न या प्रतिक्रिया है, तो <githubLink>github.com/RooCodeInc/Roo-Code</githubLink> पर एक मुद्दा खोलने या <redditLink>reddit.com/r/RooCode</redditLink> या <discordLink>discord.gg/roocode</discordLink> में शामिल होने में संकोच न करें",
+		"feedback": "यदि आपके कोई प्रश्न या प्रतिक्रिया है, तो <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink> पर एक मुद्दा खोलने या चर्चा में शामिल होने में संकोच न करें",
 		"telemetry": {
 			"label": "गुमनाम त्रुटि और उपयोग रिपोर्टिंग की अनुमति दें",
 			"description": "गुमनाम उपयोग डेटा और त्रुटि रिपोर्ट भेजकर ANH CHAT को बेहतर बनाने में मदद करें। यह टेलीमेट्री कोड, प्रॉम्प्ट या व्यक्तिगत जानकारी एकत्र नहीं करती। अधिक विवरण के लिए हमारी <privacyLink>गोपनीयता नीति</privacyLink> देखें। आप इसे कभी भी बंद कर सकते हैं।"
@@ -888,5 +888,20 @@
 			"label": "सोच संदेशों को डिफ़ॉल्ट रूप से संक्षिप्त करें",
 			"description": "सक्षम होने पर, सोच ब्लॉक आपके द्वारा उनके साथ इंटरैक्ट करने तक डिफ़ॉल्ट रूप से संक्षिप्त रहेंगे"
 		}
+	},
+	"userAvatar": {
+		"title": "उपयोगकर्ता अवतार भूमिका",
+		"enable": "उपयोगकर्ता अवतार भूमिका सक्षम करें",
+		"enableDescription": "सक्षम होने पर, यह AI के सामने आपकी भूमिका है",
+		"selectRole": "भूमिका चुनें",
+		"selectRoleDescription": "AI के सामने अपनी भूमिका चुनें",
+		"selectRoleTooltip": "भूमिका चुनने के लिए क्लिक करें",
+		"noRole": "कोई भूमिका नहीं",
+		"noRoleDescription": "कोई विशिष्ट भूमिका का उपयोग न करें, डिफ़ॉल्ट मोड में चैट करें",
+		"aliases": "उपनाम",
+		"loadError": "भूमिका सूची लोड करने में त्रुटि",
+		"searchPlaceholder": "भूमिकाएं खोजें...",
+		"description": "विशिष्ट भूमिका का उपयोग करके AI के साथ चैट करने के लिए उपयोगकर्ता अवतार भूमिका कॉन्फ़िगर करें",
+		"noResults": "कोई मेल खाती भूमिका नहीं मिली"
 	}
 }

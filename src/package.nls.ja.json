@@ -1,6 +1,6 @@
 {
 	"extension.displayName": "ANH CHAT",
-	"extension.description": "エディタ内のAIエージェントによる開発チーム。",
+	"extension.description": "ANH-CHAT：開発者向けの特化型AIチャットアシスタント。",
 	"views.contextMenu.label": "ANH CHAT",
 	"views.terminalMenu.label": "ANH CHAT",
 	"views.activitybar.title": "ANH CHAT",

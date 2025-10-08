@@ -798,7 +798,7 @@
 		"useCustomModel": "カスタムを使用: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "質問やフィードバックがある場合は、<githubLink>github.com/RooCodeInc/Roo-Code</githubLink>で問題を開くか、<redditLink>reddit.com/r/RooCode</redditLink>や<discordLink>discord.gg/roocode</discordLink>に参加してください",
+		"feedback": "質問やフィードバックがある場合は、<githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink>で問題を開くかディスカッションに参加してください",
 		"telemetry": {
 			"label": "匿名のエラーと使用状況レポートを許可",
 			"description": "匿名の使用データとエラーレポートを送信してANH CHATの改善にご協力ください。このテレメトリはコード、プロンプト、個人情報を収集しません。詳細については<privacyLink>プライバシーポリシー</privacyLink>をご覧ください。"
@@ -888,5 +888,20 @@
 			"label": "デフォルトで思考メッセージを折りたたむ",
 			"description": "有効にすると、操作するまで思考ブロックがデフォルトで折りたたまれます"
 		}
+	},
+	"userAvatar": {
+		"title": "ユーザーアバター役割",
+		"enable": "ユーザーアバター役割を有効にする",
+		"enableDescription": "有効にすると、これがAIの前でのあなたの役割になります",
+		"selectRole": "役割を選択",
+		"selectRoleDescription": "AIの前でのあなたの役割を選択してください",
+		"selectRoleTooltip": "クリックして役割を選択",
+		"noRole": "役割なし",
+		"noRoleDescription": "特定の役割を使用せず、デフォルトモードで会話する",
+		"aliases": "エイリアス",
+		"loadError": "役割リストの読み込みに失敗しました",
+		"searchPlaceholder": "役割を検索...",
+		"description": "ユーザーアバター役割を設定して、特定の役割でAIと会話できるようにします",
+		"noResults": "一致する役割が見つかりません"
 	}
 }

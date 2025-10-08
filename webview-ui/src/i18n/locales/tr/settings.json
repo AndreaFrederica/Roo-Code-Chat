@@ -798,7 +798,7 @@
 		"useCustomModel": "Özel kullan: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "Herhangi bir sorunuz veya geri bildiriminiz varsa, <githubLink>github.com/RooCodeInc/Roo-Code</githubLink> adresinde bir konu açmaktan veya <redditLink>reddit.com/r/RooCode</redditLink> ya da <discordLink>discord.gg/roocode</discordLink>'a katılmaktan çekinmeyin",
+		"feedback": "Herhangi bir sorunuz veya geri bildiriminiz varsa, <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink> adresinde bir konu açmaktan veya tartışmalara katılmaktan çekinmeyin",
 		"telemetry": {
 			"label": "Anonim hata ve kullanım raporlamaya izin ver",
 			"description": "Anonim kullanım verileri ve hata raporları göndererek ANH CHAT'u geliştirmeye yardım edin. Bu telemetri kod, prompt veya kişisel bilgi toplamaz. Daha fazla ayrıntı için <privacyLink>gizlilik politikamıza</privacyLink> bakın. Bunu istediğiniz zaman kapatabilirsiniz."
@@ -888,5 +888,20 @@
 			"label": "Düşünme mesajlarını varsayılan olarak daralt",
 			"description": "Etkinleştirildiğinde, düşünme blokları siz onlarla etkileşime girene kadar varsayılan olarak daraltılır"
 		}
+	},
+	"userAvatar": {
+		"title": "Kullanıcı Avatar Rolü",
+		"enable": "Kullanıcı Avatar Rolünü Etkinleştir",
+		"enableDescription": "Etkinleştirildiğinde, bu AI karşısındaki rolünüzdür",
+		"selectRole": "Rol Seç",
+		"selectRoleDescription": "AI karşısındaki rolünüzü seçin",
+		"selectRoleTooltip": "Rol seçmek için tıklayın",
+		"noRole": "Rol Yok",
+		"noRoleDescription": "Belirli bir rol kullanmayın, varsayılan modda sohbet edin",
+		"aliases": "Takma Adlar",
+		"loadError": "Rol listesi yüklenemedi",
+		"searchPlaceholder": "Rolleri ara...",
+		"description": "Belirli bir rol kullanarak AI ile sohbet etmek için kullanıcı avatar rolünü yapılandırın",
+		"noResults": "Eşleşen rol bulunamadı"
 	}
 }

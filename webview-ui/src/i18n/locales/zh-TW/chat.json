@@ -303,7 +303,7 @@
 			"selectModel": "在設定中從 Roo CHAT Cloud 提供商選擇 <code>roo/code-supernova</code> 開始使用。",
 			"goToSettingsButton": "前往設定"
 		},
-		"socialLinks": "在 <xLink>X</xLink>、<discordLink>Discord</discordLink> 或 <redditLink>r/RooCode</redditLink> 上關注我們 🚀"
+		"socialLinks": "加入我們的聊天社群：<communityLink>GitHub 討論</communityLink> 🚀"
 	},
 	"reasoning": {
 		"thinking": "思考中",

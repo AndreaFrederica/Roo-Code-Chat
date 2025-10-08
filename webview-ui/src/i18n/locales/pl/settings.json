@@ -798,7 +798,7 @@
 		"useCustomModel": "Użyj niestandardowy: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "Jeśli masz jakiekolwiek pytania lub opinie, śmiało otwórz zgłoszenie na <githubLink>github.com/RooCodeInc/Roo-Code</githubLink> lub dołącz do <redditLink>reddit.com/r/RooCode</redditLink> lub <discordLink>discord.gg/roocode</discordLink>",
+		"feedback": "Jeśli masz jakiekolwiek pytania lub opinie, śmiało otwórz zgłoszenie lub dołącz do dyskusji na <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink>",
 		"telemetry": {
 			"label": "Zezwól na anonimowe raportowanie błędów i użycia",
 			"description": "Pomóż ulepszyć ANH CHAT, wysyłając anonimowe dane użytkowania i raporty błędów. Ta telemetria nie zbiera kodu, promptów ani danych osobowych. Zobacz naszą <privacyLink>politykę prywatności</privacyLink>, aby uzyskać więcej szczegółów. Możesz to wyłączyć w dowolnym momencie."
@@ -888,5 +888,20 @@
 			"label": "Domyślnie zwijaj komunikaty o myśleniu",
 			"description": "Gdy włączone, bloki myślenia będą domyślnie zwinięte, dopóki nie wejdziesz z nimi w interakcję"
 		}
+	},
+	"userAvatar": {
+		"title": "Rola Awatara Użytkownika",
+		"enable": "Włącz Rolę Awatara Użytkownika",
+		"enableDescription": "Gdy włączone, to jest twoja rola przed AI",
+		"selectRole": "Wybierz Rolę",
+		"selectRoleDescription": "Wybierz swoją rolę przed AI",
+		"selectRoleTooltip": "Kliknij, aby wybrać rolę",
+		"noRole": "Brak Roli",
+		"noRoleDescription": "Nie używaj określonej roli, rozmawiaj w trybie domyślnym",
+		"aliases": "Aliasy",
+		"loadError": "Błąd ładowania listy ról",
+		"searchPlaceholder": "Szukaj ról...",
+		"description": "Skonfiguruj rolę awatara użytkownika, aby rozmawiać z AI używając określonej roli",
+		"noResults": "Nie znaleziono pasujących ról"
 	}
 }

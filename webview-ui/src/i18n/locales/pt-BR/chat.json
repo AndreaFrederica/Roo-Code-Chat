@@ -287,13 +287,13 @@
 	"announcement": {
 		"title": "🎉 ANH CHAT {{version}} Lançado",
 		"stealthModel": {
-			"feature": "<bold>Modelo stealth GRATUITO por tempo limitado</bold> - Code Supernova: Agora atualizado com uma <bold>janela de contexto de 1M tokens</bold>! Um modelo de codificação agêntica versátil que suporta entradas de imagem, acessível através do Roo CHAT Cloud.",
-			"note": "(Nota: prompts e completações são registrados pelo criador do modelo e usados para melhorá-lo)",
+			"feature": "<bold>Modelo stealth GRATUITO por tempo limitado</bold> - Code Supernova: Agora atualizado com <bold>janela de contexto de 1M tokens</bold>! Modelo de codificação agêntica multimodal com suporte a entrada de imagem, disponível através do Roo CHAT Cloud.",
+			"note": "(Nota: prompts e completações são registrados pelo criador do modelo e usados para melhorar o modelo)",
 			"connectButton": "Conectar ao Roo CHAT Cloud",
-			"selectModel": "Selecione <code>roo/code-supernova</code> do provedor Roo CHAT Cloud em Configurações para começar.",
+			"selectModel": "Selecione <code>roo/code-supernova</code> do provedor Roo CHAT Cloud nas Configurações para começar.",
 			"goToSettingsButton": "Ir para Configurações"
 		},
-		"socialLinks": "Junte-se a nós no <xLink>X</xLink>, <discordLink>Discord</discordLink>, ou <redditLink>r/RooCode</redditLink> 🚀"
+		"socialLinks": "Junte-se à nossa comunidade de chat: <communityLink>GitHub Discussions</communityLink> 🚀"
 	},
 	"browser": {
 		"rooWantsToUse": "Roo quer usar o navegador",

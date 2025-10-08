@@ -798,7 +798,7 @@
 		"useCustomModel": "Usa personalizzato: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "Se hai domande o feedback, sentiti libero di aprire un issue su <githubLink>github.com/RooCodeInc/Roo-Code</githubLink> o unirti a <redditLink>reddit.com/r/RooCode</redditLink> o <discordLink>discord.gg/roocode</discordLink>",
+		"feedback": "Se hai domande o feedback, sentiti libero di aprire un issue o unirti alle discussioni su <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink>",
 		"telemetry": {
 			"label": "Consenti segnalazioni anonime di errori e utilizzo",
 			"description": "Aiuta a migliorare ANH CHAT inviando dati di utilizzo anonimi e segnalazioni di errori. Questa telemetria non raccoglie codice, prompt o informazioni personali. Consulta la nostra <privacyLink>informativa sulla privacy</privacyLink> per maggiori dettagli."
@@ -888,5 +888,20 @@
 			"label": "Comprimi i messaggi di pensiero per impostazione predefinita",
 			"description": "Se abilitato, i blocchi di pensiero verranno compressi per impostazione predefinita finché non interagisci con essi"
 		}
+	},
+	"userAvatar": {
+		"title": "Ruolo Avatar Utente",
+		"enable": "Abilita Ruolo Avatar Utente",
+		"enableDescription": "Quando abilitato, questo è il tuo ruolo di fronte all'IA",
+		"selectRole": "Seleziona Ruolo",
+		"selectRoleDescription": "Seleziona il tuo ruolo di fronte all'IA",
+		"selectRoleTooltip": "Clicca per selezionare il ruolo",
+		"noRole": "Nessun Ruolo",
+		"noRoleDescription": "Non utilizzare un ruolo specifico, chatta in modalità predefinita",
+		"aliases": "Alias",
+		"loadError": "Errore nel caricamento dell'elenco dei ruoli",
+		"searchPlaceholder": "Cerca ruoli...",
+		"description": "Configura il ruolo avatar utente per chattare con l'IA utilizzando un ruolo specifico",
+		"noResults": "Nessun ruolo corrispondente trovato"
 	}
 }

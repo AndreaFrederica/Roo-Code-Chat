@@ -827,7 +827,7 @@
 		"useCustomModel": "Gunakan kustom: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "Jika kamu punya pertanyaan atau feedback, jangan ragu untuk membuka issue di <githubLink>github.com/RooCodeInc/Roo-Code</githubLink> atau bergabung <redditLink>reddit.com/r/RooCode</redditLink> atau <discordLink>discord.gg/roocode</discordLink>",
+		"feedback": "Jika kamu punya pertanyaan atau feedback, jangan ragu untuk membuka issue atau bergabung dalam diskusi di <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink>",
 		"telemetry": {
 			"label": "Izinkan pelaporan error dan penggunaan anonim",
 			"description": "Bantu tingkatkan ANH CHAT dengan mengirimkan data penggunaan anonim dan laporan error. Telemetri ini tidak mengumpulkan kode, prompt, atau informasi pribadi. Lihat <privacyLink>kebijakan privasi</privacyLink> kami untuk detail lebih lanjut. Anda dapat menonaktifkannya kapan saja."
@@ -917,5 +917,20 @@
 			"label": "Ciutkan pesan Berpikir secara default",
 			"description": "Jika diaktifkan, blok berpikir akan diciutkan secara default sampai Anda berinteraksi dengannya"
 		}
+	},
+	"userAvatar": {
+		"title": "Peran Avatar Pengguna",
+		"enable": "Aktifkan Peran Avatar Pengguna",
+		"enableDescription": "Jika diaktifkan, ini adalah peran Anda di hadapan AI",
+		"selectRole": "Pilih Peran",
+		"selectRoleDescription": "Pilih peran Anda di hadapan AI",
+		"selectRoleTooltip": "Klik untuk memilih peran",
+		"noRole": "Tanpa Peran",
+		"noRoleDescription": "Tidak menggunakan peran tertentu, chat dalam mode default",
+		"aliases": "Alias",
+		"loadError": "Gagal memuat daftar peran",
+		"searchPlaceholder": "Cari peran...",
+		"description": "Konfigurasi peran avatar pengguna untuk chat dengan AI menggunakan peran tertentu",
+		"noResults": "Tidak ditemukan peran yang cocok"
 	}
 }

@@ -1,6 +1,6 @@
 {
 	"extension.displayName": "ANH CHAT",
-	"extension.description": "에디터에서 작동하는 AI 에이전트 개발팀.",
+	"extension.description": "ANH-CHAT: 개발자를 위한 전문 AI 채팅 어시스턴트.",
 	"command.newTask.title": "새 작업",
 	"command.explainCode.title": "코드 설명",
 	"command.fixCode.title": "코드 수정",

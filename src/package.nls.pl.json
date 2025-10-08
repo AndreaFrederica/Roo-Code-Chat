@@ -1,6 +1,6 @@
 {
 	"extension.displayName": "ANH CHAT",
-	"extension.description": "Pełny zespół programistów AI w twoim edytorze.",
+	"extension.description": "ANH-CHAT: Specjalistyczny asystent czatu AI dla programistów.",
 	"command.newTask.title": "Nowe Zadanie",
 	"command.explainCode.title": "Wyjaśnij Kod",
 	"command.fixCode.title": "Napraw Kod",

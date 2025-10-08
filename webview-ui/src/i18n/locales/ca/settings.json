@@ -797,7 +797,7 @@
 		"useCustomModel": "Utilitzar personalitzat: {{modelId}}"
 	},
 	"footer": {
-		"feedback": "Si teniu qualsevol pregunta o comentari, no dubteu a obrir un issue a <githubLink>github.com/RooCodeInc/Roo-Code</githubLink> o unir-vos a <redditLink>reddit.com/r/RooCode</redditLink> o <discordLink>discord.gg/roocode</discordLink>",
+		"feedback": "Si teniu qualsevol pregunta o comentari, no dubteu a obrir un issue o unir-vos a les discussions a <githubLink>https://github.com/AndreaFrederica/andrea-novel-helper/discussions</githubLink>",
 		"telemetry": {
 			"label": "Permetre informes anònims d'errors i ús",
 			"description": "Ajuda a millorar ANH CHAT enviant dades d'ús anònimes i informes d'error. Aquesta telemetria no recull codi, prompts o informació personal. Consulta la nostra <privacyLink>política de privacitat</privacyLink> per a més detalls. Pots desactivar-ho en qualsevol moment."
@@ -887,5 +887,20 @@
 			"label": "Replega els missatges de pensament per defecte",
 			"description": "Quan estigui activat, els blocs de pensament es replegaran per defecte fins que interactuïs amb ells"
 		}
+	},
+	"userAvatar": {
+		"title": "Rol d'Avatar d'Usuari",
+		"enable": "Activar Rol d'Avatar d'Usuari",
+		"enableDescription": "Quan estigui activat, aquest és el teu rol davant la IA",
+		"selectRole": "Seleccionar Rol",
+		"selectRoleDescription": "Selecciona el teu rol davant la IA",
+		"selectRoleTooltip": "Fes clic per seleccionar rol",
+		"noRole": "Sense Rol",
+		"noRoleDescription": "No utilitzar cap rol específic, xatejar en mode per defecte",
+		"aliases": "Àlies",
+		"loadError": "Error carregant la llista de rols",
+		"searchPlaceholder": "Cercar rols...",
+		"description": "Configura el rol d'avatar d'usuari per xatejar amb la IA utilitzant un rol específic",
+		"noResults": "No s'han trobat rols coincidents"
 	}
 }

@@ -293,7 +293,8 @@
 			"selectModel": "設定で Roo CHAT Cloud プロバイダーから <code>roo/code-supernova</code> を選択して開始してください。",
 			"goToSettingsButton": "設定に移動"
 		},
-		"socialLinks": "<xLink>X</xLink>、<discordLink>Discord</discordLink>、または<redditLink>r/RooCode</redditLink>でフォローしてください 🚀"
+		"socialLinks": "チャットコミュニティに参加：<communityLink>GitHub ディスカッション</communityLink> 🚀"
+
 	},
 	"browser": {
 		"rooWantsToUse": "Rooはブラウザを使用したい",

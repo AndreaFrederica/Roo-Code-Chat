@@ -278,7 +278,8 @@
 			"selectModel": "Selecteer <code>roo/code-supernova</code> van de Roo CHAT Cloud provider in Instellingen om te beginnen.",
 			"goToSettingsButton": "Ga naar Instellingen"
 		},
-		"socialLinks": "Sluit je bij ons aan op <xLink>X</xLink>, <discordLink>Discord</discordLink>, of <redditLink>r/RooCode</redditLink> 🚀"
+		"socialLinks": "Word lid van onze chatgemeenschap: <communityLink>GitHub Discussions</communityLink> 🚀"
+
 	},
 	"reasoning": {
 		"thinking": "Denkt na",
