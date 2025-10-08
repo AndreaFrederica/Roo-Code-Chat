@@ -165,6 +165,7 @@ export const globalSettingsSchema = z.object({
 	// User avatar role settings
 	userAvatarRole: roleSchema.optional(),
 	enableUserAvatar: z.boolean().optional(),
+	hideRoleDescription: z.boolean().optional(),
 
 	// UI Display settings
 	displayMode: z.enum(["coding", "chat"]).optional(),

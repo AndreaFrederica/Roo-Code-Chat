@@ -175,6 +175,8 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setEnableUserAvatar: (value: boolean) => void
 	userAvatarRole?: Role
 	setUserAvatarRole: (value: Role | undefined) => void
+	hideRoleDescription?: boolean
+	setHideRoleDescription: (value: boolean) => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -285,6 +287,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		openRouterImageGenerationSelectedModel: "",
 		enableUserAvatar: false,
 		userAvatarRole: undefined,
+		hideRoleDescription: false,
 	})
 
 	const [didHydrateState, setDidHydrateState] = useState(false)
@@ -353,6 +356,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update userAvatarRole if present in state message
 					if ((newState as any).userAvatarRole !== undefined) {
 						setState((prevState) => ({ ...prevState, userAvatarRole: (newState as any).userAvatarRole }))
+					}
+					// Update hideRoleDescription if present in state message
+					if ((newState as any).hideRoleDescription !== undefined) {
+						setState((prevState) => ({ ...prevState, hideRoleDescription: (newState as any).hideRoleDescription }))
 					}
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {
@@ -607,6 +614,8 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setEnableUserAvatar: (value) => setState((prevState) => ({ ...prevState, enableUserAvatar: value })),
 		userAvatarRole: state.userAvatarRole,
 		setUserAvatarRole: (value) => setState((prevState) => ({ ...prevState, userAvatarRole: value })),
+		hideRoleDescription: state.hideRoleDescription ?? false,
+		setHideRoleDescription: (value) => setState((prevState) => ({ ...prevState, hideRoleDescription: value })),
 	}
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>

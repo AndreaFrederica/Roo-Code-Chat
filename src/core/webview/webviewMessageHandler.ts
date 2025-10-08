@@ -1630,6 +1630,10 @@ export const webviewMessageHandler = async (
 			await updateGlobalState("anhShowRoleCardOnSwitch", message.bool ?? false)
 			// No need to call postStateToWebview here as the UI already updated optimistically
 			break
+		case "hideRoleDescription":
+			await updateGlobalState("hideRoleDescription", message.bool ?? false)
+			// No need to call postStateToWebview here as the UI already updated optimistically
+			break
 		case "toggleApiConfigPin":
 			if (message.text) {
 				const currentPinned = getGlobalState("pinnedApiConfigs") ?? {}

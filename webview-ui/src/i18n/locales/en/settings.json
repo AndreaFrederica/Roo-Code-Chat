@@ -52,6 +52,10 @@
 			"label": "Show role card popup when switching roles",
 			"description": "When enabled, a popup card showing role details will appear when switching roles"
 		},
+		"hideRoleDescription": {
+			"label": "Hide role descriptions",
+			"description": "When enabled, character role descriptions will be hidden from the interface"
+		},
 		"anhHistoryDisplayMode": {
 			"label": "History display mode",
 			"description": "Choose how to display task history in the sidebar"

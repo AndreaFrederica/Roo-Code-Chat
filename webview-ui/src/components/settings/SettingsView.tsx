@@ -113,7 +113,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	const { t } = useAppTranslation()
 
 	const extensionState = useExtensionState()
-	const { currentApiConfigName, listApiConfigMeta, uriScheme, settingsImportedAt } = extensionState
+	const { currentApiConfigName, listApiConfigMeta, uriScheme, settingsImportedAt, setHideRoleDescription } = extensionState
 
 	const [isDiscardDialogShow, setDiscardDialogShow] = useState(false)
 	const [isChangeDetected, setChangeDetected] = useState(false)
@@ -205,6 +205,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		anhShowRoleCardOnSwitch,
 		userAvatarRole,
 		enableUserAvatar,
+		hideRoleDescription,
 	} = cachedState
 
 	const apiConfiguration = useMemo(() => cachedState.apiConfiguration ?? {}, [cachedState.apiConfiguration])
@@ -399,6 +400,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({ type: "profileThresholds", values: profileThresholds })
 			vscode.postMessage({ type: "anhChatModeHideTaskCompletion", bool: anhChatModeHideTaskCompletion ?? true })
 			vscode.postMessage({ type: "anhShowRoleCardOnSwitch", bool: anhShowRoleCardOnSwitch ?? false })
+			vscode.postMessage({ type: "hideRoleDescription", bool: hideRoleDescription ?? false })
+			setHideRoleDescription?.(hideRoleDescription ?? false)
 			vscode.postMessage({ type: "enableUserAvatar", bool: enableUserAvatar })
 			vscode.postMessage({ type: "userAvatarRole", values: userAvatarRole })
 			vscode.postMessage({ type: "openRouterImageApiKey", text: openRouterImageApiKey })
@@ -809,6 +812,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							reasoningBlockCollapsed={reasoningBlockCollapsed ?? true}
 							anhChatModeHideTaskCompletion={anhChatModeHideTaskCompletion ?? true}
 							anhShowRoleCardOnSwitch={anhShowRoleCardOnSwitch ?? false}
+							hideRoleDescription={hideRoleDescription ?? false}
 							setCachedStateField={setCachedStateField}
 						/>
 					)}

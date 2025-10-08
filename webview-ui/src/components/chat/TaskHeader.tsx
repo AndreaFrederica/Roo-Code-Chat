@@ -50,7 +50,7 @@ const TaskHeader = ({
 	todos,
 }: TaskHeaderProps) => {
 	const { t } = useTranslation()
-	const { apiConfiguration, currentTaskItem, clineMessages, anhPersonaMode, currentAnhRole } = useExtensionState()
+	const { apiConfiguration, currentTaskItem, clineMessages, anhPersonaMode, currentAnhRole, hideRoleDescription } = useExtensionState()
 	const { id: modelId, info: model } = useSelectedModel(apiConfiguration)
 	const [isTaskExpanded, setIsTaskExpanded] = useState(false)
 	const [showLongRunningTaskMessage, setShowLongRunningTaskMessage] = useState(false)
@@ -165,12 +165,14 @@ const TaskHeader = ({
 					</div>
 				</div>
 				{/* Current role description display */}
-				{currentAnhRole && currentAnhRole.name && (
-					<div className="text-xs text-vscode-descriptionForeground opacity-80 mt-1">
-						当前角色: {currentAnhRole.name}
-						{currentAnhRole.description && currentAnhRole.description !== currentAnhRole.name && (
-							<span className="ml-2 opacity-70">- {currentAnhRole.description}</span>
-						)}
+				{currentAnhRole && currentAnhRole.name && !hideRoleDescription && (
+					<div className="text-xs text-vscode-descriptionForeground opacity-80 mt-1 max-h-16 overflow-y-auto">
+						<div className="flex flex-wrap items-start gap-1">
+							<span className="shrink-0">当前角色: {currentAnhRole.name}</span>
+							{currentAnhRole.description && currentAnhRole.description !== currentAnhRole.name && (
+								<span className="opacity-70 break-words">- {currentAnhRole.description}</span>
+							)}
+						</div>
 					</div>
 				)}
 				{!isTaskExpanded && contextWindow > 0 && (

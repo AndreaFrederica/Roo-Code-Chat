@@ -23,6 +23,7 @@ import { McpHub } from "../../services/mcp/McpHub"
 import { CodeIndexManager } from "../../services/code-index/manager"
 
 import { PromptVariables, loadSystemPromptFile } from "./sections/custom-system-prompt"
+import { applyTemplateVariablesToRole } from "./template-variables"
 
 import { getToolDescriptionsForMode } from "./tools"
 import {
@@ -51,28 +52,34 @@ export function getPromptComponent(
 	return component
 }
 
-function buildRolePromptSection(rolePromptData?: RolePromptData): string {
+function buildRolePromptSection(
+	rolePromptData?: RolePromptData, 
+	userAvatarRole?: Role, 
+	enableUserAvatar?: boolean
+): string {
 	if (!rolePromptData) {
 		return ""
 	}
 
-	const { role, storyline, memory } = rolePromptData
+	// Apply template variable replacement to the role before processing
+	const processedRole = applyTemplateVariablesToRole(rolePromptData.role, userAvatarRole, enableUserAvatar)
+	const { storyline, memory } = rolePromptData
 	const sections: string[] = []
 
 	// Build character overview section
-	const overviewItems: string[] = [`- Name: ${role.name}`, `- Type: ${role.type}`]
-	if (role.affiliation) {
-		overviewItems.push(`- Affiliation: ${role.affiliation}`)
+	const overviewItems: string[] = [`- Name: ${processedRole.name}`, `- Type: ${processedRole.type}`]
+	if (processedRole.affiliation) {
+		overviewItems.push(`- Affiliation: ${processedRole.affiliation}`)
 	}
-	if (role.aliases && role.aliases.length > 0) {
-		overviewItems.push(`- Aliases: ${role.aliases.join(" / ")}`)
+	if (processedRole.aliases && processedRole.aliases.length > 0) {
+		overviewItems.push(`- Aliases: ${processedRole.aliases.join(" / ")}`)
 	}
-	if (role.color) {
-		overviewItems.push(`- Signature Color: ${role.color}`)
+	if (processedRole.color) {
+		overviewItems.push(`- Signature Color: ${processedRole.color}`)
 	}
 	
 	// 优先使用顶层description，如果没有则使用profile.appearance
-	const description = role.description || (typeof role.profile?.appearance === 'string' ? role.profile.appearance : '')
+	const description = processedRole.description || (typeof processedRole.profile?.appearance === 'string' ? processedRole.profile.appearance : '')
 	if (description) {
 		overviewItems.push(`- Summary: ${description}`)
 	}
@@ -80,10 +87,10 @@ function buildRolePromptSection(rolePromptData?: RolePromptData): string {
 	sections.push(`### Character Overview\n${overviewItems.join("\n")}`)
 
 	// 统一处理所有角色字段，不区分来源
-	const { profile } = role
+	const { profile } = processedRole
 
 	// 处理性格 - 优先使用SillyTavern的personality字段，然后是profile.personality
-	const personalityText = role.personality || (typeof profile?.personality === 'string' ? profile.personality : '')
+	const personalityText = processedRole.personality || (typeof profile?.personality === 'string' ? profile.personality : '')
 	const personalityArray = Array.isArray(profile?.personality) ? profile.personality : []
 	
 	if (personalityText) {
@@ -93,40 +100,40 @@ function buildRolePromptSection(rolePromptData?: RolePromptData): string {
 	}
 
 	// 处理背景/世界观 - 优先使用scenario，然后是profile.background
-	const backgroundText = role.scenario || (typeof profile?.background === 'string' ? profile.background : '')
+	const backgroundText = processedRole.scenario || (typeof profile?.background === 'string' ? profile.background : '')
 	if (backgroundText) {
 		sections.push(`### Background\n${backgroundText}`)
 	}
 
 	// 处理初始消息/问候语
-	const greeting = role.first_mes || (typeof profile?.greeting === 'string' ? profile.greeting : '')
+	const greeting = processedRole.first_mes || (typeof profile?.greeting === 'string' ? profile.greeting : '')
 	if (greeting) {
 		sections.push(`### First Message\n${greeting}`)
 	}
 
 	// 处理示例对话
-	if (role.mes_example) {
-		sections.push(`### Example Interactions\n${role.mes_example}`)
+	if (processedRole.mes_example) {
+		sections.push(`### Example Interactions\n${processedRole.mes_example}`)
 	}
 
 	// 处理备选问候语
-	if (role.alternate_greetings && role.alternate_greetings.length > 0) {
-		sections.push(`### Alternate Greetings\n${role.alternate_greetings.map((greeting, index) => `${index + 1}. ${greeting}`).join("\n")}`)
+	if (processedRole.alternate_greetings && processedRole.alternate_greetings.length > 0) {
+		sections.push(`### Alternate Greetings\n${processedRole.alternate_greetings.map((greeting, index) => `${index + 1}. ${greeting}`).join("\n")}`)
 	}
 
 	// 处理创作者备注
-	if (role.creator_notes) {
-		sections.push(`### Creator Notes\n${role.creator_notes}`)
+	if (processedRole.creator_notes) {
+		sections.push(`### Creator Notes\n${processedRole.creator_notes}`)
 	}
 
 	// 处理系统提示词
-	if (role.system_prompt) {
-		sections.push(`### System Instructions\n${role.system_prompt}`)
+	if (processedRole.system_prompt) {
+		sections.push(`### System Instructions\n${processedRole.system_prompt}`)
 	}
 
 	// 处理历史后指令
-	if (role.post_history_instructions) {
-		sections.push(`### Additional Instructions\n${role.post_history_instructions}`)
+	if (processedRole.post_history_instructions) {
+		sections.push(`### Additional Instructions\n${processedRole.post_history_instructions}`)
 	}
 
 	const addListSection = (title: string, values?: unknown) => {
@@ -152,23 +159,23 @@ function buildRolePromptSection(rolePromptData?: RolePromptData): string {
 	addListSection("### Notes", profile?.notes)
 
 	// 处理标签
-	if (role.tags && role.tags.length > 0) {
-		sections.push(`### Tags\n${role.tags.join(", ")}`)
+	if (processedRole.tags && processedRole.tags.length > 0) {
+		sections.push(`### Tags\n${processedRole.tags.join(", ")}`)
 	}
 
 	// 处理创作者信息
-	if (role.creator) {
-		sections.push(`### Creator\n${role.creator}`)
+	if (processedRole.creator) {
+		sections.push(`### Creator\n${processedRole.creator}`)
 	}
 
 	// 处理角色版本
-	if (role.character_version) {
-		sections.push(`### Version\n${role.character_version}`)
+	if (processedRole.character_version) {
+		sections.push(`### Version\n${processedRole.character_version}`)
 	}
 
 	// 处理世界观词库 (Character Book)
-	if (role.character_book && role.character_book.entries && role.character_book.entries.length > 0) {
-		const { character_book } = role
+	if (processedRole.character_book && processedRole.character_book.entries && processedRole.character_book.entries.length > 0) {
+		const { character_book } = processedRole
 		
 		// 过滤并排序条目
 		const sortedEntries = character_book.entries
@@ -253,7 +260,7 @@ function buildRolePromptSection(rolePromptData?: RolePromptData): string {
 	}
 
 	// TODO: Extensions字段支持还未实现 (extensions field support not yet implemented)
-	// if (role.extensions) { ... }
+	// if (processedRole.extensions) { ... }
 
 	const arcs = storyline?.arcs?.slice(0, 3)
 	if (arcs && arcs.length > 0) {
@@ -584,7 +591,7 @@ async function generatePrompt(
 	const codeIndexManager = CodeIndexManager.getInstance(context, cwd)
 
 	// Build role sections for both AI role and user avatar role
-	const aiRoleSection = buildRolePromptSection(rolePromptData)
+	const aiRoleSection = buildRolePromptSection(rolePromptData, userAvatarRole, enableUserAvatar)
 	const aiRoleSectionBlock = aiRoleSection
 		? `${aiRoleSection}
 
@@ -602,7 +609,7 @@ async function generatePrompt(
 			storyline: { arcs: [] },
 			memory: { traits: [], goals: [], episodic: [] }
 		}
-		const userAvatarSection = buildRolePromptSection(userAvatarPromptData)
+		const userAvatarSection = buildRolePromptSection(userAvatarPromptData, userAvatarRole, enableUserAvatar)
 		userAvatarSectionBlock = userAvatarSection
 			? `
 
@@ -857,7 +864,7 @@ export const SYSTEM_PROMPT = async (
 			},
 		)
 
-		const aiRoleSection = buildRolePromptSection(rolePromptData)
+		const aiRoleSection = buildRolePromptSection(rolePromptData, userAvatarRole, enableUserAvatar)
 		const aiRoleSectionBlock = aiRoleSection ? `${aiRoleSection}\n\n` : ""
 
 		// Build user avatar role section if enabled
@@ -868,7 +875,7 @@ export const SYSTEM_PROMPT = async (
 				storyline: { arcs: [] },
 				memory: { traits: [], goals: [], episodic: [] }
 			}
-			const userAvatarSection = buildRolePromptSection(userAvatarPromptData)
+			const userAvatarSection = buildRolePromptSection(userAvatarPromptData, userAvatarRole, enableUserAvatar)
 			userAvatarSectionBlock = userAvatarSection
 				? `\n\nUSER AVATAR\n${userAvatarSection}\n\n`
 				: ""

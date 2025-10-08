@@ -326,6 +326,7 @@ export type ExtensionState = Pick<
 	| "anhShowRoleCardOnSwitch"
 	| "userAvatarRole"
 	| "enableUserAvatar"
+	| "hideRoleDescription"
 	| "enabledWorldsets"
 > & {
 	version: string

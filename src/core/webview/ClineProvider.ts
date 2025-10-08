@@ -1881,6 +1881,7 @@ export class ClineProvider
 			displayMode,
 			userAvatarRole,
 			enableUserAvatar,
+			hideRoleDescription,
 			enabledWorldsets,
 		} = await this.getState()
 
@@ -2274,9 +2275,11 @@ export class ClineProvider
 			})(),
 			anhPersonaMode: stateValues.anhPersonaMode,
 			anhToneStrict: stateValues.anhToneStrict,
+			anhShowRoleCardOnSwitch: stateValues.anhShowRoleCardOnSwitch,
 			displayMode: stateValues.displayMode,
 			userAvatarRole: stateValues.userAvatarRole,
 			enableUserAvatar: stateValues.enableUserAvatar,
+			hideRoleDescription: stateValues.hideRoleDescription,
 			enabledWorldsets: stateValues.enabledWorldsets,
 		}
 	}

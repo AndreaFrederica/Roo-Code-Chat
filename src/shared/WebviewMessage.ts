@@ -253,6 +253,7 @@ export interface WebviewMessage {
 		| "disableWorldset"
 		| "getWorldsetStatus"
 		| "openWorldsetFolder"
+		| "hideRoleDescription"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"

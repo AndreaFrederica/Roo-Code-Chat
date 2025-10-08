@@ -903,6 +903,10 @@
 			"label": "切换角色时显示角色卡片弹窗",
 			"description": "启用后，在切换角色时会显示包含角色详情的弹窗卡片"
 		},
+		"hideRoleDescription": {
+			"label": "隐藏角色描述",
+			"description": "启用后，角色描述将在界面中被隐藏"
+		},
 		"anhHistoryDisplayMode": {
 			"label": "历史记录显示模式",
 			"description": "选择在侧边栏中如何显示任务历史记录"

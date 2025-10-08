@@ -46,7 +46,8 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 		enableUserAvatar, 
 		setEnableUserAvatar,
 		currentTaskItem, 
-		clineMessages 
+		clineMessages,
+		hideRoleDescription 
 	} = useExtensionState()
 
 	// User avatar role can always be switched during tasks
