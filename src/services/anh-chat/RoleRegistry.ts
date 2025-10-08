@@ -4,6 +4,7 @@ import * as fs from "fs/promises"
 import type { Role, RoleSummary } from "@roo-code/types"
 import { fileExistsAtPath } from "../../utils/fs"
 import { safeWriteJson } from "../../utils/safeWriteJson"
+import { SillyTavernParser } from "../../utils/sillytavern-parser"
 
 import { ensureAnhChatRoot } from "./pathUtils"
 
@@ -37,6 +38,7 @@ export class RoleRegistry {
 
 		await fs.mkdir(this.rolesDir, { recursive: true })
 
+		// 加载现有的角色索引
 		const indexPath = path.join(this.rolesDir, "index.json")
 		if (await fileExistsAtPath(indexPath)) {
 			try {
@@ -46,6 +48,9 @@ export class RoleRegistry {
 				console.error("Failed to parse role index", error)
 			}
 		}
+
+		// 自动检测并导入同目录下的SillyTavern PNG卡片
+		await this.autoDetectSillyTavernCards()
 
 		this.initialized = true
 	}
@@ -87,5 +92,88 @@ export class RoleRegistry {
 	private async persistIndex() {
 		const indexPath = path.join(this.rolesDir, "index.json")
 		await safeWriteJson(indexPath, this.listSummaries())
+	}
+
+	/**
+	 * 自动检测并导入同目录下的SillyTavern PNG卡片
+	 */
+	private async autoDetectSillyTavernCards() {
+		try {
+			console.log(`Scanning for SillyTavern PNG files in: ${this.rolesDir}`)
+			
+			// 扫描角色目录下的PNG文件
+			const files = await fs.readdir(this.rolesDir)
+			const pngFiles = files.filter(file => file.toLowerCase().endsWith('.png'))
+			
+			console.log(`Found ${pngFiles.length} PNG files: ${pngFiles.join(', ')}`)
+
+			for (const pngFile of pngFiles) {
+				const pngPath = path.join(this.rolesDir, pngFile)
+				console.log(`Processing PNG file: ${pngPath}`)
+				
+				try {
+					// 获取PNG文件的修改时间
+					const pngStats = await fs.stat(pngPath)
+					const pngModifiedTime = pngStats.mtime.getTime()
+					
+					// 尝试解析PNG文件
+					const parseResult = await SillyTavernParser.parseFromPngFile(pngPath)
+					console.log(`Parse result for ${pngFile}:`, parseResult.success ? 'SUCCESS' : 'FAILED', parseResult.error || '')
+					
+					if (parseResult.success && parseResult.role) {
+						const role = parseResult.role
+						
+						// 检查是否已经存在相同名称的角色
+						const existingRole = Array.from(this.summaryCache.values())
+							.find(summary => summary.name === role.name)
+						
+						if (!existingRole) {
+							// 使用转换器将SillyTavern角色转换为完整的anh格式
+							// parseResult.role 已经是通过 SillyTavernParser.convertToRole 转换后的完整anh角色
+							const anhRole: Role = {
+								...role,
+								// 标记为SillyTavern类型
+								type: "SillyTavernRole",
+								// 确保必要的anh字段存在
+								profile: role.profile || {
+									greeting: role.first_mes || `Hello, I'm ${role.name}.`,
+									appearance: role.description || "",
+									personality: role.personality || "",
+									background: role.scenario || "",
+									relationships: [],
+									skills: [],
+									equipment: []
+								},
+								modeOverrides: role.modeOverrides || {},
+								createdAt: role.createdAt || pngModifiedTime,
+								updatedAt: role.updatedAt || pngModifiedTime
+							}
+							
+							// 创建角色摘要
+							const summary: RoleSummary = {
+								uuid: anhRole.uuid,
+								name: anhRole.name,
+								type: "SillyTavernRole", // 标记为SillyTavern类型
+								packagePath: pngPath, // 使用PNG文件的完整路径作为packagePath
+								lastUpdatedAt: pngModifiedTime
+							}
+
+							// 直接添加到内存缓存，不写入文件
+							this.summaryCache.set(anhRole.uuid, summary)
+							this.roleCache.set(anhRole.uuid, anhRole)
+							
+							console.log(`Auto-imported SillyTavern card: ${anhRole.name} from ${pngFile} (memory only, converted to anh format)`)
+						} else {
+							console.log(`Skipped ${pngFile}: role ${role.name} already exists`)
+						}
+					}
+				} catch (parseError) {
+					// 如果解析失败，可能不是有效的SillyTavern PNG，跳过
+					console.log(`Skipped ${pngFile}: parsing failed -`, parseError)
+				}
+			}
+		} catch (error) {
+			console.error("Error during SillyTavern card auto-detection:", error)
+		}
 	}
 }

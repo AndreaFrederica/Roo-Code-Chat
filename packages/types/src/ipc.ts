@@ -51,7 +51,7 @@ export enum TaskCommandName {
  * TaskCommand
  */
 
-export const taskCommandSchema = z.discriminatedUnion("commandName", [
+export const taskCommandSchema: z.ZodDiscriminatedUnion<"commandName", z.ZodDiscriminatedUnionOption<"commandName">[]> = z.discriminatedUnion("commandName", [
 	z.object({
 		commandName: z.literal(TaskCommandName.StartNewTask),
 		data: z.object({
@@ -81,7 +81,7 @@ export type TaskCommand = z.infer<typeof taskCommandSchema>
  * IpcMessage
  */
 
-export const ipcMessageSchema = z.discriminatedUnion("type", [
+export const ipcMessageSchema: z.ZodDiscriminatedUnion<"type", z.ZodDiscriminatedUnionOption<"type">[]> = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal(IpcMessageType.Ack),
 		origin: z.literal(IpcOrigin.Server),

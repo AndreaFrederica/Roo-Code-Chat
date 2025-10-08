@@ -59,6 +59,7 @@ function buildRolePromptSection(rolePromptData?: RolePromptData): string {
 	const { role, storyline, memory } = rolePromptData
 	const sections: string[] = []
 
+	// Build character overview section
 	const overviewItems: string[] = [`- Name: ${role.name}`, `- Type: ${role.type}`]
 	if (role.affiliation) {
 		overviewItems.push(`- Affiliation: ${role.affiliation}`)
@@ -69,15 +70,63 @@ function buildRolePromptSection(rolePromptData?: RolePromptData): string {
 	if (role.color) {
 		overviewItems.push(`- Signature Color: ${role.color}`)
 	}
-	if (role.description) {
-		overviewItems.push(`- Summary: ${role.description}`)
+	
+	// 优先使用顶层description，如果没有则使用profile.appearance
+	const description = role.description || (typeof role.profile?.appearance === 'string' ? role.profile.appearance : '')
+	if (description) {
+		overviewItems.push(`- Summary: ${description}`)
 	}
 
 	sections.push(`### Character Overview\n${overviewItems.join("\n")}`)
 
+	// 统一处理所有角色字段，不区分来源
 	const { profile } = role
-	if (profile?.background) {
-		sections.push(`### Background\n${profile.background}`)
+
+	// 处理性格 - 优先使用SillyTavern的personality字段，然后是profile.personality
+	const personalityText = role.personality || (typeof profile?.personality === 'string' ? profile.personality : '')
+	const personalityArray = Array.isArray(profile?.personality) ? profile.personality : []
+	
+	if (personalityText) {
+		sections.push(`### Personality\n${personalityText}`)
+	} else if (personalityArray.length > 0) {
+		sections.push(`### Personality\n${personalityArray.map((trait) => `- ${trait}`).join("\n")}`)
+	}
+
+	// 处理背景/世界观 - 优先使用scenario，然后是profile.background
+	const backgroundText = role.scenario || (typeof profile?.background === 'string' ? profile.background : '')
+	if (backgroundText) {
+		sections.push(`### Background\n${backgroundText}`)
+	}
+
+	// 处理初始消息/问候语
+	const greeting = role.first_mes || (typeof profile?.greeting === 'string' ? profile.greeting : '')
+	if (greeting) {
+		sections.push(`### First Message\n${greeting}`)
+	}
+
+	// 处理示例对话
+	if (role.mes_example) {
+		sections.push(`### Example Interactions\n${role.mes_example}`)
+	}
+
+	// 处理备选问候语
+	if (role.alternate_greetings && role.alternate_greetings.length > 0) {
+		sections.push(`### Alternate Greetings\n${role.alternate_greetings.map((greeting, index) => `${index + 1}. ${greeting}`).join("\n")}`)
+	}
+
+	// 处理创作者备注
+	if (role.creator_notes) {
+		sections.push(`### Creator Notes\n${role.creator_notes}`)
+	}
+
+	// 处理系统提示词
+	if (role.system_prompt) {
+		sections.push(`### System Instructions\n${role.system_prompt}`)
+	}
+
+	// 处理历史后指令
+	if (role.post_history_instructions) {
+		sections.push(`### Additional Instructions\n${role.post_history_instructions}`)
 	}
 
 	const addListSection = (title: string, values?: unknown) => {
@@ -94,13 +143,117 @@ function buildRolePromptSection(rolePromptData?: RolePromptData): string {
 		sections.push(`${title}\n${stringValues.map((value) => `- ${value}`).join("\n")}`)
 	}
 
+	// 处理profile中的数组字段
 	addListSection("### Appearance", profile?.appearance)
-	addListSection("### Personality", profile?.personality)
 	addListSection("### Skills", profile?.skills)
 	addListSection("### Titles", profile?.titles)
 	addListSection("### Hobbies", profile?.hobbies)
 	addListSection("### Relationships", profile?.relationships)
 	addListSection("### Notes", profile?.notes)
+
+	// 处理标签
+	if (role.tags && role.tags.length > 0) {
+		sections.push(`### Tags\n${role.tags.join(", ")}`)
+	}
+
+	// 处理创作者信息
+	if (role.creator) {
+		sections.push(`### Creator\n${role.creator}`)
+	}
+
+	// 处理角色版本
+	if (role.character_version) {
+		sections.push(`### Version\n${role.character_version}`)
+	}
+
+	// 处理世界观词库 (Character Book)
+	if (role.character_book && role.character_book.entries && role.character_book.entries.length > 0) {
+		const { character_book } = role
+		
+		// 过滤并排序条目
+		const sortedEntries = character_book.entries
+			.filter(entry => entry.enabled !== false) // 只包含启用的条目
+			.sort((a, b) => {
+				// 首先按 insertion_order 排序（数值越小越优先）
+				const orderA = a.insertion_order ?? 999
+				const orderB = b.insertion_order ?? 999
+				if (orderA !== orderB) return orderA - orderB
+				
+				// 然后按 priority 排序（数值越小越优先）
+				const priorityA = a.priority ?? 999
+				const priorityB = b.priority ?? 999
+				return priorityA - priorityB
+			})
+			.slice(0, 15) // 增加条目数量限制到15个
+		
+		if (sortedEntries.length > 0) {
+			// 构建条目列表
+			const bookEntries = sortedEntries.map(entry => {
+				const parts: string[] = []
+				
+				// 添加条目名称（如果有）
+				if (entry.name) {
+					parts.push(`**${entry.name}**`)
+				}
+				
+				// 添加内容
+				parts.push(entry.content)
+				
+				// 添加关键词信息
+				const allKeys = [
+					...(entry.keys || []),
+					...(entry.secondary_keys || [])
+				].filter(Boolean)
+				
+				if (allKeys.length > 0) {
+					parts.push(`(Keywords: ${allKeys.join(', ')})`)
+				}
+				
+				// 添加特殊标记
+				const flags: string[] = []
+				if (entry.constant) flags.push('常驻')
+				if (entry.selective) flags.push('选择性')
+				if (entry.case_sensitive) flags.push('区分大小写')
+				
+				if (flags.length > 0) {
+					parts.push(`[${flags.join(', ')}]`)
+				}
+				
+				return `- ${parts.join(' ')}`
+			})
+			
+			// 构建标题
+			let title = '### World Information'
+			if (character_book.name) {
+				title += ` - ${character_book.name}`
+			}
+			if (character_book.description) {
+				title += `\n*${character_book.description}*`
+			}
+			
+			// 添加元数据信息
+			const metadata: string[] = []
+			if (character_book.scan_depth) {
+				metadata.push(`扫描深度: ${character_book.scan_depth}`)
+			}
+			if (character_book.token_budget) {
+				metadata.push(`Token预算: ${character_book.token_budget}`)
+			}
+			if (character_book.recursive_scanning) {
+				metadata.push('递归扫描: 启用')
+			}
+			
+			let content = bookEntries.join('\n')
+			if (metadata.length > 0) {
+				content = `*配置: ${metadata.join(', ')}*\n\n${content}`
+			}
+			
+			sections.push(`${title}\n${content}`)
+		}
+	}
+
+	// TODO: Extensions字段支持还未实现 (extensions field support not yet implemented)
+	// if (role.extensions) { ... }
 
 	const arcs = storyline?.arcs?.slice(0, 3)
 	if (arcs && arcs.length > 0) {
@@ -156,6 +309,7 @@ interface RoleOverrideOptions {
 /**
  * Apply role-specific overrides to the mode selection
  * This allows roles to customize their persona, tone, and behavior
+ * Also supports SillyTavern prompt field injection for converted roles
  */
 function applyRoleOverrides(
 	selection: { roleDefinition: string; baseInstructions: string; description: string },
@@ -170,6 +324,20 @@ function applyRoleOverrides(
 	const { role } = rolePromptData
 	const modeOverrides = role.modeOverrides
 
+	// Check if this is a SillyTavern converted role
+	const hasSillyTavernFields = !!(
+		role.personality ||
+		role.scenario ||
+		role.system_prompt ||
+		role.post_history_instructions ||
+		role.mes_example
+	)
+
+	// If this is a SillyTavern converted role, apply SillyTavern-specific overrides
+	if (hasSillyTavernFields) {
+		return applySillyTavernRoleOverride(selection, rolePromptData, options)
+	}
+
 	// If no overrides, do gentle override with role identity
 	if (!modeOverrides || (!modeOverrides.roleDefinition && !modeOverrides.customInstructions)) {
 		return applyGentleRoleOverride(selection, rolePromptData, options)
@@ -177,6 +345,79 @@ function applyRoleOverrides(
 
 	// Strong override: use explicit modeOverrides
 	return applyStrongRoleOverride(selection, rolePromptData, modeOverrides, options)
+}
+
+/**
+ * SillyTavern-specific role override: Use SillyTavern prompt fields
+ */
+function applySillyTavernRoleOverride(
+	selection: { roleDefinition: string; baseInstructions: string; description: string },
+	rolePromptData: RolePromptData,
+	options: RoleOverrideOptions,
+): { roleDefinition: string; baseInstructions: string; description: string } {
+	const { role } = rolePromptData
+	const persona = role.modeOverrides?.persona || options.personaFallback || "hybrid"
+
+	// Build role definition from SillyTavern fields
+	let newRoleDefinition = ""
+	
+	// Use system_prompt if available, otherwise create from character info
+	if (role.system_prompt) {
+		newRoleDefinition = role.system_prompt
+	} else {
+		// Create role definition from character info
+		const name = role.name || "Assistant"
+		const description = role.description || ""
+		const personality = role.personality || ""
+		
+		if (persona === "chat") {
+			newRoleDefinition = `You are ${name}${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.`
+		} else {
+			newRoleDefinition = `You are ${name}, a character with programming capabilities${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.`
+		}
+	}
+
+	// Build base instructions from SillyTavern fields
+	const instructionParts: string[] = []
+
+	// Add scenario if available
+	if (role.scenario) {
+		instructionParts.push(`### Scenario\n${role.scenario}`)
+	}
+
+	// Add example messages if available
+	if (role.mes_example) {
+		instructionParts.push(`### Example Interactions\n${role.mes_example}`)
+	}
+
+	// Add post-history instructions if available
+	if (role.post_history_instructions) {
+		instructionParts.push(`### Additional Instructions\n${role.post_history_instructions}`)
+	}
+
+	// Add creator notes if available
+	if (role.creator_notes) {
+		instructionParts.push(`### Creator Notes\n${role.creator_notes}`)
+	}
+
+	// Create tone instructions based on persona
+	const toneInstructions = createToneInstructions(role, persona, options.toneStrict ?? true)
+	if (toneInstructions) {
+		instructionParts.push(toneInstructions)
+	}
+
+	// Combine with original base instructions
+	if (selection.baseInstructions) {
+		instructionParts.push(selection.baseInstructions)
+	}
+
+	const newBaseInstructions = instructionParts.join("\n\n")
+
+	return {
+		roleDefinition: newRoleDefinition,
+		baseInstructions: newBaseInstructions,
+		description: selection.description,
+	}
 }
 
 /**
