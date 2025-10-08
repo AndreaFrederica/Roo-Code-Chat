@@ -33,6 +33,7 @@
 		"ui": "UI",
 		"experimental": "Deneysel",
 		"language": "Dil",
+		"userAvatar": "Kullanıcı Avatarı",
 		"about": "ANH CHAT Hakkında"
 	},
 	"slashCommands": {

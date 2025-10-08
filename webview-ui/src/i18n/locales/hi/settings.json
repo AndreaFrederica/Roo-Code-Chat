@@ -33,6 +33,7 @@
 		"ui": "UI",
 		"experimental": "प्रायोगिक",
 		"language": "भाषा",
+		"userAvatar": "उपयोगकर्ता अवतार",
 		"about": "परिचय"
 	},
 	"slashCommands": {

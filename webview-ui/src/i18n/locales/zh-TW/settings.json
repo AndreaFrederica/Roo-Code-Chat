@@ -33,6 +33,7 @@
 		"ui": "UI",
 		"experimental": "實驗性",
 		"language": "語言",
+		"userAvatar": "用戶代理角色",
 		"about": "關於 ANH CHAT"
 	},
 	"slashCommands": {
@@ -885,8 +886,8 @@
 	},
 	"ui": {
 		"collapseThinking": {
-			"label": "預設折疊"思考"訊息",
-			"description": "啟用後，"思考"塊將預設折疊，直到您與其互動"
+			"label": "預設折疊「思考」訊息",
+			"description": "啟用後，「思考」塊將預設折疊，直到您與其互動"
 		}
 	},
 	"userAvatar": {

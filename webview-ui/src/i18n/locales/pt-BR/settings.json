@@ -33,6 +33,7 @@
 		"ui": "UI",
 		"experimental": "Experimental",
 		"language": "Idioma",
+		"userAvatar": "Avatar do Usuário",
 		"about": "Sobre"
 	},
 	"slashCommands": {

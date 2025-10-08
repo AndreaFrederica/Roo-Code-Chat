@@ -33,6 +33,7 @@
 		"ui": "UI",
 		"experimental": "Experimentell",
 		"language": "Sprache",
+		"userAvatar": "Benutzer-Avatar",
 		"about": "Über ANH CHAT"
 	},
 	"slashCommands": {

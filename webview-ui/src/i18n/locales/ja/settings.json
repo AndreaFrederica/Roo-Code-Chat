@@ -33,6 +33,7 @@
 		"ui": "UI",
 		"experimental": "実験的",
 		"language": "言語",
+		"userAvatar": "ユーザーアバター",
 		"about": "ANH CHATについて"
 	},
 	"slashCommands": {

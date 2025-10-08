@@ -33,6 +33,7 @@
 		"ui": "UI",
 		"experimental": "실험적",
 		"language": "언어",
+		"userAvatar": "사용자 아바타",
 		"about": "ANH CHAT 정보"
 	},
 	"slashCommands": {

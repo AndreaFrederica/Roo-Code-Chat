@@ -35,6 +35,7 @@
 		"ui": "UI",
 		"experimental": "实验性",
 		"language": "语言",
+		"userAvatar": "用户代理角色",
 		"about": "关于 ANH CHAT"
 	},
 	"slashCommands": {
