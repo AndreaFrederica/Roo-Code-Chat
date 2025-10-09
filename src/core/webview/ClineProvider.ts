@@ -1881,9 +1881,21 @@ export class ClineProvider
 			displayMode,
 			userAvatarRole,
 			enableUserAvatar,
+			userAvatarHideFullData,
+			userAvatarVisibility,
 			hideRoleDescription,
 			enabledWorldsets,
 		} = await this.getState()
+
+		const resolvedUserAvatarVisibility =
+			userAvatarVisibility === "full" ||
+			userAvatarVisibility === "summary" ||
+			userAvatarVisibility === "name" ||
+			userAvatarVisibility === "hidden"
+				? userAvatarVisibility
+				: userAvatarHideFullData
+					? "summary"
+					: "full"
 
 		// Get role prompt data to include in state
 		const rolePromptData = await this.getRolePromptData()
@@ -2040,8 +2052,11 @@ export class ClineProvider
 			openRouterImageGenerationSelectedModel,
 			openRouterUseMiddleOutTransform,
 			featureRoomoteControlEnabled,
+			anhShowRoleCardOnSwitch,
 			userAvatarRole,
 			enableUserAvatar,
+			userAvatarHideFullData: userAvatarHideFullData ?? false,
+			userAvatarVisibility: resolvedUserAvatarVisibility,
 		}
 	}
 
@@ -2279,6 +2294,19 @@ export class ClineProvider
 			displayMode: stateValues.displayMode,
 			userAvatarRole: stateValues.userAvatarRole,
 			enableUserAvatar: stateValues.enableUserAvatar,
+			userAvatarHideFullData: stateValues.userAvatarHideFullData ?? false,
+			userAvatarVisibility: (() => {
+				const rawVisibility = stateValues.userAvatarVisibility
+				if (
+					rawVisibility === "full" ||
+					rawVisibility === "summary" ||
+					rawVisibility === "name" ||
+					rawVisibility === "hidden"
+				) {
+					return rawVisibility
+				}
+				return stateValues.userAvatarHideFullData ? "summary" : "full"
+			})(),
 			hideRoleDescription: stateValues.hideRoleDescription,
 			enabledWorldsets: stateValues.enabledWorldsets,
 		}

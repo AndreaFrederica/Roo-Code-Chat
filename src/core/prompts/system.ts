@@ -1,7 +1,14 @@
 import * as vscode from "vscode"
 import * as os from "os"
 
-import type { ModeConfig, PromptComponent, CustomModePrompts, TodoItem, Role } from "@roo-code/types"
+import type {
+	ModeConfig,
+	PromptComponent,
+	CustomModePrompts,
+	TodoItem,
+	Role,
+	UserAvatarVisibility,
+} from "@roo-code/types"
 
 import type { SystemPromptSettings } from "./types"
 import type {
@@ -39,6 +46,24 @@ import {
 	markdownFormattingSection,
 } from "./sections"
 
+interface RolePromptSectionOptions {
+	summaryOnly?: boolean
+	disableTemplateReplacement?: boolean
+}
+
+const SUMMARY_SECTION_TITLES = new Set([
+	"### Character Overview",
+	"### Personality",
+	"### Background",
+	"### Appearance",
+	"### Skills",
+	"### Hobbies",
+	"### Titles",
+	"### Relationships",
+	"### Notes",
+	"### Tags",
+])
+
 // Helper function to get prompt component, filtering out empty objects
 export function getPromptComponent(
 	customModePrompts: CustomModePrompts | undefined,
@@ -53,18 +78,26 @@ export function getPromptComponent(
 }
 
 function buildRolePromptSection(
-	rolePromptData?: RolePromptData, 
-	userAvatarRole?: Role, 
-	enableUserAvatar?: boolean
+	rolePromptData?: RolePromptData,
+	userAvatarRole?: Role,
+	enableUserAvatar?: boolean,
+	options: RolePromptSectionOptions = {},
 ): string {
-	if (!rolePromptData) {
+	if (!rolePromptData || !rolePromptData.role) {
 		return ""
 	}
 
+	const { summaryOnly, disableTemplateReplacement } = options
+
 	// Apply template variable replacement to the role before processing
-	const processedRole = applyTemplateVariablesToRole(rolePromptData.role, userAvatarRole, enableUserAvatar)
+	const processedRole = disableTemplateReplacement
+		? (JSON.parse(JSON.stringify(rolePromptData.role)) as Role)
+		: applyTemplateVariablesToRole(rolePromptData.role, userAvatarRole, enableUserAvatar)
 	const { storyline, memory } = rolePromptData
 	const sections: string[] = []
+
+	// 统一处理所有角色字段，不区分来源
+	const { profile } = processedRole
 
 	// Build character overview section
 	const overviewItems: string[] = [`- Name: ${processedRole.name}`, `- Type: ${processedRole.type}`]
@@ -78,16 +111,20 @@ function buildRolePromptSection(
 		overviewItems.push(`- Signature Color: ${processedRole.color}`)
 	}
 	
-	// 优先使用顶层description，如果没有则使用profile.appearance
-	const description = processedRole.description || (typeof processedRole.profile?.appearance === 'string' ? processedRole.profile.appearance : '')
+	// 优先使用顶层description，如果没有则使用profile.appearance的第一个元素（如果是数组）或字符串值
+	let description = processedRole.description
+	if (!description && profile?.appearance) {
+		if (Array.isArray(profile.appearance)) {
+			description = profile.appearance.join(', ')
+		} else if (typeof profile.appearance === 'string') {
+			description = profile.appearance
+		}
+	}
 	if (description) {
 		overviewItems.push(`- Summary: ${description}`)
 	}
 
 	sections.push(`### Character Overview\n${overviewItems.join("\n")}`)
-
-	// 统一处理所有角色字段，不区分来源
-	const { profile } = processedRole
 
 	// 处理性格 - 优先使用SillyTavern的personality字段，然后是profile.personality
 	const personalityText = processedRole.personality || (typeof profile?.personality === 'string' ? profile.personality : '')
@@ -100,7 +137,7 @@ function buildRolePromptSection(
 	}
 
 	// 处理背景/世界观 - 优先使用scenario，然后是profile.background
-	const backgroundText = processedRole.scenario || (typeof profile?.background === 'string' ? profile.background : '')
+	const backgroundText = processedRole.scenario || processedRole.background || (typeof profile?.background === 'string' ? profile.background : '')
 	if (backgroundText) {
 		sections.push(`### Background\n${backgroundText}`)
 	}
@@ -150,17 +187,170 @@ function buildRolePromptSection(
 		sections.push(`${title}\n${stringValues.map((value) => `- ${value}`).join("\n")}`)
 	}
 
-	// 处理profile中的数组字段
-	addListSection("### Appearance", profile?.appearance)
+	// 处理profile中的数组字段 - 只有当appearance不是字符串时才作为列表处理
+	if (profile?.appearance && Array.isArray(profile.appearance) && !description?.includes(profile.appearance.join(', '))) {
+		addListSection("### Appearance", profile.appearance)
+	}
 	addListSection("### Skills", profile?.skills)
 	addListSection("### Titles", profile?.titles)
 	addListSection("### Hobbies", profile?.hobbies)
 	addListSection("### Relationships", profile?.relationships)
 	addListSection("### Notes", profile?.notes)
 
+	// 处理profile中的其他字段（动态处理任意字段名）
+	if (profile) {
+		Object.entries(profile).forEach(([key, value]) => {
+			// 跳过已经处理过的标准字段
+			const standardFields = ['appearance', 'skills', 'titles', 'hobbies', 'relationships', 'notes', 'personality', 'background', 'greeting']
+			if (standardFields.includes(key)) {
+				return
+			}
+
+			// 处理数组类型的字段
+			if (Array.isArray(value) && value.length > 0) {
+				const stringValues = value.filter((v): v is string => typeof v === "string")
+				if (stringValues.length > 0) {
+					const titleCase = key.charAt(0).toUpperCase() + key.slice(1)
+					sections.push(`### ${titleCase}\n${stringValues.map((v) => `- ${v}`).join("\n")}`)
+				}
+			}
+			// 处理字符串类型的字段
+			else if (typeof value === 'string' && value.trim()) {
+				const titleCase = key.charAt(0).toUpperCase() + key.slice(1)
+				sections.push(`### ${titleCase}\n${value}`)
+			}
+		})
+	}
+
+	// 处理时间线
+	if (processedRole.timeline && processedRole.timeline.length > 0) {
+		const timelineEntries = processedRole.timeline.map((entry, index) => {
+			if (typeof entry === 'string') {
+				return `${index + 1}. ${entry}`
+			} else if (typeof entry === 'object' && entry !== null) {
+				const timelineEntry = entry as { date?: string; event: string; description?: string }
+				const parts: string[] = []
+				if (timelineEntry.date) {
+					parts.push(`**${timelineEntry.date}**`)
+				}
+				parts.push(timelineEntry.event)
+				if (timelineEntry.description) {
+					parts.push(`- ${timelineEntry.description}`)
+				}
+				return `${index + 1}. ${parts.join(' ')}`
+			}
+			return `${index + 1}. ${String(entry)}`
+		})
+		sections.push(`### Timeline\n${timelineEntries.join('\n')}`)
+	}
+
 	// 处理标签
 	if (processedRole.tags && processedRole.tags.length > 0) {
 		sections.push(`### Tags\n${processedRole.tags.join(", ")}`)
+	}
+
+	// 处理根级 relationships
+	if (Array.isArray((processedRole as any).relationships) && (processedRole as any).relationships.length > 0) {
+		const relationshipItems: string[] = []
+		
+		;(processedRole as any).relationships.forEach((relation: unknown) => {
+			if (typeof relation === "string") {
+				// 字符串类型的关系
+				relationshipItems.push(relation)
+			} else if (relation && typeof relation === "object") {
+				// 对象类型的关系，尝试提取有用信息
+				const relationObj = relation as Record<string, unknown>
+				
+				// 尝试多种可能的字段名
+				const name = relationObj.name || relationObj.character || relationObj.person
+				const description = relationObj.description || relationObj.relation || relationObj.relationship
+				const type = relationObj.type || relationObj.relationshipType
+				
+				if (typeof name === "string") {
+					let relationText = name
+					if (typeof type === "string") {
+						relationText += ` (${type})`
+					}
+					if (typeof description === "string") {
+						relationText += `: ${description}`
+					}
+					relationshipItems.push(relationText)
+				} else if (typeof description === "string") {
+					// 如果没有名字但有描述，直接使用描述
+					relationshipItems.push(description)
+				} else {
+					// 如果是其他结构，尝试转换为字符串
+					try {
+						const stringified = JSON.stringify(relation)
+						if (stringified !== "{}" && stringified !== "null") {
+							relationshipItems.push(stringified)
+						}
+					} catch {
+						// 忽略无法序列化的对象
+					}
+				}
+			}
+		})
+		
+		if (relationshipItems.length > 0) {
+			sections.push(`### Relationships\n${relationshipItems.map((relation) => `- ${relation}`).join("\n")}`)
+		}
+	}
+
+	// 处理根级 notes
+	if (Array.isArray((processedRole as any).notes) && (processedRole as any).notes.length > 0) {
+		const noteItems: string[] = []
+		
+		;(processedRole as any).notes.forEach((note: unknown) => {
+			if (typeof note === "string") {
+				// 字符串类型的笔记
+				noteItems.push(note)
+			} else if (note && typeof note === "object") {
+				// 对象类型的笔记，尝试提取有用信息
+				const noteObj = note as Record<string, unknown>
+				
+				// 尝试多种可能的字段名
+				const title = noteObj.title || noteObj.name || noteObj.subject
+				const content = noteObj.content || noteObj.description || noteObj.note || noteObj.text
+				const category = noteObj.category || noteObj.type || noteObj.tag
+				
+				if (typeof title === "string" && typeof content === "string") {
+					let noteText = `**${title}**: ${content}`
+					if (typeof category === "string") {
+						noteText = `[${category}] ${noteText}`
+					}
+					noteItems.push(noteText)
+				} else if (typeof content === "string") {
+					// 如果只有内容，直接使用
+					let noteText = content
+					if (typeof category === "string") {
+						noteText = `[${category}] ${noteText}`
+					}
+					noteItems.push(noteText)
+				} else if (typeof title === "string") {
+					// 如果只有标题，直接使用
+					let noteText = title
+					if (typeof category === "string") {
+						noteText = `[${category}] ${noteText}`
+					}
+					noteItems.push(noteText)
+				} else {
+					// 如果是其他结构，尝试转换为字符串
+					try {
+						const stringified = JSON.stringify(note)
+						if (stringified !== "{}" && stringified !== "null") {
+							noteItems.push(stringified)
+						}
+					} catch {
+						// 忽略无法序列化的对象
+					}
+				}
+			}
+		})
+		
+		if (noteItems.length > 0) {
+			sections.push(`### Notes\n${noteItems.map((note) => `- ${note}`).join("\n")}`)
+		}
 	}
 
 	// 处理创作者信息
@@ -305,7 +495,140 @@ function buildRolePromptSection(
 		}
 	}
 
-	return sections.filter(Boolean).join("\n\n")
+	const finalSections = summaryOnly
+		? (() => {
+				const preferred: string[] = []
+				const usedIndices = new Set<number>()
+				const maxSummarySections = 6
+				const excludedHeadings = new Set([
+					"### Example Interactions",
+					"### Alternate Greetings",
+					"### Creator Notes",
+					"### System Instructions",
+					"### Additional Instructions",
+					"### Timeline",
+					"### World Information",
+				])
+
+				sections.forEach((section, index) => {
+					if (preferred.length >= maxSummarySections) {
+						return
+					}
+
+					const heading = section.split("\n", 1)[0]?.trim()
+					if (heading && SUMMARY_SECTION_TITLES.has(heading)) {
+						preferred.push(section)
+						usedIndices.add(index)
+					}
+				})
+
+				if (preferred.length < maxSummarySections) {
+					sections.forEach((section, index) => {
+						if (preferred.length >= maxSummarySections || usedIndices.has(index)) {
+							return
+						}
+
+						const heading = section.split("\n", 1)[0]?.trim()
+						if (heading && excludedHeadings.has(heading)) {
+							return
+						}
+
+						preferred.push(section)
+						usedIndices.add(index)
+					})
+				}
+
+				if (preferred.length > 0) {
+					return preferred
+				}
+
+				return sections.length > 0 ? [sections[0]] : []
+		  })()
+		: sections
+
+	return finalSections.filter(Boolean).join("\n\n")
+}
+
+function buildUserAvatarSectionBlock(
+	enableUserAvatar: boolean | undefined,
+	userAvatarRole: Role | undefined,
+	visibility: UserAvatarVisibility = "full",
+): string {
+	if (!enableUserAvatar || !userAvatarRole) {
+		return ""
+	}
+
+	const normalizedVisibility: UserAvatarVisibility = visibility ?? "full"
+
+	console.log(
+		"[ANH-Chat:SystemPrompt] Building user avatar section for role:",
+		userAvatarRole.name,
+		"visibility:",
+		normalizedVisibility,
+	)
+
+	const userAvatarPromptData: RolePromptData = {
+		role: userAvatarRole,
+		storyline: { arcs: [] },
+		memory: { traits: [], goals: [], episodic: [] },
+	}
+
+	if (normalizedVisibility === "hidden") {
+		return `
+
+USER AVATAR
+用户选择隐藏所有角色信息。请仅以“用户”称呼，不要推断或假设任何背景、性格或身份细节。
+
+`
+	}
+
+	if (normalizedVisibility === "name") {
+		const roleName = userAvatarRole.name?.trim()
+		const nameLine = roleName
+			? `当前用户对外使用的角色名是：${roleName}`
+			: "用户未公开角色名称。"
+
+		return `
+
+USER AVATAR
+${nameLine}
+除角色名称外的所有信息均已隐藏。
+
+`
+	}
+
+	const summaryOnly = normalizedVisibility === "summary"
+	const section = buildRolePromptSection(userAvatarPromptData, undefined, undefined, {
+		disableTemplateReplacement: true,
+		summaryOnly,
+	})
+
+	if (!section) {
+		return `
+
+USER AVATAR
+用户的角色信息不可用或已被隐藏。
+
+`
+	}
+
+	if (summaryOnly) {
+		return `
+
+USER AVATAR SUMMARY
+以下是用户角色的精简信息，详细内容已隐藏。
+${section}
+
+`
+	}
+
+	return `
+
+USER AVATAR
+这是用户当前使用的角色设定：
+${section}
+
+`
 }
 
 interface RoleOverrideOptions {
@@ -549,6 +872,7 @@ async function generatePrompt(
 	userAvatarRole?: Role,
 	enableUserAvatar?: boolean,
 	enabledWorldsets?: string[],
+	userAvatarVisibility?: UserAvatarVisibility,
 ): Promise<string> {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -598,28 +922,11 @@ async function generatePrompt(
 	`
 		: ""
 
-	// Build user avatar role section if enabled
-	// TODO 完成用户代理角色的
-	let userAvatarSectionBlock = ""
-	if (enableUserAvatar && userAvatarRole) {
-		console.log("[ANH-Chat:SystemPrompt] Building user avatar section for role:", userAvatarRole.name)
-		console.log("[ANH-Chat:SystemPrompt] User avatar role data:", userAvatarRole)
-		const userAvatarPromptData = {
-			role: userAvatarRole,
-			storyline: { arcs: [] },
-			memory: { traits: [], goals: [], episodic: [] }
-		}
-		const userAvatarSection = buildRolePromptSection(userAvatarPromptData, userAvatarRole, enableUserAvatar)
-		userAvatarSectionBlock = userAvatarSection
-			? `
-
-USER AVATAR
-这是用户的角色，现在用户的角色是：${userAvatarRole.name}
-${userAvatarSection}
-
-`
-			: ""
-	}
+	const userAvatarSectionBlock = buildUserAvatarSectionBlock(
+		enableUserAvatar,
+		userAvatarRole,
+		userAvatarVisibility ?? "full",
+	)
 
 	const roleSectionBlock = aiRoleSectionBlock + userAvatarSectionBlock
 
@@ -632,7 +939,7 @@ ${userAvatarSection}
 			const worldsetContents: string[] = []
 			
 			for (const worldsetName of enabledWorldsets) {
-				const worldsetPath = path.join(cwd, "worldset", worldsetName)
+				const worldsetPath = path.join(cwd, "novel-helper", ".anh-chat", "worldset", worldsetName)
 				
 				if (fs.existsSync(worldsetPath)) {
 					const worldsetContent = fs.readFileSync(worldsetPath, "utf-8")
@@ -808,6 +1115,7 @@ export const SYSTEM_PROMPT = async (
 	userAvatarRole?: Role,
 	enableUserAvatar?: boolean,
 	enabledWorldsets?: string[],
+	userAvatarVisibility?: UserAvatarVisibility,
 ): Promise<string> => {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -867,19 +1175,11 @@ export const SYSTEM_PROMPT = async (
 		const aiRoleSection = buildRolePromptSection(rolePromptData, userAvatarRole, enableUserAvatar)
 		const aiRoleSectionBlock = aiRoleSection ? `${aiRoleSection}\n\n` : ""
 
-		// Build user avatar role section if enabled
-		let userAvatarSectionBlock = ""
-		if (enableUserAvatar && userAvatarRole) {
-			const userAvatarPromptData = {
-				role: userAvatarRole,
-				storyline: { arcs: [] },
-				memory: { traits: [], goals: [], episodic: [] }
-			}
-			const userAvatarSection = buildRolePromptSection(userAvatarPromptData, userAvatarRole, enableUserAvatar)
-			userAvatarSectionBlock = userAvatarSection
-				? `\n\nUSER AVATAR\n${userAvatarSection}\n\n`
-				: ""
-		}
+		const userAvatarSectionBlock = buildUserAvatarSectionBlock(
+			enableUserAvatar,
+			userAvatarRole,
+			userAvatarVisibility ?? "full",
+		)
 
 		const roleSectionBlock = aiRoleSectionBlock + userAvatarSectionBlock
 
@@ -921,5 +1221,6 @@ ${customInstructions}`
 		userAvatarRole,
 		enableUserAvatar,
 		enabledWorldsets,
+		userAvatarVisibility ?? "full",
 	)
 }

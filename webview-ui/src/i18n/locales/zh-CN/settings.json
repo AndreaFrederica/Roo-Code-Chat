@@ -928,6 +928,17 @@
 		"noRole": "无角色",
 		"noRoleDescription": "不使用特定角色，以默认方式对话",
 		"aliases": "别名",
+		"visibility": {
+			"label": "向助手共享的内容",
+			"description": "选择向角色展示的用户角色信息范围。",
+			"placeholder": "请选择可见范围",
+			"options": {
+				"full": "共享全部详细信息",
+				"summary": "仅共享摘要",
+				"name": "仅共享角色名称",
+				"hidden": "全部隐藏"
+			}
+		},
 		"loadError": "加载角色列表失败",
 		"searchPlaceholder": "搜索角色...",
 		"description": "配置用户代理角色，让你使用特定角色与AI对话",

@@ -3339,6 +3339,43 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
+		case "userAvatarHideFullData": {
+			try {
+				const hideFullData = message.bool ?? false
+				await updateGlobalState("userAvatarHideFullData", hideFullData)
+				await updateGlobalState("userAvatarVisibility", hideFullData ? "summary" : "full")
+				await provider.postStateToWebview()
+				provider.log(`User avatar hide full data set to: ${hideFullData}`)
+			} catch (error) {
+				provider.log(
+					`Error setting user avatar hide full data: ${error instanceof Error ? error.message : String(error)}`,
+				)
+			}
+			break
+		}
+		case "userAvatarVisibility": {
+			try {
+				const rawVisibility =
+					(typeof message.text === "string" && message.text) ||
+					(typeof message.value === "string" && message.value) ||
+					(typeof (message as any).visibility === "string" && (message as any).visibility)
+
+				const allowedVisibilities = new Set(["full", "summary", "name", "hidden"])
+				const visibility = allowedVisibilities.has(rawVisibility ?? "")
+					? (rawVisibility as "full" | "summary" | "name" | "hidden")
+					: "full"
+
+				await updateGlobalState("userAvatarVisibility", visibility)
+				await updateGlobalState("userAvatarHideFullData", visibility !== "full")
+				await provider.postStateToWebview()
+				provider.log(`User avatar visibility set to: ${visibility}`)
+			} catch (error) {
+				provider.log(
+					`Error setting user avatar visibility: ${error instanceof Error ? error.message : String(error)}`,
+				)
+			}
+			break
+		}
 		case "userAvatarRole": {
 			try {
 				let userAvatarRole: Role | undefined
@@ -3434,7 +3471,7 @@ export const webviewMessageHandler = async (
 					break
 				}
 
-				const worldsetDir = path.join(workspacePath, "worldset")
+				const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
 				
 				// Create worldset directory if it doesn't exist
 				await fs.mkdir(worldsetDir, { recursive: true })
@@ -3476,14 +3513,14 @@ export const webviewMessageHandler = async (
 			try {
 				const workspacePath = getWorkspacePath()
 				if (!workspacePath) {
-					await provider.postMessageToWebview({
-						type: "worldsetList",
-						worldsetFiles: []
-					})
+					provider.postMessageToWebview({
+					type: "worldsetList",
+					worldsetList: [],
+				})
 					break
 				}
 
-				const worldsetDir = path.join(workspacePath, "worldset")
+				const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
 				
 				// Check if worldset directory exists
 				if (!(await fs.access(worldsetDir).then(() => true).catch(() => false))) {
@@ -3535,7 +3572,7 @@ export const webviewMessageHandler = async (
 					break
 				}
 
-				const worldsetDir = path.join(workspacePath, "worldset")
+				const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
 				const worldsetPath = path.join(worldsetDir, worldsetName)
 
 				// For now, we just return the main worldset file
@@ -3578,7 +3615,7 @@ export const webviewMessageHandler = async (
 					break
 				}
 
-				const worldsetDir = path.join(workspacePath, "worldset")
+				const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
 				const worldsetPath = path.join(worldsetDir, worldsetName)
 
 				// Read the worldset file content
@@ -3697,13 +3734,14 @@ export const webviewMessageHandler = async (
 					break
 				}
 
-				const worldsetDir = path.join(workspacePath, "worldset")
+				const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
 				
 				// Create worldset directory if it doesn't exist
 				await fs.mkdir(worldsetDir, { recursive: true })
 				
-				// Open the worldset folder in file explorer
-				vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(worldsetDir), { forceNewWindow: false })
+				// Use VS Code's built-in command to reveal the folder in the system's file explorer
+				const worldsetUri = vscode.Uri.file(worldsetDir)
+				await vscode.commands.executeCommand("revealFileInOS", worldsetUri)
 				
 				provider.log(`Opened worldset folder: ${worldsetDir}`)
 			} catch (error) {

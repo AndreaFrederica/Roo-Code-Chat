@@ -900,6 +900,17 @@
 		"noRole": "無角色",
 		"noRoleDescription": "不使用特定角色，以預設方式對話",
 		"aliases": "別名",
+		"visibility": {
+			"label": "與助手共享的內容",
+			"description": "選擇要向角色顯示的使用者角色資訊範圍。",
+			"placeholder": "請選擇可見範圍",
+			"options": {
+				"full": "共享全部詳細資訊",
+				"summary": "僅共享摘要",
+				"name": "僅共享角色名稱",
+				"hidden": "全部隱藏"
+			}
+		},
 		"loadError": "載入角色列表失敗",
 		"searchPlaceholder": "搜尋角色...",
 		"description": "配置用戶代理角色，讓你使用特定角色與AI對話",

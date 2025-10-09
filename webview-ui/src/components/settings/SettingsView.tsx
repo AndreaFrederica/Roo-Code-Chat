@@ -29,7 +29,7 @@ import {
 	BookOpen,
 } from "lucide-react"
 
-import type { ProviderSettings, ExperimentId, TelemetrySetting } from "@roo-code/types"
+import type { ProviderSettings, ExperimentId, TelemetrySetting, UserAvatarVisibility } from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
 import { cn } from "@src/lib/utils"
@@ -113,7 +113,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	const { t } = useAppTranslation()
 
 	const extensionState = useExtensionState()
-	const { currentApiConfigName, listApiConfigMeta, uriScheme, settingsImportedAt, setHideRoleDescription } = extensionState
+	const { currentApiConfigName, listApiConfigMeta, uriScheme, settingsImportedAt, setHideRoleDescription, setUserAvatarVisibility, setUserAvatarHideFullData } = extensionState
 
 	const [isDiscardDialogShow, setDiscardDialogShow] = useState(false)
 	const [isChangeDetected, setChangeDetected] = useState(false)
@@ -205,6 +205,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		anhShowRoleCardOnSwitch,
 		userAvatarRole,
 		enableUserAvatar,
+		userAvatarVisibility,
 		hideRoleDescription,
 	} = cachedState
 
@@ -402,8 +403,17 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({ type: "anhShowRoleCardOnSwitch", bool: anhShowRoleCardOnSwitch ?? false })
 			vscode.postMessage({ type: "hideRoleDescription", bool: hideRoleDescription ?? false })
 			setHideRoleDescription?.(hideRoleDescription ?? false)
-			vscode.postMessage({ type: "enableUserAvatar", bool: enableUserAvatar })
-			vscode.postMessage({ type: "userAvatarRole", values: userAvatarRole })
+	vscode.postMessage({ type: "enableUserAvatar", bool: enableUserAvatar })
+	const resolvedUserAvatarVisibility = (userAvatarVisibility ?? "full") as UserAvatarVisibility
+	vscode.postMessage({
+		type: "userAvatarVisibility",
+		text: resolvedUserAvatarVisibility,
+	})
+	setUserAvatarVisibility?.(resolvedUserAvatarVisibility)
+	setUserAvatarHideFullData?.(resolvedUserAvatarVisibility !== "full")
+		setUserAvatarVisibility?.(resolvedUserAvatarVisibility)
+		setUserAvatarHideFullData?.(resolvedUserAvatarVisibility !== "full")
+		vscode.postMessage({ type: "userAvatarRole", values: userAvatarRole })
 			vscode.postMessage({ type: "openRouterImageApiKey", text: openRouterImageApiKey })
 			vscode.postMessage({
 				type: "openRouterImageGenerationSelectedModel",
@@ -790,6 +800,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 						<UserAvatarSettings
 							userAvatarRole={userAvatarRole}
 							enableUserAvatar={enableUserAvatar}
+							userAvatarVisibility={userAvatarVisibility ?? "full"}
 							setCachedStateField={setCachedStateField}
 						/>
 					)}

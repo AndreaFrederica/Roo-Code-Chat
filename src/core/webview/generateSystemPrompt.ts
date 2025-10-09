@@ -31,6 +31,8 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		userAvatarRole,
 		enableUserAvatar,
 		enabledWorldsets,
+		userAvatarVisibility,
+		userAvatarHideFullData,
 	} = await provider.getState()
 
 	// Check experiment to determine which diff strategy to use
@@ -80,6 +82,16 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	// Get user avatar role if enabled - align with Task.getSystemPrompt() implementation
 	console.log('[DEBUG] generateSystemPrompt - enableUserAvatar:', enableUserAvatar, 'userAvatarRole:', userAvatarRole)
 	
+	const resolvedUserAvatarVisibility =
+		userAvatarVisibility === "full" ||
+		userAvatarVisibility === "summary" ||
+		userAvatarVisibility === "name" ||
+		userAvatarVisibility === "hidden"
+			? userAvatarVisibility
+			: userAvatarHideFullData
+				? "summary"
+				: "full"
+
 	const systemPrompt = await SYSTEM_PROMPT(
 		provider.context,
 		cwd,
@@ -114,6 +126,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		userAvatarRole, // 直接传递 userAvatarRole，与 Task.getSystemPrompt() 保持一致
 		enableUserAvatar, // 直接传递 enableUserAvatar
 		enabledWorldsets, // 传递启用的世界观设定
+		resolvedUserAvatarVisibility,
 	)
 
 	return systemPrompt

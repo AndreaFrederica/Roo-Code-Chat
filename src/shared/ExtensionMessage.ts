@@ -17,6 +17,7 @@ import type {
 	Role,
 	RoleSummary,
 	RolePromptData,
+	UserAvatarVisibility,
 } from "@roo-code/types"
 
 import { GitCommit } from "../utils/git"
@@ -326,6 +327,8 @@ export type ExtensionState = Pick<
 	| "anhShowRoleCardOnSwitch"
 	| "userAvatarRole"
 	| "enableUserAvatar"
+	| "userAvatarHideFullData"
+	| "userAvatarVisibility"
 	| "hideRoleDescription"
 	| "enabledWorldsets"
 > & {
@@ -403,6 +406,8 @@ export type ExtensionState = Pick<
 	rolePromptData?: RolePromptData // Role prompt data for system prompt generation (optional, not part of core state)
 	userAvatarRole?: Role // Currently selected user avatar role
 	enableUserAvatar?: boolean // Whether to enable user avatar feature
+	userAvatarHideFullData?: boolean // Whether to share only a summary of the user avatar with roles
+	userAvatarVisibility?: UserAvatarVisibility // Level of user avatar detail shared with roles
 }
 
 export interface ClineSayTool {

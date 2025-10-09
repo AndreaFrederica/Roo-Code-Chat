@@ -11,6 +11,7 @@ import {
 	type OrganizationAllowList,
 	type CloudOrganizationMembership,
 	type Role,
+	type UserAvatarVisibility,
 	ORGANIZATION_ALLOW_ALL,
 } from "@roo-code/types"
 
@@ -169,10 +170,16 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setAnhUseAskTool: (value: boolean) => void
 	anhChatModeHideTaskCompletion?: boolean
 	setAnhChatModeHideTaskCompletion: (value: boolean) => void
+	anhShowRoleCardOnSwitch?: boolean
+	setAnhShowRoleCardOnSwitch: (value: boolean) => void
 	displayMode?: "coding" | "chat"
 	setDisplayMode: (value: "coding" | "chat") => void
 	enableUserAvatar?: boolean
 	setEnableUserAvatar: (value: boolean) => void
+	userAvatarVisibility?: UserAvatarVisibility
+	setUserAvatarVisibility: (value: UserAvatarVisibility) => void
+	userAvatarHideFullData?: boolean
+	setUserAvatarHideFullData: (value: boolean) => void
 	userAvatarRole?: Role
 	setUserAvatarRole: (value: Role | undefined) => void
 	hideRoleDescription?: boolean
@@ -195,6 +202,44 @@ export const mergeExtensionState = (prevState: ExtensionState, newState: Extensi
 	const customModePrompts = { ...prevCustomModePrompts, ...newCustomModePrompts }
 	const experiments = { ...prevExperiments, ...newExperiments }
 	const rest = { ...prevRest, ...newRest }
+
+	const resolveVisibility = (): UserAvatarVisibility => {
+		const incomingVisibility = newRest.userAvatarVisibility
+		if (
+			incomingVisibility === "full" ||
+			incomingVisibility === "summary" ||
+			incomingVisibility === "name" ||
+			incomingVisibility === "hidden"
+		) {
+			return incomingVisibility
+		}
+
+		if (typeof newRest.userAvatarHideFullData === "boolean") {
+			return newRest.userAvatarHideFullData ? "summary" : "full"
+		}
+
+		const previousVisibility = prevRest.userAvatarVisibility
+		if (
+			previousVisibility === "full" ||
+			previousVisibility === "summary" ||
+			previousVisibility === "name" ||
+			previousVisibility === "hidden"
+		) {
+			return previousVisibility
+		}
+
+		if (typeof prevRest.userAvatarHideFullData === "boolean") {
+			return prevRest.userAvatarHideFullData ? "summary" : "full"
+		}
+
+		return "full"
+	}
+
+	rest.userAvatarVisibility = resolveVisibility()
+	rest.userAvatarHideFullData =
+		typeof rest.userAvatarHideFullData === "boolean"
+			? rest.userAvatarHideFullData
+			: rest.userAvatarVisibility !== "full"
 
 	// Note that we completely replace the previous apiConfiguration and customSupportPrompts objects
 	// with new ones since the state that is broadcast is the entire objects so merging is not necessary.
@@ -286,8 +331,11 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		openRouterImageApiKey: "",
 		openRouterImageGenerationSelectedModel: "",
 		enableUserAvatar: false,
+		userAvatarVisibility: "full",
+		userAvatarHideFullData: false,
 		userAvatarRole: undefined,
 		hideRoleDescription: false,
+		anhShowRoleCardOnSwitch: false,
 	})
 
 	const [didHydrateState, setDidHydrateState] = useState(false)
@@ -360,6 +408,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update hideRoleDescription if present in state message
 					if ((newState as any).hideRoleDescription !== undefined) {
 						setState((prevState) => ({ ...prevState, hideRoleDescription: (newState as any).hideRoleDescription }))
+					}
+					// Update anhShowRoleCardOnSwitch if present in state message
+					if ((newState as any).anhShowRoleCardOnSwitch !== undefined) {
+						setState((prevState) => ({ ...prevState, anhShowRoleCardOnSwitch: (newState as any).anhShowRoleCardOnSwitch }))
 					}
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {
@@ -608,10 +660,28 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setAnhUseAskTool: (value) => setState((prevState) => ({ ...prevState, anhUseAskTool: value })),
 		anhChatModeHideTaskCompletion: state.anhChatModeHideTaskCompletion ?? true,
 		setAnhChatModeHideTaskCompletion: (value) => setState((prevState) => ({ ...prevState, anhChatModeHideTaskCompletion: value })),
+		anhShowRoleCardOnSwitch: state.anhShowRoleCardOnSwitch ?? false,
+		setAnhShowRoleCardOnSwitch: (value) => setState((prevState) => ({ ...prevState, anhShowRoleCardOnSwitch: value })),
 		displayMode: state.displayMode ?? "coding",
 		setDisplayMode: (value) => setState((prevState) => ({ ...prevState, displayMode: value })),
 		enableUserAvatar: state.enableUserAvatar ?? false,
 		setEnableUserAvatar: (value) => setState((prevState) => ({ ...prevState, enableUserAvatar: value })),
+		userAvatarVisibility:
+			state.userAvatarVisibility ??
+			(state.userAvatarHideFullData ? ("summary" as UserAvatarVisibility) : "full"),
+		setUserAvatarVisibility: (value) =>
+			setState((prevState) => ({
+				...prevState,
+				userAvatarVisibility: value,
+				userAvatarHideFullData: value !== "full" ? true : false,
+			})),
+		userAvatarHideFullData: state.userAvatarHideFullData ?? false,
+		setUserAvatarHideFullData: (value) =>
+			setState((prevState) => ({
+				...prevState,
+				userAvatarHideFullData: value,
+				userAvatarVisibility: value ? "summary" : prevState.userAvatarVisibility ?? "full",
+			})),
 		userAvatarRole: state.userAvatarRole,
 		setUserAvatarRole: (value) => setState((prevState) => ({ ...prevState, userAvatarRole: value })),
 		hideRoleDescription: state.hideRoleDescription ?? false,

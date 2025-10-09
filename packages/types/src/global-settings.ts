@@ -16,6 +16,9 @@ import { modeConfigSchema } from "./mode.js"
 import { customModePromptsSchema, customSupportPromptsSchema } from "./mode.js"
 import { languagesSchema } from "./vscode.js"
 
+export const userAvatarVisibilitySchema = z.enum(["full", "summary", "name", "hidden"])
+export type UserAvatarVisibility = z.infer<typeof userAvatarVisibilitySchema>
+
 /**
  * Default delay in milliseconds after writes to allow diagnostics to detect potential problems.
  * This delay is particularly important for Go and other languages where tools like goimports
@@ -165,6 +168,8 @@ export const globalSettingsSchema = z.object({
 	// User avatar role settings
 	userAvatarRole: roleSchema.optional(),
 	enableUserAvatar: z.boolean().optional(),
+	userAvatarHideFullData: z.boolean().optional(),
+	userAvatarVisibility: userAvatarVisibilitySchema.optional(),
 	hideRoleDescription: z.boolean().optional(),
 
 	// UI Display settings
@@ -341,6 +346,8 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 	displayMode: "coding",
 	mcpEnabled: false,
 	enableUserAvatar: false,
+	userAvatarHideFullData: false,
+	userAvatarVisibility: "full",
 
 	mode: "code", // "architect",
 

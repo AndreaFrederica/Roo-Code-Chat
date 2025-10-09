@@ -47,7 +47,8 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 		setEnableUserAvatar,
 		currentTaskItem, 
 		clineMessages,
-		hideRoleDescription 
+		hideRoleDescription,
+		anhShowRoleCardOnSwitch
 	} = useExtensionState()
 
 	// User avatar role can always be switched during tasks
@@ -84,13 +85,23 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 					break
 				case "userAvatarRoleLoaded":
 					if (message.role) {
-						// Check if this is the role we're waiting for (consistent with settings interface)
-						if (message.role.uuid === userAvatarRole?.uuid || !userAvatarRole?.uuid) {
-							// Update the local state to ensure consistency
-							setUserAvatarRole(message.role)
-							// Show role debug info with the complete role object
+						console.log("=== UserAvatar: Role Loaded ===")
+						console.log("Received role:", message.role)
+						console.log("Current userAvatarRole:", userAvatarRole)
+						
+						// Always update with the loaded role data
+						// The backend should only send the role we requested
+						setUserAvatarRole(message.role)
+						// Show role debug info with the complete role object only if enabled in settings
+						if (anhShowRoleCardOnSwitch) {
 							showRoleDebugInfo(message.role)
 						}
+						
+						// 设置完整角色数据到后端状态
+						vscode.postMessage({
+							type: "userAvatarRole",
+							role: message.role,
+						})
 					}
 					break
 				// case "invoke":
@@ -104,7 +115,7 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 
 		window.addEventListener("message", handleMessage)
 		return () => window.removeEventListener("message", handleMessage)
-	}, [showRoleDebugInfo])
+	}, [showRoleDebugInfo, userAvatarRole, setUserAvatarRole, anhShowRoleCardOnSwitch])
 
 	const trackUserAvatarRoleSelectorOpened = React.useCallback(() => {
 		// Track telemetry every time the user avatar role selector is opened.
@@ -211,10 +222,12 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 			setOpen(false)
 			setSearchValue("")
 			
+			console.log("=== UserAvatar: Selecting Role ===")
+			console.log("Selected role:", role)
+			
 			if (role.uuid) {
-				// 选择其他角色时：先启用UA，再设置角色
+				// 选择其他角色时：先启用UA
 				setEnableUserAvatar(true)
-				setUserAvatarRole(role)
 				
 				// 启用用户代理
 				vscode.postMessage({
@@ -222,16 +235,11 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 					bool: true,
 				})
 				
-				// Load the role details
+				// 加载完整角色数据，完整数据会通过userAvatarRoleLoaded消息返回
+				// 不要在这里立即设置userAvatarRole，等待后端返回完整数据
 				vscode.postMessage({
 					type: "loadUserAvatarRole",
 					roleUuid: role.uuid,
-				})
-				
-				// Set the role in backend state
-				vscode.postMessage({
-					type: "userAvatarRole",
-					role: role,
 				})
 			} else {
 				// 选择默认角色时：关闭UA

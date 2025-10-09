@@ -124,7 +124,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 
 		window.addEventListener("message", handleMessage)
 		return () => window.removeEventListener("message", handleMessage)
-	}, [onChange, showRoleDebugInfo])
+	}, [onChange, showRoleDebugInfo, anhShowRoleCardOnSwitch])
 
 	const trackRoleSelectorOpened = React.useCallback(() => {
 		// Track telemetry every time the role selector is opened.

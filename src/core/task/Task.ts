@@ -2505,6 +2505,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			userAvatarRole,
 			enableUserAvatar,
 			enabledWorldsets,
+			userAvatarVisibility,
+			userAvatarHideFullData,
 		} = state ?? {}
 
 		// Use the latest settings from global state, falling back to task's local settings
@@ -2517,6 +2519,16 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			if (!provider) {
 				throw new Error("Provider not available")
 			}
+
+			const resolvedUserAvatarVisibility =
+				userAvatarVisibility === "full" ||
+				userAvatarVisibility === "summary" ||
+				userAvatarVisibility === "name" ||
+				userAvatarVisibility === "hidden"
+					? userAvatarVisibility
+					: userAvatarHideFullData
+						? "summary"
+						: "full"
 
 			const prompt = await SYSTEM_PROMPT(
 				provider.context,
@@ -2552,6 +2564,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				userAvatarRole as any, // Type assertion to fix type error
 				enableUserAvatar,
 				enabledWorldsets, // 传递启用的世界观设定
+				resolvedUserAvatarVisibility,
 			)
 
 			const appliedRole = this.rolePromptData?.role?.name ?? "none"

@@ -923,6 +923,17 @@
 		"noRole": "No Role",
 		"noRoleDescription": "Don't use a specific role, chat in default mode",
 		"aliases": "Aliases",
+		"visibility": {
+			"label": "Share with assistant",
+			"description": "Choose how much of your user avatar is revealed to the role.",
+			"placeholder": "Select visibility",
+			"options": {
+				"full": "Share all details",
+				"summary": "Share a concise summary",
+				"name": "Share name only",
+				"hidden": "Hide everything"
+			}
+		},
 		"loadError": "Failed to load role list",
 		"searchPlaceholder": "Search roles...",
 		"description": "Configure user avatar role to let you chat with AI using a specific role",

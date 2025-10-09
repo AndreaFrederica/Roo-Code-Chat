@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useState } from "react"
 import { Fzf } from "fzf"
 import { Check, X, User, UserX } from "lucide-react"
 
-import { type Role, type RoleSummary } from "@roo-code/types"
+import { type Role, type RoleSummary, type UserAvatarVisibility } from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
 import { cn } from "@src/lib/utils"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { ExtensionStateContextType } from "@src/context/ExtensionStateContext"
 import { Button } from "@src/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@src/components/ui/select"
 import { StandardTooltip } from "@src/components/ui"
 import { SectionHeader } from "./SectionHeader"
 import { Section } from "./Section"
@@ -17,12 +18,14 @@ import { SetCachedStateField } from "./types"
 interface UserAvatarSettingsProps {
 	userAvatarRole?: Role
 	enableUserAvatar?: boolean
+	userAvatarVisibility?: UserAvatarVisibility
 	setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType>
 }
 
 export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 	userAvatarRole,
 	enableUserAvatar,
+	userAvatarVisibility,
 	setCachedStateField,
 }) => {
 	const { t } = useAppTranslation()
@@ -252,6 +255,38 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 						{enableUserAvatar ? t("settings:common.enabled") : t("settings:common.disabled")}
 					</Button>
 				</div>
+
+				{/* Visibility selection */}
+				{enableUserAvatar && (
+					<div className="flex flex-col gap-2">
+						<div className="flex flex-col gap-1">
+							<div className="text-sm font-medium">{t("settings:userAvatar.visibility.label")}</div>
+							<div className="text-xs text-vscode-descriptionForeground">
+								{t("settings:userAvatar.visibility.description")}
+							</div>
+						</div>
+						<Select
+							value={userAvatarVisibility ?? "full"}
+							onValueChange={(value) => {
+								setCachedStateField("userAvatarVisibility", value as UserAvatarVisibility)
+								setCachedStateField("userAvatarHideFullData", value !== "full")
+							}}>
+							<SelectTrigger className="w-full sm:w-64">
+								<SelectValue placeholder={t("settings:userAvatar.visibility.placeholder")} />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="full">{t("settings:userAvatar.visibility.options.full")}</SelectItem>
+								<SelectItem value="summary">
+									{t("settings:userAvatar.visibility.options.summary")}
+								</SelectItem>
+								<SelectItem value="name">{t("settings:userAvatar.visibility.options.name")}</SelectItem>
+								<SelectItem value="hidden">
+									{t("settings:userAvatar.visibility.options.hidden")}
+								</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+				)}
 
 				{/* Role Selection */}
 				{enableUserAvatar && (

@@ -242,6 +242,8 @@ export interface WebviewMessage {
 		| "setAnhUseAskTool"
 		| "setDisplayMode"
 		| "enableUserAvatar"
+		| "userAvatarHideFullData"
+		| "userAvatarVisibility"
 		| "userAvatarRole"
 		| "anhChatModeHideTaskCompletion"
 		| "anhShowRoleCardOnSwitch"
