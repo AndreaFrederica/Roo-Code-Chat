@@ -3,10 +3,17 @@ import type {
 	AnhExtensionContext,
 	AnhExtensionHooks,
 	AnhExtensionSystemPromptContext,
+	AnhExtensionSystemPromptFinalContext,
+	AnhExtensionSystemPromptFinalHook,
 	AnhExtensionSystemPromptResult,
 	AnhExtensionSettingDefinition,
 	AnhExtensionModuleId,
 	AnhExtensionModuleMap,
+	AnhExtensionToolDefinition,
+	AnhExtensionToolHooks,
+	AnhExtensionToolInvokeRequest,
+	AnhExtensionToolResult,
+	AnhExtensionToolResultBlock,
 } from "@roo-code/types"
 
 /**
@@ -47,11 +54,18 @@ declare namespace AnhExtensionSDK {
 	 * `systemPrompt` 钩子的上下文。
 	 */
 	type SystemPromptContext = AnhExtensionSystemPromptContext
+	type SystemPromptFinalContext = AnhExtensionSystemPromptFinalContext
+	type SystemPromptFinalHook = AnhExtensionSystemPromptFinalHook
 
 	/**
 	 * `systemPrompt` 钩子的返回值类型。
 	 */
 	type SystemPromptResult = AnhExtensionSystemPromptResult
+	type ToolDefinition = AnhExtensionToolDefinition
+	type ToolHooks = AnhExtensionToolHooks
+	type ToolInvokeRequest = AnhExtensionToolInvokeRequest
+	type ToolResult = AnhExtensionToolResult
+	type ToolResultBlock = AnhExtensionToolResultBlock
 }
 
 /**
@@ -70,5 +84,12 @@ export type Deactivate = (context: AnhExtensionSDK.Context) => Promise<void> | v
 export type {
 	AnhExtensionSettingDefinition,
 	AnhExtensionSystemPromptContext,
+	AnhExtensionSystemPromptFinalContext,
+	AnhExtensionSystemPromptFinalHook,
 	AnhExtensionSystemPromptResult,
+	AnhExtensionToolDefinition,
+	AnhExtensionToolHooks,
+	AnhExtensionToolInvokeRequest,
+	AnhExtensionToolResult,
+	AnhExtensionToolResultBlock,
 } from "@roo-code/types"

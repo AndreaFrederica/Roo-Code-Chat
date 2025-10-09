@@ -873,6 +873,7 @@ async function generatePrompt(
 	enableUserAvatar?: boolean,
 	enabledWorldsets?: string[],
 	userAvatarVisibility?: UserAvatarVisibility,
+	extensionToolDescriptions?: string[],
 ): Promise<string> {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -1040,6 +1041,7 @@ RULES
 				enableMcpServerCreation,
 				modelId,
 				anhUseAskTool === false, // Disable ask tool when anhUseAskTool is false
+				extensionToolDescriptions,
 			),
 			"",
 			getToolUseGuidelinesSection(codeIndexManager),
@@ -1116,6 +1118,7 @@ export const SYSTEM_PROMPT = async (
 	enableUserAvatar?: boolean,
 	enabledWorldsets?: string[],
 	userAvatarVisibility?: UserAvatarVisibility,
+	extensionToolDescriptions?: string[],
 ): Promise<string> => {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -1219,8 +1222,11 @@ ${customInstructions}`
 		anhToneStrict,
 		anhUseAskTool,
 		userAvatarRole,
-		enableUserAvatar,
-		enabledWorldsets,
-		userAvatarVisibility ?? "full",
-	)
+	enableUserAvatar,
+	enabledWorldsets,
+	userAvatarVisibility ?? "full",
+	extensionToolDescriptions,
+)
 }
+
+

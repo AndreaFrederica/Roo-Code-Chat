@@ -58,7 +58,7 @@ export type AnhExtensionSettingDefinition =
 
 export type AnhExtensionSettingsValues = Record<string, unknown>
 
-export type AnhExtensionCapability = "systemPrompt"
+export type AnhExtensionCapability = "systemPrompt" | "tools"
 export type AnhExtensionModuleMap = {
 	vscode: typeof vscodeTypes
 	fs: typeof fsTypes
@@ -76,6 +76,107 @@ export interface AnhExtensionManifest {
 	enabled?: boolean
 	settings?: AnhExtensionSettingDefinition[]
 	modules?: AnhExtensionModuleId[]
+}
+
+export interface AnhExtensionToolDefinition {
+	/**
+	 * Unique identifier for the tool within the extension.
+	 * Combined with the extension id to form the global tool name.
+	 */
+	name: string
+	/**
+	 * Human-readable label shown in logs and UI.
+	 * Defaults to the `name` when omitted.
+	 */
+	displayName?: string
+	/**
+	 * One-line summary describing the purpose of the tool.
+	 */
+	description?: string
+	/**
+	 * Instructional text appended to the system prompt's tools section.
+	 * Should explain when and how to call the tool, including parameter guidance.
+	 */
+	prompt: string
+	/**
+	 * Optional list of mode slugs in which the tool is available.
+	 * If omitted, the tool is available in all modes.
+	 */
+	modes?: string[]
+	/**
+	 * Whether invoking this tool should request user approval first.
+	 * Defaults to true for safety.
+	 */
+	requiresApproval?: boolean
+}
+
+export interface AnhExtensionToolInvokeRequest {
+	/**
+	 * The extension-scoped tool name as defined in `AnhExtensionToolDefinition.name`.
+	 */
+	toolName: string
+	/**
+	 * Fully-qualified tool identifier (`extension:<extension-id>/<tool-name>`).
+	 */
+	fullToolName: string
+	/**
+	 * Parameters supplied by the model when invoking the tool.
+	 */
+	parameters: Record<string, string | undefined>
+	/**
+	 * Active task identifier if available.
+	 */
+	taskId?: string
+	/**
+	 * Current working directory for the task.
+	 */
+	cwd: string
+	/**
+	 * Root workspace path for the current task.
+	 */
+	workspacePath: string
+	/**
+	 * Active mode slug, if resolved.
+	 */
+	mode?: string
+	/**
+	 * Snapshot of provider state to help tools adapt to environment settings.
+	 */
+	providerState?: Record<string, unknown>
+}
+
+export type AnhExtensionToolResultBlock =
+	| { type: "text"; text: string }
+	| { type: "image"; base64: string; mimeType: string; altText?: string }
+
+export interface AnhExtensionToolResultSuccess {
+	success: true
+	/**
+	 * Optional primary message to show in the transcript.
+	 */
+	message?: string
+	/**
+	 * Optional structured blocks (text/image) to render as tool output.
+	 */
+	blocks?: AnhExtensionToolResultBlock[]
+	/**
+	 * Arbitrary metadata for future use or debugging.
+	 */
+	metadata?: Record<string, unknown>
+}
+
+export interface AnhExtensionToolResultError {
+	success: false
+	error: string
+}
+
+export type AnhExtensionToolResult = AnhExtensionToolResultSuccess | AnhExtensionToolResultError
+
+export interface AnhExtensionToolHooks {
+	getTools?(): Promise<AnhExtensionToolDefinition[] | void> | AnhExtensionToolDefinition[] | void
+	invoke(
+		request: AnhExtensionToolInvokeRequest,
+	): Promise<AnhExtensionToolResult | void> | AnhExtensionToolResult | void
 }
 
 export interface AnhExtensionRuntimeState {
@@ -135,8 +236,19 @@ export type AnhExtensionSystemPromptHook = (
 	| string
 	| void
 
+export interface AnhExtensionSystemPromptFinalContext
+	extends Omit<AnhExtensionSystemPromptContext, "basePrompt"> {
+	finalPrompt: string
+}
+
+export type AnhExtensionSystemPromptFinalHook = (
+	context: AnhExtensionSystemPromptFinalContext,
+) => Promise<void> | void
+
 export interface AnhExtensionHooks {
 	systemPrompt?: AnhExtensionSystemPromptHook
+	systemPromptFinal?: AnhExtensionSystemPromptFinalHook
+	tools?: AnhExtensionToolHooks
 }
 
 export interface AnhExtensionContextLogger {

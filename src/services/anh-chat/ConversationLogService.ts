@@ -2,11 +2,29 @@ import * as path from "path"
 import * as fs from "fs/promises"
 import crypto from "crypto"
 
-import type { Role, RoleSummary } from "@roo-code/types"
 import { fileExistsAtPath } from "../../utils/fs"
 import { safeWriteJson } from "../../utils/safeWriteJson"
 
 import { ensureAnhChatRoot } from "./pathUtils"
+
+interface ConversationSummary {
+	conversationId: string
+	roleUuid?: string
+	title?: string
+	startedAt: number
+	endedAt?: number
+	lastMessagePreview?: string
+	metadata?: Record<string, unknown>
+}
+
+interface ConversationMessage {
+	conversationId: string
+	messageId?: string
+	role: "assistant" | "user" | "system" | "tool" | string
+	content: string
+	timestamp: number
+	metadata?: Record<string, unknown>
+}
 
 export class ConversationLogService {
 	private readonly conversationsDir: string

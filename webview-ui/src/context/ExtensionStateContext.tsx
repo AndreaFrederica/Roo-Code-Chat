@@ -347,7 +347,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		anhExtensionsEnabled: {},
 		anhExtensionSettings: {},
 		anhExtensionsRuntime: [],
-		anhExtensionCapabilityRegistry: { systemPrompt: [] },
+		anhExtensionCapabilityRegistry: { systemPrompt: [], tools: [] },
 	})
 
 	const [didHydrateState, setDidHydrateState] = useState(false)

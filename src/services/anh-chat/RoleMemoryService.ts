@@ -1,11 +1,42 @@
 import * as path from "path"
 import * as fs from "fs/promises"
 
-import type { Role, RoleSummary } from "@roo-code/types"
+import type { MemoryEpisodicRecord, MemoryGoal, MemoryTrait } from "@roo-code/types"
 import { fileExistsAtPath } from "../../utils/fs"
 import { safeWriteJson } from "../../utils/safeWriteJson"
 
 import { ensureAnhChatRoot } from "./pathUtils"
+
+type EpisodicMemory = MemoryEpisodicRecord & {
+	id?: string
+	metadata?: Record<string, unknown>
+}
+
+type SemanticMemory = {
+	id: string
+	content: string
+	updatedAt: number
+	tags?: string[]
+	source?: string
+	metadata?: Record<string, unknown>
+}
+
+type TraitMemory = MemoryTrait & {
+	id?: string
+}
+
+type GoalMemory = MemoryGoal & {
+	id?: string
+}
+
+interface RoleMemory extends Record<string, unknown> {
+	characterUuid: string
+	episodic: EpisodicMemory[]
+	semantic: SemanticMemory[]
+	traits: TraitMemory[]
+	goals: GoalMemory[]
+	lastSyncedAt?: number
+}
 
 export class RoleMemoryService {
 	private readonly memoryDir: string

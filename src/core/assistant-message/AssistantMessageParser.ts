@@ -17,6 +17,7 @@ export class AssistantMessageParser {
 	private readonly MAX_ACCUMULATOR_SIZE = 1024 * 1024 // 1MB limit
 	private readonly MAX_PARAM_LENGTH = 1024 * 100 // 100KB per parameter limit
 	private accumulator = ""
+	private extraToolNames: string[] = []
 
 	/**
 	 * Initialize a new AssistantMessageParser instance.
@@ -37,6 +38,10 @@ export class AssistantMessageParser {
 		this.currentParamName = undefined
 		this.currentParamValueStartIndex = 0
 		this.accumulator = ""
+	}
+
+	public setExtraToolNames(toolNames: string[]): void {
+		this.extraToolNames = Array.from(new Set(toolNames.filter(Boolean)))
 	}
 
 	/**
@@ -155,7 +160,8 @@ export class AssistantMessageParser {
 			// No currentToolUse.
 
 			let didStartToolUse = false
-			const possibleToolUseOpeningTags = toolNames.map((name) => `<${name}>`)
+			const knownToolNames = this.getKnownToolNames()
+			const possibleToolUseOpeningTags = knownToolNames.map((name) => `<${name}>`)
 
 			for (const toolUseOpeningTag of possibleToolUseOpeningTags) {
 				if (this.accumulator.endsWith(toolUseOpeningTag)) {
@@ -163,7 +169,7 @@ export class AssistantMessageParser {
 					const extractedToolName = toolUseOpeningTag.slice(1, -1)
 
 					// Check if the extracted tool name is valid
-					if (!toolNames.includes(extractedToolName as ToolName)) {
+					if (!knownToolNames.includes(extractedToolName)) {
 						// Invalid tool name, treat as plain text and continue
 						continue
 					}
@@ -233,6 +239,10 @@ export class AssistantMessageParser {
 		return this.getContentBlocks()
 	}
 
+	private getKnownToolNames(): string[] {
+		return Array.from(new Set([...toolNames, ...this.extraToolNames]))
+	}
+
 	/**
 	 * Finalize any partial content blocks.
 	 * Should be called after processing the last chunk.
@@ -249,3 +259,6 @@ export class AssistantMessageParser {
 		}
 	}
 }
+
+
+

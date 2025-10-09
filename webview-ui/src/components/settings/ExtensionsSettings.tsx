@@ -35,7 +35,7 @@ const badgeBaseClass =
 	"inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-xs font-medium leading-none"
 const settingsSectionClass = "mt-3 space-y-2 border-t border-vscode-panel-border/50 pt-3"
 
-const capabilityOrder: AnhExtensionCapability[] = ["systemPrompt"]
+const capabilityOrder: AnhExtensionCapability[] = ["systemPrompt", "tools"]
 
 export const ExtensionsSettings = ({
 	extensions,
@@ -50,6 +50,7 @@ export const ExtensionsSettings = ({
 
 	const capabilityLabels: Record<AnhExtensionCapability, string> = {
 		systemPrompt: t("settings:extensions.capabilityLabels.systemPrompt"),
+		tools: "Tools",
 	}
 
 	const capabilityStateLabels = {
@@ -195,7 +196,6 @@ export const ExtensionsSettings = ({
 													{label}
 													{commonDescription}
 													<VSCodeTextField
-														type="number"
 														value={value}
 														onInput={handleInput}
 														{...(setting.min !== undefined ? { min: setting.min } : {})}

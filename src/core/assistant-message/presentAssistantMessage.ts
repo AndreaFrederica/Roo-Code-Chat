@@ -154,6 +154,7 @@ export async function presentAssistantMessage(cline: Task) {
 			break
 		}
 		case "tool_use":
+			const provider = cline.providerRef.deref()
 			const toolDescription = (): string => {
 				switch (block.name) {
 					case "execute_command":
@@ -225,8 +226,16 @@ export async function presentAssistantMessage(cline: Task) {
 					}
 					case "run_slash_command":
 						return `[${block.name} for '${block.params.command}'${block.params.args ? ` with args: ${block.params.args}` : ""}]`
-					case "generate_image":
-						return `[${block.name} for '${block.params.path}']`
+				case "generate_image":
+					return `[${block.name} for '${block.params.path}']`
+				default: {
+					const extensionTool = provider?.getAnhExtensionToolByName(block.name)
+					if (extensionTool) {
+						return `[${extensionTool.displayName}]`
+					}
+
+					return `[${block.name}]`
+				}
 				}
 			}
 
@@ -552,15 +561,89 @@ export async function presentAssistantMessage(cline: Task) {
 						askFinishSubTaskApproval,
 					)
 					break
-				case "run_slash_command":
-					await runSlashCommandTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
+		case "run_slash_command":
+			await runSlashCommandTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
+			break
+		case "generate_image":
+			await generateImageTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
+			break
+		default: {
+			if (block.partial) {
+				break
+			}
+
+			if (!provider) {
+				pushToolResult(formatResponse.toolError(`Extension tool '${block.name}' cannot run without a provider context.`))
+				break
+			}
+
+			const extensionTool = provider.getAnhExtensionToolByName(block.name)
+			if (!extensionTool) {
+				pushToolResult(formatResponse.toolError(`Unknown tool '${block.name}'.`))
+				break
+			}
+
+			let approved = true
+			if (extensionTool.requiresApproval) {
+				const approvalPayload = JSON.stringify({ tool: block.name, params: block.params })
+				approved = await askApproval("tool", approvalPayload)
+				if (!approved) {
 					break
-				case "generate_image":
-					await generateImageTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
+				}
+			}
+
+			try {
+				const mode = await cline.getTaskMode().catch(() => undefined)
+				const providerState = await provider.getState()
+				const result = await provider.invokeAnhExtensionTool(block.name, {
+					parameters: block.params,
+					taskId: cline.taskId,
+					cwd: cline.cwd,
+					workspacePath: cline.workspacePath,
+					mode,
+					providerState,
+				})
+
+				if (!result) {
+					cline.consecutiveMistakeCount = 0
+					pushToolResult("")
 					break
+				}
+
+				if (!result.success) {
+					cline.consecutiveMistakeCount++
+					pushToolResult(formatResponse.toolError(result.error))
+					break
+				}
+
+				cline.consecutiveMistakeCount = 0
+
+				if (result.blocks?.length) {
+					const blockResponses = result.blocks.map((toolBlock) => {
+						if (toolBlock.type === "text") {
+							return { type: "text" as const, text: toolBlock.text }
+						}
+
+						return {
+							type: "image" as const,
+							source: { type: "base64", media_type: toolBlock.mimeType, data: toolBlock.base64 },
+							alt_text: toolBlock.altText,
+						}
+					})
+
+					pushToolResult(blockResponses as ToolResponse)
+				} else {
+					pushToolResult(result.message ?? "")
+				}
+			} catch (error) {
+				await handleError("executing extension tool", error as Error)
 			}
 
 			break
+		}
+		}
+
+		break
 	}
 
 	// Seeing out of bounds is fine, it means that the next too call is being
@@ -628,3 +711,6 @@ async function checkpointSaveAndMark(task: Task) {
 		console.error(`[ANH-Chat:Task#presentAssistantMessage] Error saving checkpoint: ${error.message}`, error)
 	}
 }
+
+
+

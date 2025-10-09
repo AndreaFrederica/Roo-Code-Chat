@@ -40,18 +40,31 @@ export const toolNames = [
 
 export const toolNamesSchema = z.enum(toolNames)
 
-export type ToolName = z.infer<typeof toolNamesSchema>
+export type BuiltInToolName = (typeof toolNames)[number]
+
+export type ExtensionToolName = `extension:${string}`
+
+export const extensionToolNameRegex = /^extension:[a-zA-Z0-9/_-]+$/
+
+export type ToolName = BuiltInToolName | ExtensionToolName
+
+export const toolIdentifierSchema = z.union([
+	toolNamesSchema,
+	z
+		.string()
+		.regex(extensionToolNameRegex, {
+			message: "Extension tool names must follow the pattern 'extension:<extension-id>/<tool-id>'",
+		}),
+])
 
 /**
  * ToolUsage
  */
 
-export const toolUsageSchema = z.record(
-	toolNamesSchema,
-	z.object({
-		attempts: z.number(),
-		failures: z.number(),
-	}),
-)
+export const toolUsageSchema = z.record(z.string(), z.object({ attempts: z.number(), failures: z.number() }))
 
 export type ToolUsage = z.infer<typeof toolUsageSchema>
+
+export function isExtensionToolName(name: string): name is ExtensionToolName {
+	return extensionToolNameRegex.test(name)
+}

@@ -1,10 +1,10 @@
 {
 	"name": "Sample Prompt Logger",
 	"main": "./index.mjs",
-	"capabilities": ["systemPrompt"],
+	"capabilities": ["systemPrompt", "tools"],
 	"modules": ["os"],
 	"enabled": true,
-	"description": "Logs role prompt data and appends a note to the system prompt.",
+	"description": "Logs role prompt data, appends a note to the system prompt, and exposes a sample echo tool.",
 	"settings": [
 		{
 			"id": "appendMessage",
@@ -23,3 +23,4 @@
 		}
 	]
 }
+

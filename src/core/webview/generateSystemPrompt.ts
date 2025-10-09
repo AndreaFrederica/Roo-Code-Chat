@@ -103,6 +103,9 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	}
 	const providerStateSnapshot = providerState as unknown as Record<string, unknown>
 
+	const extensionTools = provider.getAnhExtensionToolsForMode(mode ?? defaultModeSlug)
+	const extensionToolDescriptions = extensionTools.map((tool) => tool.prompt)
+
 	const systemPrompt = await SYSTEM_PROMPT(
 		provider.context,
 		cwd,
@@ -131,6 +134,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		enableUserAvatar, // 直接传递 enableUserAvatar
 		enabledWorldsets, // 传递启用的世界观设定
 		resolvedUserAvatarVisibility,
+		extensionToolDescriptions,
 	)
 
 	const finalPrompt = await provider.applySystemPromptExtensions(systemPrompt, {

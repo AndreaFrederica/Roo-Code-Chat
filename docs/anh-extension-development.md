@@ -147,7 +147,75 @@ return {
 * `string`：追加到 prompt 末尾
 * `{ append?: string | string[], prepend?: string | string[], replace?: string }`
 
+若只需要观察最终结果，可实现可选的 `systemPromptFinal` 钩子。它会在所有插件修改完成后触发，参数中包含 `finalPrompt` 字段：
+
+```ts
+return {
+  systemPromptFinal({ finalPrompt, mode }) {
+    context.logger.info(`Final prompt for ${mode} has ${finalPrompt.length} characters.`);
+  }
+};
+```
+
+即使插件只实现 `systemPromptFinal`，只要在 manifest 中声明 `systemPrompt` 能力即可收到回调。
+
+`systemPromptFinal` 的上下文类型为 `AnhExtensionSystemPromptFinalContext`（在 `types/anh-extension-sdk.d.ts` 中可直接引用 `SystemPromptFinalContext`）。除 `finalPrompt` 外，其余字段与 `systemPrompt` 相同，例如 `mode`、`cwd`、`rolePromptData` 等，便于根据最终提示词结合原始上下文做进一步处理或记录。
+
 更多上下文字段见 `src/services/anh-chat/ExtensionManager.ts` 中 `AnhExtensionSystemPromptContext`。
+
+---
+
+## 工具 Hook
+
+声明 `tools` 能力后，插件可以向模型暴露自定义工具。工具 hook 需要返回两个成员：
+
+- `getTools()`：返回一组 `AnhExtensionToolDefinition`，用于描述工具的名称、展示文案以及应注入到系统提示中的说明。
+- `invoke(request)`：当模型调用 `extension:<extension-id>/<tool-name>` 时执行，实现具体逻辑并返回 `AnhExtensionToolResult`。
+
+```ts
+return {
+  tools: {
+    async getTools() {
+      return [
+        {
+          name: "echo_message",
+          displayName: "Echo Message",
+          description: "Echoes the provided text and logs it to the sample plugin output channel.",
+          prompt: `- extension:${context.id}/echo_message — Echo the provided \`text\` parameter and log it to the plugin output channel.`,
+          requiresApproval: false,
+        },
+      ]
+    },
+    async invoke({ parameters, cwd, taskId }) {
+      const text = typeof parameters.text === "string" ? parameters.text.trim() : ""
+
+      if (!text) {
+        return { success: false, error: "Parameter 'text' is required." }
+      }
+
+      context.logger.info(`Echo tool called for task ${taskId} at ${cwd}: ${text}`)
+
+      return {
+        success: true,
+        message: `Plugin echo: ${text}`,
+      }
+    },
+  },
+}
+```
+
+工具定义字段说明：
+
+- `name`：插件内部唯一的工具名称，会自动组合成 `extension:<extension-id>/<name>`。
+- `displayName` 与 `description`：用于设置 UI/日志友好的标题和简介。
+- `prompt`：注入到系统提示 “Tools” 部分的文本，建议说明调用格式与参数。
+- `requiresApproval`：是否在执行前弹出用户确认（默认 `true`）。
+- `modes`：可选，限定工具仅在特定模式下显示。
+
+`invoke` 函数会收到 `AnhExtensionToolInvokeRequest`，包含当前任务的 `cwd`、`workspacePath`、`mode`、`taskId`、`providerState` 以及模型传入的 `parameters`。返回值可包含：
+
+- `success: true` 时可附带 `message`（字符串）或 `blocks`（文本/图片块数组），将直接展示在聊天记录中。
+- `success: false` 时提供 `error` 字段以反馈问题。
 
 ---
 
@@ -176,6 +244,15 @@ Manifest 的 `settings` 会在设置页的 “Extensions” Tab 自动渲染。�
 
 项目提供了 `types/anh-extension-sdk.d.ts`（见仓库根目录）。在插件目录内创建 `tsconfig.json`，并将该 `.d.ts` include，即可获得完整的编写提示。
 
+主要导出的类型别名包括：
+
+- `Hooks`：插件可返回的钩子集合（例如 `systemPrompt`、`systemPromptFinal`）
+- `SystemPromptContext` / `SystemPromptResult`：系统提示词钩子参数及返回值
+- `SystemPromptFinalContext` / `SystemPromptFinalHook`：最终提示词回调的上下文与函数签名
+- `ToolDefinition` / `ToolHooks`：工具定义与钩子结构
+- `ToolInvokeRequest` / `ToolResult`：工具执行时的上下文与返回值
+- `Context`：`activate` / `deactivate` 拿到的运行时上下文
+
 示例 `tsconfig.json`：
 
 ```json
@@ -194,3 +271,5 @@ Manifest 的 `settings` 会在设置页的 “Extensions” Tab 自动渲染。�
 ---
 
 祝开发顺利！若需要扩展新的能力，可以参考 `AnhExtensionManager` 的实现并提交 PR。***
+
+

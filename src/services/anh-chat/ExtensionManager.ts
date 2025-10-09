@@ -16,32 +16,61 @@ import type {
 	AnhExtensionSettingDefinition,
 	AnhExtensionSettingsValues,
 	AnhExtensionSystemPromptContext,
+	AnhExtensionSystemPromptFinalContext,
 	AnhExtensionSystemPromptResult,
+	AnhExtensionToolDefinition,
+	AnhExtensionToolHooks,
+	AnhExtensionToolInvokeRequest,
+	AnhExtensionToolResult,
 } from "@roo-code/types"
+import { isExtensionToolName } from "@roo-code/types"
 
 type LoadedExtension = {
 	id: string
 	manifest: AnhExtensionManifest
 	extensionPath: string
 	entryPath: string
+	context: AnhExtensionContext
 	hooks: AnhExtensionHooks
 	deactivate?: AnhExtensionModule["deactivate"]
 	loadedAt: number
 	registeredCapabilities: AnhExtensionCapability[]
+	toolHooks?: {
+		hooks: AnhExtensionToolHooks
+		tools: RegisteredExtensionToolEntry[]
+	}
+}
+
+type RegisteredExtensionToolEntry = {
+	fullName: string
+	localName: string
+	displayName: string
+	description?: string
+	prompt: string
+	modes?: string[]
+	requiresApproval: boolean
+}
+
+type RegisteredExtensionTool = {
+	extensionId: string
+	entry: RegisteredExtensionToolEntry
+	hooks: AnhExtensionToolHooks
 }
 
 const EXTENSION_MANIFEST_FILENAME = "extension.json"
-const SUPPORTED_CAPABILITIES: AnhExtensionCapability[] = ["systemPrompt"]
+const SUPPORTED_CAPABILITIES: AnhExtensionCapability[] = ["systemPrompt", "tools"]
 const SUPPORTED_MODULES: AnhExtensionModuleId[] = ["vscode", "fs", "os", "path"]
+const EXTENSION_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/
 
 export class AnhExtensionManager {
 	private readonly extensionsDir: string
 	private extensions: Map<string, LoadedExtension> = new Map()
-	private capabilityRegistry: AnhExtensionCapabilityRegistry = { systemPrompt: [] }
+	private capabilityRegistry: AnhExtensionCapabilityRegistry = { systemPrompt: [], tools: [] }
 	private runtimeSnapshot: AnhExtensionRuntimeState[] = []
 	private settingsGetter?: (id: string) => AnhExtensionSettingsValues | undefined
 	private settingsUpdater?: (id: string, settings: AnhExtensionSettingsValues) => Promise<void>
 	private currentSettings: Map<string, AnhExtensionSettingsValues> = new Map()
+	private toolRegistry: Map<string, RegisteredExtensionTool> = new Map()
 
 	constructor(
 		private readonly basePath: string,
@@ -49,7 +78,7 @@ export class AnhExtensionManager {
 	) {
 		this.extensionsDir = path.join(basePath, "extensions")
 		this.extensions = new Map()
-		this.capabilityRegistry = { systemPrompt: [] }
+		this.capabilityRegistry = { systemPrompt: [], tools: [] }
 		this.runtimeSnapshot = []
 		this.currentSettings = new Map()
 	}
@@ -60,6 +89,186 @@ export class AnhExtensionManager {
 	) {
 		this.settingsGetter = getter
 		this.settingsUpdater = updater
+	}
+
+	private buildFullToolName(extensionId: string, toolName: string): string {
+		return `extension:${extensionId}/${toolName}`
+	}
+
+	private sanitizeToolLocalName(extensionId: string, name: string): string | undefined {
+		const trimmed = name.trim()
+
+		if (!trimmed) {
+			this.logger.warn(`[AnhExtensions:${extensionId}] Tool definition is missing a name; skipping registration`)
+			return undefined
+		}
+
+		if (!EXTENSION_TOOL_NAME_PATTERN.test(trimmed)) {
+			this.logger.warn(
+				`[AnhExtensions:${extensionId}] Tool name '${trimmed}' is invalid. Use alphanumeric characters, underscores, or hyphens.`,
+			)
+			return undefined
+		}
+
+		if (trimmed.includes("/")) {
+			this.logger.warn(
+				`[AnhExtensions:${extensionId}] Tool name '${trimmed}' must not contain '/'. The extension id is automatically prefixed.`,
+			)
+			return undefined
+		}
+
+		return trimmed
+	}
+
+	private normalizeToolDefinition(
+		extensionId: string,
+		definition: AnhExtensionToolDefinition,
+	): RegisteredExtensionToolEntry | undefined {
+		const localName = this.sanitizeToolLocalName(extensionId, definition.name)
+
+		if (!localName) {
+			return undefined
+		}
+
+		if (!definition.prompt || !definition.prompt.trim()) {
+			this.logger.warn(
+				`[AnhExtensions:${extensionId}] Tool '${localName}' must provide a non-empty prompt description; skipping registration`,
+			)
+			return undefined
+		}
+
+		const fullName = this.buildFullToolName(extensionId, localName)
+
+		if (!isExtensionToolName(fullName)) {
+			this.logger.warn(
+				`[AnhExtensions:${extensionId}] Generated tool name '${fullName}' is invalid. This should not happen but the tool will be skipped.`,
+			)
+			return undefined
+		}
+
+		if (this.toolRegistry.has(fullName)) {
+			this.logger.warn(
+				`[AnhExtensions:${extensionId}] Tool '${localName}' conflicts with an existing tool '${fullName}'. Skipping duplicate registration.`,
+			)
+			return undefined
+		}
+
+		return {
+			fullName,
+			localName,
+			displayName: definition.displayName?.trim() || localName,
+			description: definition.description?.trim(),
+			prompt: definition.prompt.trim(),
+			modes: Array.isArray(definition.modes) ? definition.modes.map((mode) => mode.trim()).filter(Boolean) : undefined,
+			requiresApproval: definition.requiresApproval !== false,
+		}
+	}
+
+	private async registerToolsForExtension(
+		id: string,
+		hooks: AnhExtensionToolHooks | undefined,
+	): Promise<RegisteredExtensionToolEntry[] | undefined> {
+		if (!hooks || typeof hooks.invoke !== "function") {
+			return undefined
+		}
+
+		let definitions: AnhExtensionToolDefinition[] = []
+
+		if (typeof hooks.getTools === "function") {
+			try {
+				const resolved = await hooks.getTools()
+				definitions = resolved ?? []
+			} catch (error) {
+				this.logger.error(
+					`[AnhExtensions:${id}] Error while retrieving tool definitions: ${error instanceof Error ? error.message : String(error)}`,
+				)
+				return []
+			}
+		}
+
+		const entries: RegisteredExtensionToolEntry[] = []
+
+		for (const definition of definitions) {
+			const entry = this.normalizeToolDefinition(id, definition)
+			if (!entry) {
+				continue
+			}
+
+			this.toolRegistry.set(entry.fullName, {
+				extensionId: id,
+				entry,
+				hooks,
+			})
+
+			entries.push(entry)
+		}
+
+		return entries
+	}
+
+	private unregisterToolsForExtension(extensionId: string) {
+		for (const [toolName, registered] of this.toolRegistry.entries()) {
+			if (registered.extensionId === extensionId) {
+				this.toolRegistry.delete(toolName)
+			}
+		}
+
+		const existing = this.extensions.get(extensionId)
+		if (existing) {
+			existing.toolHooks = undefined
+		}
+	}
+
+	public getExtensionToolsForMode(mode?: string): RegisteredExtensionToolEntry[] {
+		return [...this.toolRegistry.values()]
+			.map((registered) => registered.entry)
+			.filter((entry) => {
+				if (!entry.modes || entry.modes.length === 0 || !mode) {
+					return true
+				}
+
+				return entry.modes.includes(mode)
+			})
+	}
+
+	public getExtensionToolByName(fullToolName: string): RegisteredExtensionToolEntry | undefined {
+		return this.toolRegistry.get(fullToolName)?.entry
+	}
+
+	public async invokeExtensionTool(
+		fullToolName: string,
+		request: Omit<AnhExtensionToolInvokeRequest, "toolName" | "fullToolName">,
+	): Promise<AnhExtensionToolResult | undefined> {
+		const registered = this.toolRegistry.get(fullToolName)
+
+		if (!registered) {
+			this.logger.warn(`[AnhExtensions] Attempted to invoke unknown tool '${fullToolName}'`)
+			return undefined
+		}
+
+		try {
+			const result = await registered.hooks.invoke({
+				...request,
+				toolName: registered.entry.localName,
+				fullToolName,
+			})
+
+			if (!result) {
+				return { success: true }
+			}
+
+			return result
+		} catch (error) {
+			this.logger.error(
+				`[AnhExtensions:${registered.extensionId}] Tool '${registered.entry.localName}' invocation failed: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
+			)
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : String(error),
+			}
+		}
 	}
 
 	private createLogger(id: string) {
@@ -215,7 +424,7 @@ export class AnhExtensionManager {
 	): Promise<void> {
 		const dirEntries = await this.readExtensionDirectories()
 		const nextExtensions: Map<string, LoadedExtension> = new Map()
-		const nextCapabilityRegistry: AnhExtensionCapabilityRegistry = { systemPrompt: [] }
+		const nextCapabilityRegistry: AnhExtensionCapabilityRegistry = { systemPrompt: [], tools: [] }
 		const runtimeSnapshot: AnhExtensionRuntimeState[] = []
 		const processedIds = new Set<string>()
 
@@ -231,20 +440,24 @@ export class AnhExtensionManager {
 			const previous = this.extensions.get(id)
 			if (previous) {
 				await this.deactivateExtension(id, previous)
+				this.unregisterToolsForExtension(id)
 			}
 
 			const manifestResult = await this.readManifest(id, extensionPath)
 
-			if (manifestResult.error) {
+			if ("error" in manifestResult) {
 				runtimeSnapshot.push(manifestResult.error)
 				continue
 			}
 
 			const { manifest } = manifestResult
 			const manifestSettings = manifest.settings ?? []
-			const requestedModules = Array.isArray(manifest.modules) ? manifest.modules : []
-			const filteredModules = requestedModules.filter((module): module is AnhExtensionModuleId =>
-				SUPPORTED_MODULES.includes(module as AnhExtensionModuleId),
+			const requestedModules: (AnhExtensionModuleId | string)[] = Array.isArray(manifest.modules)
+				? manifest.modules
+				: []
+			const filteredModules = requestedModules.filter(
+				(module): module is AnhExtensionModuleId =>
+					SUPPORTED_MODULES.includes(module as AnhExtensionModuleId),
 			)
 			manifest.modules = filteredModules
 			manifest.settings = manifestSettings
@@ -301,6 +514,7 @@ export class AnhExtensionManager {
 		for (const [id, loaded] of this.extensions.entries()) {
 			if (!processedIds.has(id)) {
 				await this.deactivateExtension(id, loaded)
+				this.unregisterToolsForExtension(id)
 				runtimeSnapshot.push({
 					id,
 					manifest: loaded.manifest,
@@ -477,7 +691,7 @@ export class AnhExtensionManager {
 		}
 
 		const hooks = (await resolvedModule.activate(context)) ?? {}
-
+		const toolEntries = await this.registerToolsForExtension(id, hooks.tools)
 		const registeredCapabilities = this.determineRegisteredCapabilities(id, manifest.capabilities, hooks)
 
 		return {
@@ -485,10 +699,15 @@ export class AnhExtensionManager {
 			manifest,
 			extensionPath,
 			entryPath: resolvedEntry,
+			context,
 			hooks,
 			deactivate: resolvedModule.deactivate,
 			loadedAt: Date.now(),
 			registeredCapabilities,
+			toolHooks:
+				hooks.tools && typeof hooks.tools.invoke === "function"
+					? { hooks: hooks.tools, tools: toolEntries ?? [] }
+					: undefined,
 		}
 	}
 
@@ -527,17 +746,32 @@ export class AnhExtensionManager {
 		hooks: AnhExtensionHooks,
 	): AnhExtensionCapability[] {
 		const registered: AnhExtensionCapability[] = []
+		const hasSystemPromptHook = typeof hooks.systemPrompt === "function"
+		const hasSystemPromptFinalHook = typeof hooks.systemPromptFinal === "function"
+		const hasToolHooks = typeof hooks.tools?.invoke === "function"
 
 		for (const capability of declared) {
-			if (capability === "systemPrompt" && typeof hooks.systemPrompt === "function") {
-				registered.push("systemPrompt")
-			} else if (capability === "systemPrompt") {
-				this.logger.warn(`[AnhExtensions:${id}] Capability 'systemPrompt' declared but no handler registered`)
+			if (capability === "systemPrompt") {
+				if (hasSystemPromptHook || hasSystemPromptFinalHook) {
+					registered.push("systemPrompt")
+				} else {
+					this.logger.warn(`[AnhExtensions:${id}] Capability 'systemPrompt' declared but no handler registered`)
+				}
+			} else if (capability === "tools") {
+				if (hasToolHooks) {
+					registered.push("tools")
+				} else {
+					this.logger.warn(`[AnhExtensions:${id}] Capability 'tools' declared but no handler registered`)
+				}
 			}
 		}
 
 		for (const capability of SUPPORTED_CAPABILITIES) {
-			if (!declared.includes(capability) && capability === "systemPrompt" && typeof hooks.systemPrompt === "function") {
+			if (
+				!declared.includes(capability) &&
+				((capability === "systemPrompt" && (hasSystemPromptHook || hasSystemPromptFinalHook)) ||
+					(capability === "tools" && hasToolHooks))
+			) {
 				this.logger.warn(
 					`[AnhExtensions:${id}] Handler provided for capability '${capability}' but manifest does not declare it`,
 				)
@@ -551,10 +785,7 @@ export class AnhExtensionManager {
 		if (typeof extension.deactivate === "function") {
 			try {
 				await extension.deactivate({
-					id,
-					manifest: extension.manifest,
-					extensionPath: extension.extensionPath,
-					basePath: this.basePath,
+					...extension.context,
 					logger: this.createLogger(id),
 				})
 			} catch (error) {
@@ -582,8 +813,9 @@ export class AnhExtensionManager {
 		context: Omit<AnhExtensionSystemPromptContext, "basePrompt">,
 	): Promise<string> {
 		let prompt = basePrompt
+		const extensions = this.getExtensionsWithCapability("systemPrompt")
 
-		for (const extension of this.getExtensionsWithCapability("systemPrompt")) {
+		for (const extension of extensions) {
 			const hook = extension.hooks.systemPrompt
 
 			if (!hook) {
@@ -607,6 +839,8 @@ export class AnhExtensionManager {
 				)
 			}
 		}
+
+		await this.invokeSystemPromptFinalHooks(prompt, context, extensions)
 
 		return prompt
 	}
@@ -642,4 +876,37 @@ export class AnhExtensionManager {
 
 		return segment.trim()
 	}
+
+	private async invokeSystemPromptFinalHooks(
+		finalPrompt: string,
+		context: Omit<AnhExtensionSystemPromptContext, "basePrompt">,
+		extensions: LoadedExtension[],
+	) {
+		const finalContext: AnhExtensionSystemPromptFinalContext = {
+			...context,
+			finalPrompt,
+		}
+
+		for (const extension of extensions) {
+			const hook = extension.hooks.systemPromptFinal
+
+			if (!hook) {
+				continue
+			}
+
+			try {
+				await hook({ ...finalContext })
+			} catch (error) {
+				this.logger.error(
+					`[AnhExtensions:${extension.id}] systemPromptFinal hook failed: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				)
+			}
+		}
+	}
 }
+
+
+
+

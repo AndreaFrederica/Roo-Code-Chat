@@ -77,6 +77,7 @@ export function getToolDescriptionsForMode(
 	enableMcpServerCreation?: boolean,
 	modelId?: string,
 	disableAskFollowupQuestion?: boolean,
+	extensionToolDescriptions?: string[],
 ): string {
 	const config = getModeConfig(mode, customModes)
 	const args: ToolArgs = {
@@ -162,6 +163,15 @@ export function getToolDescriptionsForMode(
 		})
 	})
 
+	if (extensionToolDescriptions?.length) {
+		for (const prompt of extensionToolDescriptions) {
+			const normalized = prompt.trim()
+			if (normalized) {
+				descriptions.push(normalized)
+			}
+		}
+	}
+
 	return `# Tools\n\n${descriptions.filter(Boolean).join("\n\n")}`
 }
 
@@ -187,3 +197,5 @@ export {
 	getRunSlashCommandDescription,
 	getGenerateImageDescription,
 }
+
+

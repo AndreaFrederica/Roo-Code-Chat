@@ -2542,6 +2542,10 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			}
 			const providerStateSnapshot = (state ?? {}) as Record<string, unknown>
 			const modelId = this.api.getModel().id
+			const extensionTools = provider.getAnhExtensionToolsForMode(mode ?? defaultModeSlug)
+			const extensionToolNames = extensionTools.map((tool) => tool.fullName)
+			this.assistantMessageParser.setExtraToolNames(extensionToolNames)
+			const extensionToolDescriptions = extensionTools.map((tool) => tool.prompt)
 
 			const prompt = await SYSTEM_PROMPT(
 				provider.context,
@@ -2571,6 +2575,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				enableUserAvatar,
 				enabledWorldsets, // 传递启用的世界观设定
 				resolvedUserAvatarVisibility,
+				extensionToolDescriptions,
 			)
 
 			const finalPrompt = await provider.applySystemPromptExtensions(prompt, {

@@ -71,6 +71,7 @@ import { CodeIndexManager } from "../../services/code-index/manager"
 import type { IndexProgressUpdate } from "../../services/code-index/interfaces/manager"
 import { MdmService } from "../../services/mdm/MdmService"
 import type { AnhChatServices } from "../../services/anh-chat"
+import type { AnhExtensionManager } from "../../services/anh-chat/ExtensionManager"
 
 import { fileExistsAtPath } from "../../utils/fs"
 import { setTtsEnabled, setTtsSpeed } from "../../utils/tts"
@@ -96,6 +97,7 @@ import type {
 	AnhExtensionCapabilityRegistry,
 	AnhExtensionRuntimeState,
 	AnhExtensionSystemPromptContext,
+	AnhExtensionToolResult,
 	ClineMessage,
 	RolePromptData,
 } from "@roo-code/types"
@@ -111,6 +113,9 @@ import { getUri } from "./getUri"
 export type ClineProviderEvents = {
 	clineCreated: [cline: Task]
 }
+
+type ExtensionToolMetadata = ReturnType<AnhExtensionManager["getExtensionToolsForMode"]>[number]
+type ExtensionToolInvokePayload = Parameters<AnhExtensionManager["invokeExtensionTool"]>[1]
 
 interface PendingEditOperation {
 	messageTs: number
@@ -1843,7 +1848,7 @@ export class ClineProvider
 		if (!manager) {
 			return {
 				runtime: [],
-				capabilityRegistry: { systemPrompt: [] },
+				capabilityRegistry: { systemPrompt: [], tools: [] },
 			}
 		}
 
@@ -1851,6 +1856,36 @@ export class ClineProvider
 			runtime: manager.getRuntimeState(),
 			capabilityRegistry: manager.getCapabilityRegistry(),
 		}
+	}
+
+	private getExtensionManager(): AnhExtensionManager | undefined {
+		return this.anhChatServices?.extensionManager
+	}
+
+	public getAnhExtensionToolsForMode(mode?: string): ExtensionToolMetadata[] {
+		const manager = this.getExtensionManager()
+		if (!manager) {
+			return []
+		}
+
+		return manager.getExtensionToolsForMode(mode)
+	}
+
+	public getAnhExtensionToolByName(fullToolName: string): ExtensionToolMetadata | undefined {
+		return this.getExtensionManager()?.getExtensionToolByName(fullToolName)
+	}
+
+	public async invokeAnhExtensionTool(
+		fullToolName: string,
+		payload: ExtensionToolInvokePayload,
+	): Promise<AnhExtensionToolResult | undefined> {
+		const manager = this.getExtensionManager()
+
+		if (!manager) {
+			throw new Error("Extension manager is not initialized")
+		}
+
+		return manager.invokeExtensionTool(fullToolName, payload)
 	}
 
 	public async applySystemPromptExtensions(
@@ -3194,3 +3229,4 @@ export class ClineProvider
 		}
 	}
 }
+

@@ -13,6 +13,20 @@ export async function activate(context) {
 		)
 	}
 
+	const echoToolId = "echo_message"
+	const toolDefinition = {
+		name: echoToolId,
+		displayName: "Echo Message",
+		description: "Echoes the provided text and logs it to the sample plugin output channel.",
+		prompt: [
+			"### Sample Plugin Tool",
+			`- \`extension:${context.id}/${echoToolId}\` — Echo the provided \`text\` parameter and log it to the sample plugin output channel.`,
+			"  - Parameters:",
+			"    - `text`: message content to echo back.",
+		].join("\n"),
+		requiresApproval: false,
+	}
+
 	return {
 		systemPrompt(systemContext) {
 			const { rolePromptData } = systemContext
@@ -37,6 +51,32 @@ export async function activate(context) {
 			const banner = ["### Plugin Notice", appendMessage].join("\n")
 
 			return { append: `\n\n${banner}` }
+		},
+		systemPromptFinal({ finalPrompt, mode }) {
+			const preview = finalPrompt.slice(0, 160).replace(/\s+/g, " ").trim()
+			context.logger.info(
+				`[${context.manifest.name}] Final prompt (${mode ?? "unknown"}) length: ${finalPrompt.length}, preview: ${preview}`,
+			)
+		},
+		tools: {
+			async getTools() {
+				return [toolDefinition]
+			},
+			async invoke({ parameters }) {
+				const textParam = typeof parameters.text === "string" ? parameters.text.trim() : ""
+				if (!textParam) {
+					return { success: false, error: "Parameter 'text' is required." }
+				}
+
+				context.logger.info(
+					`[${context.manifest.name}] echo_message invoked with text: ${textParam}`,
+				)
+
+				return {
+					success: true,
+					message: `Plugin echo: ${textParam}`,
+				}
+			},
 		},
 	}
 }
