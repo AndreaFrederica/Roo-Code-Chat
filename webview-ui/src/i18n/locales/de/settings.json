@@ -31,6 +31,7 @@
 		"slashCommands": "Slash-Befehle",
 		"prompts": "Eingabeaufforderungen",
 		"ui": "UI",
+		"extensions": "Extensions",
 		"experimental": "Experimentell",
 		"language": "Sprache",
 		"userAvatar": "Benutzer-Avatar",
@@ -887,6 +888,25 @@
 		"collapseThinking": {
 			"label": "Gedankenblöcke standardmäßig ausblenden",
 			"description": "Wenn aktiviert, werden Gedankenblöcke standardmäßig ausgeblendet, bis du mit ihnen interagierst"
+		}
+	},
+	"extensions": {
+		"description": "Manage community or custom extensions located under novel-helper/.anh-chat/extensions.",
+		"empty": "No extensions found. Add a folder with an extension.json manifest to register a plugin.",
+		"enableLabel": "Enable",
+		"capabilitiesTitle": "Capabilities",
+		"settingsTitle": "Settings",
+		"capabilityLabels": {
+			"systemPrompt": "System prompt hooks"
+		},
+		"capabilityStates": {
+			"active": "Active",
+			"inactive": "Not active"
+		},
+		"noCapabilities": "This extension does not declare any capabilities.",
+		"error": "Failed to load: {{error}}",
+		"registrySummary": {
+			"systemPrompt": "System prompt hooks active: {{names}}"
 		}
 	},
 	"userAvatar": {

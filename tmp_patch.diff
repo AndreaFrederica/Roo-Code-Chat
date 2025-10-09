@@ -1,0 +1,10 @@
+*** Begin Patch
+*** Update File: webview-ui/src/components/settings/SettingsView.tsx
+@@
+-const { t } = useAppTranslation()
++const { t } = useAppTranslation();
+ 
+-const extensionState = useExtensionState()
++const extensionState = useExtensionState();
+*** End Patch
+

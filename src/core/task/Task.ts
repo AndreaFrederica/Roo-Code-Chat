@@ -2530,10 +2530,23 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						? "summary"
 						: "full"
 
+			const canUseBrowserTool =
+				(this.api.getModel().info.supportsComputerUse ?? false) && (browserToolEnabled ?? true)
+			const systemPromptSettings = {
+				maxConcurrentFileReads: maxConcurrentFileReads ?? 5,
+				todoListEnabled: apiConfiguration?.todoListEnabled ?? true,
+				useAgentRules: vscode.workspace.getConfiguration("anh-cline").get<boolean>("useAgentRules") ?? true,
+				newTaskRequireTodos: vscode.workspace
+					.getConfiguration("anh-cline")
+					.get<boolean>("newTaskRequireTodos", false),
+			}
+			const providerStateSnapshot = (state ?? {}) as Record<string, unknown>
+			const modelId = this.api.getModel().id
+
 			const prompt = await SYSTEM_PROMPT(
 				provider.context,
 				this.cwd,
-				(this.api.getModel().info.supportsComputerUse ?? false) && (browserToolEnabled ?? true),
+				canUseBrowserTool,
 				mcpHub,
 				this.diffStrategy,
 				browserViewportSize,
@@ -2547,16 +2560,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				language,
 				rooIgnoreInstructions,
 				maxReadFileLine !== -1,
-				{
-					maxConcurrentFileReads: maxConcurrentFileReads ?? 5,
-					todoListEnabled: apiConfiguration?.todoListEnabled ?? true,
-					useAgentRules: vscode.workspace.getConfiguration("anh-cline").get<boolean>("useAgentRules") ?? true,
-					newTaskRequireTodos: vscode.workspace
-						.getConfiguration("anh-cline")
-						.get<boolean>("newTaskRequireTodos", false),
-				},
+				systemPromptSettings,
 				this.todoList, // 修复：传递实际的 todoList
-				this.api.getModel().id,
+				modelId,
 				this.rolePromptData,
 				currentPersonaMode,
 				currentToneStrict,
@@ -2567,6 +2573,35 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				resolvedUserAvatarVisibility,
 			)
 
+			const finalPrompt = await provider.applySystemPromptExtensions(prompt, {
+				cwd: this.cwd,
+				mode: mode ?? defaultModeSlug,
+				providerState: providerStateSnapshot,
+				taskId: this.taskId,
+				canUseBrowserTool,
+				browserViewportSize: browserViewportSize ?? "900x600",
+				todoList: this.todoList,
+				modelId,
+				rolePromptData: this.rolePromptData,
+				personaMode: currentPersonaMode,
+				toneStrict: currentToneStrict,
+				useAskTool: state?.anhUseAskTool,
+				userAvatarRole: userAvatarRole as any,
+				enableUserAvatar: enableUserAvatar ?? false,
+				enabledWorldsets,
+				userAvatarVisibility: resolvedUserAvatarVisibility,
+				customModePrompts,
+				customModes,
+				customInstructions,
+				diffEnabled: this.diffEnabled,
+				experiments,
+				enableMcpServerCreation,
+				language,
+				rooIgnoreInstructions,
+				partialReadsEnabled: maxReadFileLine !== -1,
+				settings: systemPromptSettings,
+			})
+
 			const appliedRole = this.rolePromptData?.role?.name ?? "none"
 			const appliedPersona = currentPersonaMode ?? "default"
 			const toneSetting =
@@ -2575,7 +2610,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				`[ANH-Chat:Task#${this.taskId}] System prompt role context applied: role=${appliedRole}, persona=${appliedPersona}, toneStrict=${toneSetting}`,
 			)
 
-			return prompt
+			return finalPrompt
 		})()
 	}
 

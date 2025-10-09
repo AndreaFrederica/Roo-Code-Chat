@@ -10,7 +10,7 @@ import type {
 	UserAvatarVisibility,
 } from "@roo-code/types"
 
-import type { SystemPromptSettings } from "./types"
+import type { SystemPromptSettings } from "@roo-code/types"
 import type {
 	RolePromptData,
 	RoleModeOverrides,

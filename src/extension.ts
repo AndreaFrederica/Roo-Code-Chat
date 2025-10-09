@@ -33,6 +33,7 @@ import {
 	StorylineRepository,
 	RoleMemoryService,
 	ConversationLogService,
+	AnhExtensionManager,
 	type AnhChatServices,
 } from "./services/anh-chat"
 import { migrateSettings } from "./utils/migrateSettings"
@@ -117,6 +118,21 @@ export async function activate(context: vscode.ExtensionContext) {
 		])
 
 		const resolvedBasePath = path.join(anhChatBasePath, "novel-helper", ".anh-chat")
+		const extensionLogger = {
+			info: (message: string) => {
+				outputChannel.appendLine(message)
+				console.log(message)
+			},
+			warn: (message: string) => {
+				outputChannel.appendLine(message)
+				console.warn(message)
+			},
+			error: (message: string) => {
+				outputChannel.appendLine(message)
+				console.error(message)
+			},
+		}
+		const extensionManager = new AnhExtensionManager(resolvedBasePath, extensionLogger)
 
 		anhChatServices = {
 			basePath: resolvedBasePath,
@@ -124,6 +140,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			storylineRepository,
 			roleMemoryService,
 			conversationLogService,
+			extensionManager,
 		}
 
 		outputChannel.appendLine(`[AnhChat] Services initialized at ${resolvedBasePath}`)

@@ -1,0 +1,25 @@
+{
+	"name": "Sample Prompt Logger",
+	"main": "./index.mjs",
+	"capabilities": ["systemPrompt"],
+	"modules": ["os"],
+	"enabled": true,
+	"description": "Logs role prompt data and appends a note to the system prompt.",
+	"settings": [
+		{
+			"id": "appendMessage",
+			"type": "string",
+			"label": "Appended message",
+			"description": "Text injected into the generated system prompt.",
+			"default": "This system prompt contains additions from Sample Prompt Logger.",
+			"multiline": true
+		},
+		{
+			"id": "logRoleData",
+			"type": "boolean",
+			"label": "Log role prompt data",
+			"description": "When enabled, role metadata will be logged to the output channel.",
+			"default": true
+		}
+	]
+}

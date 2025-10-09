@@ -92,7 +92,13 @@ import { Task } from "../task/Task"
 import { getSystemPromptFilePath } from "../prompts/sections/custom-system-prompt"
 
 import { webviewMessageHandler } from "./webviewMessageHandler"
-import type { ClineMessage, RolePromptData } from "@roo-code/types"
+import type {
+	AnhExtensionCapabilityRegistry,
+	AnhExtensionRuntimeState,
+	AnhExtensionSystemPromptContext,
+	ClineMessage,
+	RolePromptData,
+} from "@roo-code/types"
 import { readApiMessages, saveApiMessages, saveTaskMessages } from "../task-persistence"
 import { getNonce } from "./getNonce"
 import { getUri } from "./getUri"
@@ -115,6 +121,8 @@ interface PendingEditOperation {
 	timeoutId: NodeJS.Timeout
 	createdAt: number
 }
+
+type SystemPromptHookOptions = Omit<AnhExtensionSystemPromptContext, "basePrompt">
 
 export class ClineProvider
 	extends EventEmitter<TaskProviderEvents>
@@ -147,6 +155,7 @@ export class ClineProvider
 	private cachedRolePromptData?: RolePromptData
 	private pendingOperations: Map<string, PendingEditOperation> = new Map()
 	private static readonly PENDING_OPERATION_TIMEOUT_MS = 30000 // 30 seconds
+	private anhExtensionsLoaded = false
 
 	public isViewLaunched = false
 	public settingsImportedAt?: number
@@ -169,6 +178,20 @@ export class ClineProvider
 
 		this.mdmService = mdmService
 		this.anhChatServices = anhChatServices
+		if (this.anhChatServices?.extensionManager) {
+			this.anhChatServices.extensionManager.setSettingsHandlers(
+				(id) => this.getAnhExtensionSettingsFromState()[id],
+				async (id, settings) => {
+					const current = this.getAnhExtensionSettingsFromState()
+					const next = {
+						...current,
+						[id]: { ...settings },
+					}
+					await this.setValue("anhExtensionSettings", next as any)
+					await this.postStateToWebview()
+				},
+			)
+		}
 		const storedRole = this.getCurrentAnhRole()
 		if (storedRole?.uuid) {
 			this.activeRoleUuid = storedRole.uuid
@@ -207,6 +230,7 @@ export class ClineProvider
 			})
 
 		this.marketplaceManager = new MarketplaceManager(this.context, this.customModesManager)
+		void this.refreshAnhExtensions()
 
 		// Forward <most> task events to the provider.
 		// We do something fairly similar for the IPC-based API.
@@ -1781,7 +1805,75 @@ export class ClineProvider
 		}
 	}
 
-		async getStateToPostToWebview(): Promise<ExtensionState> {
+	private getAnhExtensionSettingsFromState(): Record<string, Record<string, unknown>> {
+		return (
+			(this.getValue("anhExtensionSettings") as Record<string, Record<string, unknown>> | undefined) ?? {}
+		)
+	}
+
+	private async ensureAnhExtensionsInitialized(): Promise<void> {
+		if (this.anhExtensionsLoaded) {
+			return
+		}
+
+		await this.refreshAnhExtensions()
+	}
+
+	public async refreshAnhExtensions(): Promise<void> {
+		const manager = this.anhChatServices?.extensionManager
+		if (!manager) {
+			return
+		}
+
+		const enabled =
+			(this.getValue("anhExtensionsEnabled") as Record<string, boolean> | undefined) ?? {}
+		const settings =
+			(this.getValue("anhExtensionSettings") as Record<string, Record<string, unknown>> | undefined) ?? {}
+
+		await manager.refresh(enabled, settings)
+		this.anhExtensionsLoaded = true
+	}
+
+	private getAnhExtensionsSnapshot(): {
+		runtime: AnhExtensionRuntimeState[]
+		capabilityRegistry: AnhExtensionCapabilityRegistry
+	} {
+		const manager = this.anhChatServices?.extensionManager
+
+		if (!manager) {
+			return {
+				runtime: [],
+				capabilityRegistry: { systemPrompt: [] },
+			}
+		}
+
+		return {
+			runtime: manager.getRuntimeState(),
+			capabilityRegistry: manager.getCapabilityRegistry(),
+		}
+	}
+
+	public async applySystemPromptExtensions(
+		basePrompt: string,
+		context: SystemPromptHookOptions,
+	): Promise<string> {
+		const manager = this.anhChatServices?.extensionManager
+		if (!manager) {
+			return basePrompt
+		}
+
+		await this.ensureAnhExtensionsInitialized()
+
+		try {
+			return await manager.applySystemPromptHooks(basePrompt, context)
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			this.log(`[AnhExtensions] Failed to apply system prompt hooks: ${message}`)
+			return basePrompt
+		}
+	}
+
+	async getStateToPostToWebview(): Promise<ExtensionState> {
 		const {
 			apiConfiguration,
 			lastShownAnnouncementId,
@@ -1877,15 +1969,17 @@ export class ClineProvider
 			featureRoomoteControlEnabled,
 			anhPersonaMode,
 			anhToneStrict,
-			anhShowRoleCardOnSwitch,
-			displayMode,
-			userAvatarRole,
-			enableUserAvatar,
-			userAvatarHideFullData,
-			userAvatarVisibility,
-			hideRoleDescription,
-			enabledWorldsets,
-		} = await this.getState()
+		anhShowRoleCardOnSwitch,
+		displayMode,
+		userAvatarRole,
+		enableUserAvatar,
+		userAvatarHideFullData,
+	userAvatarVisibility,
+	hideRoleDescription,
+	enabledWorldsets,
+	anhExtensionsEnabled,
+	anhExtensionSettings,
+} = await this.getState()
 
 		const resolvedUserAvatarVisibility =
 			userAvatarVisibility === "full" ||
@@ -1899,6 +1993,10 @@ export class ClineProvider
 
 		// Get role prompt data to include in state
 		const rolePromptData = await this.getRolePromptData()
+
+		await this.ensureAnhExtensionsInitialized()
+		const { runtime: anhExtensions, capabilityRegistry: anhExtensionCapabilityRegistry } =
+			this.getAnhExtensionsSnapshot()
 
 		let cloudOrganizations: CloudOrganizationMembership[] = []
 
@@ -2057,6 +2155,11 @@ export class ClineProvider
 			enableUserAvatar,
 			userAvatarHideFullData: userAvatarHideFullData ?? false,
 			userAvatarVisibility: resolvedUserAvatarVisibility,
+			hideRoleDescription: hideRoleDescription ?? false,
+			enabledWorldsets: enabledWorldsets ?? [],
+			anhExtensionsEnabled: anhExtensionsEnabled ?? {},
+			anhExtensionsRuntime: anhExtensions,
+			anhExtensionCapabilityRegistry,
 		}
 	}
 
@@ -2309,6 +2412,8 @@ export class ClineProvider
 			})(),
 			hideRoleDescription: stateValues.hideRoleDescription,
 			enabledWorldsets: stateValues.enabledWorldsets,
+			anhExtensionsEnabled: stateValues.anhExtensionsEnabled ?? {},
+			anhExtensionSettings: stateValues.anhExtensionSettings ?? {},
 		}
 	}
 

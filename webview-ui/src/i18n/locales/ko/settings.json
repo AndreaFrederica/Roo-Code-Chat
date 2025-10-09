@@ -31,6 +31,7 @@
 		"slashCommands": "슬래시 명령",
 		"prompts": "프롬프트",
 		"ui": "UI",
+		"extensions": "Extensions",
 		"experimental": "실험적",
 		"language": "언어",
 		"userAvatar": "사용자 아바타",
@@ -888,6 +889,25 @@
 		"collapseThinking": {
 			"label": "기본적으로 생각 메시지 접기",
 			"description": "활성화하면 상호 작용할 때까지 생각 블록이 기본적으로 접힙니다"
+		}
+	},
+	"extensions": {
+		"description": "Manage community or custom extensions located under novel-helper/.anh-chat/extensions.",
+		"empty": "No extensions found. Add a folder with an extension.json manifest to register a plugin.",
+		"enableLabel": "Enable",
+		"capabilitiesTitle": "Capabilities",
+		"settingsTitle": "Settings",
+		"capabilityLabels": {
+			"systemPrompt": "System prompt hooks"
+		},
+		"capabilityStates": {
+			"active": "Active",
+			"inactive": "Not active"
+		},
+		"noCapabilities": "This extension does not declare any capabilities.",
+		"error": "Failed to load: {{error}}",
+		"registrySummary": {
+			"systemPrompt": "System prompt hooks active: {{names}}"
 		}
 	},
 	"userAvatar": {

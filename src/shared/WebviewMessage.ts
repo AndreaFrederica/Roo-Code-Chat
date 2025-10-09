@@ -247,6 +247,8 @@ export interface WebviewMessage {
 		| "userAvatarRole"
 		| "anhChatModeHideTaskCompletion"
 		| "anhShowRoleCardOnSwitch"
+		| "updateAnhExtensionSettings"
+		| "toggleAnhExtension"
 		| "createWorldsetFolder"
 		| "getWorldsetList"
 		| "getWorldsetFiles"

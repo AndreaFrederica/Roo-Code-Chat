@@ -5,7 +5,7 @@ import { Dirent } from "fs"
 
 import { isLanguage } from "@roo-code/types"
 
-import type { SystemPromptSettings } from "../types"
+import type { SystemPromptSettings } from "@roo-code/types"
 
 import { LANGUAGES } from "../../../shared/language"
 import { getRooDirectoriesForCwd, getGlobalRooDirectory } from "../../../services/roo-config"

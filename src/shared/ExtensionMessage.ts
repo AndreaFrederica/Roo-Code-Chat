@@ -18,6 +18,8 @@ import type {
 	RoleSummary,
 	RolePromptData,
 	UserAvatarVisibility,
+	AnhExtensionRuntimeState,
+	AnhExtensionCapabilityRegistry,
 } from "@roo-code/types"
 
 import { GitCommit } from "../utils/git"
@@ -331,6 +333,8 @@ export type ExtensionState = Pick<
 	| "userAvatarVisibility"
 	| "hideRoleDescription"
 	| "enabledWorldsets"
+	| "anhExtensionsEnabled"
+	| "anhExtensionSettings"
 > & {
 	version: string
 	clineMessages: ClineMessage[]
@@ -408,6 +412,9 @@ export type ExtensionState = Pick<
 	enableUserAvatar?: boolean // Whether to enable user avatar feature
 	userAvatarHideFullData?: boolean // Whether to share only a summary of the user avatar with roles
 	userAvatarVisibility?: UserAvatarVisibility // Level of user avatar detail shared with roles
+	anhExtensionsRuntime?: AnhExtensionRuntimeState[]
+	anhExtensionCapabilityRegistry?: AnhExtensionCapabilityRegistry
+	anhExtensionSettings?: Record<string, Record<string, unknown>>
 }
 
 export interface ClineSayTool {

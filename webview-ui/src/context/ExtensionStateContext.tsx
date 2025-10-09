@@ -12,6 +12,8 @@ import {
 	type CloudOrganizationMembership,
 	type Role,
 	type UserAvatarVisibility,
+	type AnhExtensionRuntimeState,
+	type AnhExtensionCapabilityRegistry,
 	ORGANIZATION_ALLOW_ALL,
 } from "@roo-code/types"
 
@@ -184,6 +186,12 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setUserAvatarRole: (value: Role | undefined) => void
 	hideRoleDescription?: boolean
 	setHideRoleDescription: (value: boolean) => void
+	anhExtensionsRuntime?: AnhExtensionRuntimeState[]
+	anhExtensionCapabilityRegistry?: AnhExtensionCapabilityRegistry
+	setAnhExtensionEnabled: (id: string, enabled: boolean) => void
+	anhExtensionSettings?: Record<string, Record<string, unknown>>
+	setAnhExtensionSettings: (value: Record<string, Record<string, unknown>>) => void
+	updateAnhExtensionSetting: (id: string, key: string, value: unknown) => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -336,6 +344,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		userAvatarRole: undefined,
 		hideRoleDescription: false,
 		anhShowRoleCardOnSwitch: false,
+		anhExtensionsEnabled: {},
+		anhExtensionSettings: {},
+		anhExtensionsRuntime: [],
+		anhExtensionCapabilityRegistry: { systemPrompt: [] },
 	})
 
 	const [didHydrateState, setDidHydrateState] = useState(false)
@@ -508,7 +520,9 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	}, [])
 
 	const contextValue: ExtensionStateContextType = {
-		...state,
+	...state,
+	anhExtensionsRuntime: state.anhExtensionsRuntime ?? [],
+	anhExtensionCapabilityRegistry: state.anhExtensionCapabilityRegistry,
 		reasoningBlockCollapsed: state.reasoningBlockCollapsed ?? true,
 		didHydrateState,
 		showWelcome,
@@ -684,9 +698,36 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 			})),
 		userAvatarRole: state.userAvatarRole,
 		setUserAvatarRole: (value) => setState((prevState) => ({ ...prevState, userAvatarRole: value })),
-		hideRoleDescription: state.hideRoleDescription ?? false,
-		setHideRoleDescription: (value) => setState((prevState) => ({ ...prevState, hideRoleDescription: value })),
-	}
+	hideRoleDescription: state.hideRoleDescription ?? false,
+	setHideRoleDescription: (value) => setState((prevState) => ({ ...prevState, hideRoleDescription: value })),
+	anhExtensionSettings: state.anhExtensionSettings ?? {},
+	setAnhExtensionSettings: (value) => setState((prevState) => ({ ...prevState, anhExtensionSettings: value })),
+	updateAnhExtensionSetting: (id, key, value) => {
+		setState((prevState) => {
+			const prevSettings = prevState.anhExtensionSettings ?? {}
+			return {
+				...prevState,
+				anhExtensionSettings: {
+					...prevSettings,
+					[id]: {
+						...(prevSettings[id] ?? {}),
+						[key]: value,
+					},
+				},
+			}
+		})
+	},
+	setAnhExtensionEnabled: (id, enabled) => {
+		setState((prevState) => ({
+			...prevState,
+			anhExtensionsEnabled: {
+				...(prevState.anhExtensionsEnabled ?? {}),
+				[id]: enabled,
+			},
+		}))
+		vscode.postMessage({ type: "toggleAnhExtension", text: id, bool: enabled })
+	},
+}
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>
 }

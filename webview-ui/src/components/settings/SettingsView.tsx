@@ -27,6 +27,7 @@ import {
 	Glasses,
 	User,
 	BookOpen,
+	Puzzle,
 } from "lucide-react"
 
 import type { ProviderSettings, ExperimentId, TelemetrySetting, UserAvatarVisibility } from "@roo-code/types"
@@ -72,6 +73,7 @@ import { SlashCommandsSettings } from "./SlashCommandsSettings"
 import { UISettings } from "./UISettings"
 import UserAvatarSettings from "./UserAvatarSettings"
 import { WorldviewSettings } from "./WorldviewSettings"
+import { ExtensionsSettings } from "./ExtensionsSettings"
 
 export const settingsTabsContainer = "flex flex-1 overflow-hidden [&.narrow_.tab-label]:hidden"
 export const settingsTabList =
@@ -96,6 +98,7 @@ const sectionNames = [
 	"userAvatar",
 	"prompts",
 	"ui",
+	"extensions",
 	"worldview",
 	"experimental",
 	"language",
@@ -110,10 +113,23 @@ type SettingsViewProps = {
 }
 
 const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, targetSection }, ref) => {
-	const { t } = useAppTranslation()
-
-	const extensionState = useExtensionState()
-	const { currentApiConfigName, listApiConfigMeta, uriScheme, settingsImportedAt, setHideRoleDescription, setUserAvatarVisibility, setUserAvatarHideFullData } = extensionState
+	const { t } = useAppTranslation();
+	const extensionState = useExtensionState();
+	const {
+		currentApiConfigName,
+		listApiConfigMeta,
+		uriScheme,
+		settingsImportedAt,
+		setHideRoleDescription,
+		setUserAvatarVisibility,
+		setUserAvatarHideFullData,
+		anhExtensionsRuntime = [],
+		anhExtensionCapabilityRegistry,
+	anhExtensionsEnabled = {},
+	setAnhExtensionEnabled,
+	anhExtensionSettings: extensionAnhExtensionSettings = {},
+	setAnhExtensionSettings: setContextAnhExtensionSettings,
+	} = extensionState
 
 	const [isDiscardDialogShow, setDiscardDialogShow] = useState(false)
 	const [isChangeDetected, setChangeDetected] = useState(false)
@@ -203,6 +219,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		reasoningBlockCollapsed,
 		anhChatModeHideTaskCompletion,
 		anhShowRoleCardOnSwitch,
+		anhExtensionSettings: cachedAnhExtensionSettings = extensionAnhExtensionSettings,
 		userAvatarRole,
 		enableUserAvatar,
 		userAvatarVisibility,
@@ -237,10 +254,30 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 				return prevState
 			}
 
-			setChangeDetected(true)
-			return { ...prevState, [field]: value }
+		setChangeDetected(true)
+		return { ...prevState, [field]: value }
 		})
 	}, [])
+
+	const handleExtensionSettingChange = useCallback(
+		(extensionId: string, key: string, value: unknown) => {
+			setCachedState((prevState) => {
+				const prevSettings = prevState.anhExtensionSettings ?? {}
+				return {
+					...prevState,
+					anhExtensionSettings: {
+						...prevSettings,
+						[extensionId]: {
+							...(prevSettings[extensionId] ?? {}),
+							[key]: value,
+						},
+					},
+				}
+			})
+			setChangeDetected(true)
+		},
+		[],
+	)
 
 	const setApiConfigurationField = useCallback(
 		<K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K], isUserAction: boolean = true) => {
@@ -402,24 +439,24 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({ type: "anhChatModeHideTaskCompletion", bool: anhChatModeHideTaskCompletion ?? true })
 			vscode.postMessage({ type: "anhShowRoleCardOnSwitch", bool: anhShowRoleCardOnSwitch ?? false })
 			vscode.postMessage({ type: "hideRoleDescription", bool: hideRoleDescription ?? false })
+			vscode.postMessage({ type: "updateAnhExtensionSettings", values: cachedAnhExtensionSettings ?? {} })
+			setContextAnhExtensionSettings?.(cachedAnhExtensionSettings ?? {})
 			setHideRoleDescription?.(hideRoleDescription ?? false)
-	vscode.postMessage({ type: "enableUserAvatar", bool: enableUserAvatar })
-	const resolvedUserAvatarVisibility = (userAvatarVisibility ?? "full") as UserAvatarVisibility
-	vscode.postMessage({
-		type: "userAvatarVisibility",
-		text: resolvedUserAvatarVisibility,
-	})
-	setUserAvatarVisibility?.(resolvedUserAvatarVisibility)
-	setUserAvatarHideFullData?.(resolvedUserAvatarVisibility !== "full")
-		setUserAvatarVisibility?.(resolvedUserAvatarVisibility)
-		setUserAvatarHideFullData?.(resolvedUserAvatarVisibility !== "full")
-		vscode.postMessage({ type: "userAvatarRole", values: userAvatarRole })
-			vscode.postMessage({ type: "openRouterImageApiKey", text: openRouterImageApiKey })
+			vscode.postMessage({ type: "enableUserAvatar", bool: enableUserAvatar })
+			const resolvedUserAvatarVisibility = (userAvatarVisibility ?? "full") as UserAvatarVisibility
 			vscode.postMessage({
-				type: "openRouterImageGenerationSelectedModel",
-				text: openRouterImageGenerationSelectedModel,
+				type: "userAvatarVisibility",
+				text: resolvedUserAvatarVisibility,
 			})
-			setChangeDetected(false)
+			setUserAvatarVisibility?.(resolvedUserAvatarVisibility)
+			setUserAvatarHideFullData?.(resolvedUserAvatarVisibility !== "full")
+			vscode.postMessage({ type: "userAvatarRole", values: userAvatarRole })
+		vscode.postMessage({ type: "openRouterImageApiKey", text: openRouterImageApiKey })
+		vscode.postMessage({
+			type: "openRouterImageGenerationSelectedModel",
+			text: openRouterImageGenerationSelectedModel,
+		})
+		setChangeDetected(false)
 		}
 	}
 
@@ -507,6 +544,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			{ id: "userAvatar", icon: User },
 			{ id: "prompts", icon: MessageSquare },
 			{ id: "ui", icon: Glasses },
+			{ id: "extensions", icon: Puzzle },
 			{ id: "worldview", icon: BookOpen },
 			{ id: "experimental", icon: FlaskConical },
 			{ id: "language", icon: Globe },
@@ -825,6 +863,18 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							anhShowRoleCardOnSwitch={anhShowRoleCardOnSwitch ?? false}
 							hideRoleDescription={hideRoleDescription ?? false}
 							setCachedStateField={setCachedStateField}
+						/>
+					)}
+
+					{/* Extensions Section */}
+					{activeTab === "extensions" && (
+						<ExtensionsSettings
+							extensions={anhExtensionsRuntime}
+							enabledMap={anhExtensionsEnabled}
+							capabilityRegistry={anhExtensionCapabilityRegistry}
+							onToggle={setAnhExtensionEnabled}
+							settings={cachedAnhExtensionSettings ?? {}}
+							onSettingChange={handleExtensionSettingChange}
 						/>
 					)}
 

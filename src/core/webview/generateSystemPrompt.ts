@@ -11,6 +11,7 @@ import { MultiFileSearchReplaceDiffStrategy } from "../diff/strategies/multi-fil
 import { ClineProvider } from "./ClineProvider"
 
 export const generateSystemPrompt = async (provider: ClineProvider, message: WebviewMessage) => {
+	const providerState = await provider.getState()
 	const {
 		apiConfiguration,
 		customModePrompts,
@@ -33,7 +34,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		enabledWorldsets,
 		userAvatarVisibility,
 		userAvatarHideFullData,
-	} = await provider.getState()
+	} = providerState
 
 	// Check experiment to determine which diff strategy to use
 	const isMultiFileApplyDiffEnabled = experimentsModule.isEnabled(
@@ -92,6 +93,16 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 				? "summary"
 				: "full"
 
+	const systemPromptSettings = {
+		maxConcurrentFileReads: maxConcurrentFileReads ?? 5,
+		todoListEnabled: apiConfiguration?.todoListEnabled ?? true,
+		useAgentRules: vscode.workspace.getConfiguration("anh-cline").get<boolean>("useAgentRules") ?? true,
+		newTaskRequireTodos: vscode.workspace
+			.getConfiguration("anh-cline")
+			.get<boolean>("newTaskRequireTodos", false),
+	}
+	const providerStateSnapshot = providerState as unknown as Record<string, unknown>
+
 	const systemPrompt = await SYSTEM_PROMPT(
 		provider.context,
 		cwd,
@@ -109,14 +120,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		language,
 		rooIgnoreInstructions,
 		maxReadFileLine !== -1,
-		{
-			maxConcurrentFileReads: maxConcurrentFileReads ?? 5,
-			todoListEnabled: apiConfiguration?.todoListEnabled ?? true,
-			useAgentRules: vscode.workspace.getConfiguration("anh-cline").get<boolean>("useAgentRules") ?? true,
-			newTaskRequireTodos: vscode.workspace
-				.getConfiguration("anh-cline")
-				.get<boolean>("newTaskRequireTodos", false),
-		},
+		systemPromptSettings,
 		todoList, // 修复：传递实际的 todoList
 		modelId, // 修复：传递实际的 modelId
 		rolePromptData, // 修复：传递正确的角色数据
@@ -129,5 +133,34 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		resolvedUserAvatarVisibility,
 	)
 
-	return systemPrompt
+	const finalPrompt = await provider.applySystemPromptExtensions(systemPrompt, {
+		cwd,
+		mode,
+		providerState: providerStateSnapshot,
+		taskId: currentTask?.taskId,
+		canUseBrowserTool,
+		browserViewportSize: browserViewportSize ?? "900x600",
+		todoList,
+		modelId,
+		rolePromptData,
+		personaMode: anhPersonaMode,
+		toneStrict: anhToneStrict,
+		useAskTool: anhUseAskTool,
+		userAvatarRole,
+		enableUserAvatar: enableUserAvatar ?? false,
+		enabledWorldsets,
+		userAvatarVisibility: resolvedUserAvatarVisibility,
+		customModePrompts,
+		customModes,
+		customInstructions,
+		diffEnabled,
+		experiments,
+		enableMcpServerCreation,
+		language,
+		rooIgnoreInstructions,
+		partialReadsEnabled: maxReadFileLine !== -1,
+		settings: systemPromptSettings,
+	})
+
+	return finalPrompt
 }

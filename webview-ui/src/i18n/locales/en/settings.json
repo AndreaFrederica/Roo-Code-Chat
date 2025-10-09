@@ -31,6 +31,7 @@
 		"slashCommands": "Slash Commands",
 		"prompts": "Prompts",
 		"ui": "UI",
+		"extensions": "Extensions",
 		"experimental": "Experimental",
 		"language": "Language",
 		"userAvatar": "User Avatar",
@@ -65,6 +66,25 @@
 			"codingDescription": "Show task titles as main content with first message as preview",
 			"chat": "Chat Mode",
 			"chatDescription": "Show last message as title with first message as preview"
+		}
+	},
+	"extensions": {
+		"description": "Manage community or custom extensions located under novel-helper/.anh-chat/extensions.",
+		"empty": "No extensions found. Add a folder with an extension.json manifest to register a plugin.",
+		"enableLabel": "Enable",
+		"capabilitiesTitle": "Capabilities",
+		"settingsTitle": "Settings",
+		"capabilityLabels": {
+			"systemPrompt": "System prompt hooks"
+		},
+		"capabilityStates": {
+			"active": "Active",
+			"inactive": "Not active"
+		},
+		"noCapabilities": "This extension does not declare any capabilities.",
+		"error": "Failed to load: {{error}}",
+		"registrySummary": {
+			"systemPrompt": "System prompt hooks active: {{names}}"
 		}
 	},
 	"prompts": {
