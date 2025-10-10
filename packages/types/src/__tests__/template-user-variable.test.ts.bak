@@ -1,0 +1,257 @@
+/**
+ * 测试 {{user}} 变量处理功能
+ * 专门测试常用的系统变量如 {{user}}, {{char}} 等的处理
+ */
+
+import { describe, test, expect } from "vitest"
+import {
+  TemplateProcessor,
+  processTemplateVariables,
+  replaceSimpleVariables
+} from "../template-variable-system.js"
+
+describe("{{user}} Variable Processing", () => {
+  describe("Default Variable Support", () => {
+    test("should provide default values for common variables", () => {
+      const processor = new TemplateProcessor()
+
+      expect(processor.getVariable('user')).toBe('用户')
+      expect(processor.getVariable('char')).toBe('角色')
+      expect(processor.getVariable('isodate')).toMatch(/^\d{4}-\d{2}-\d{2}$/) // YYYY-MM-DD
+      expect(processor.getVariable('isotime')).toMatch(/^\d{1,2}:\d{2}:\d{2}$/) // HH:MM:SS
+      expect(processor.getVariable('idle_duration')).toBe('5分钟')
+      expect(processor.getVariable('lastUserMessage')).toBe('(上一条消息)')
+    })
+
+    test("should process {{user}} variables by default", () => {
+      const text = "你好，{{user}}！我是{{char}}。"
+      const result = processTemplateVariables(text)
+
+      expect(result.processedText).toBe("你好，用户！我是角色。")
+      expect(result.errors).toHaveLength(0)
+      expect(result.warnings).toHaveLength(0)
+      expect(result.usedVariables).toContain('user')
+      expect(result.usedVariables).toContain('char')
+      expect(result.stats.processedTemplates).toBe(2)
+    })
+
+    test("should allow overriding default variables", () => {
+      const text = "你好，{{user}}！"
+      const options = {
+        variables: {
+          user: "Alice",
+          char: "艾蜜莉雅"
+        }
+      }
+
+      const result = processTemplateVariables(text, options)
+
+      expect(result.processedText).toBe("你好，Alice！")
+      // setVariables只包含通过{{setvar::}}设置的变量，不包含通过options传入的变量
+      expect(Object.keys(result.setVariables)).toHaveLength(0)
+    })
+
+    test("should handle complex text with {{user}}", () => {
+      const text = `
+对话开始：
+{{user}}: 你好！
+{{char}}: 你好，{{user}}！有什么可以帮助你的吗？
+
+{{user}}: 我想了解你的背景。
+{{char}}: 我是一个AI助手，很高兴为{{user}}服务。今天日期是{{isodate}}，时间是{{isotime}}。
+      `.trim()
+
+      const result = processTemplateVariables(text)
+
+      expect(result.processedText).toContain("用户: 你好！")
+      expect(result.processedText).toContain("角色: 你好，用户！")
+      expect(result.processedText).toContain("我是一个AI助手，很高兴为用户服务")
+      expect(result.processedText).toMatch(/今天日期是\d{4}-\d{2}-\d{2}/)
+      expect(result.processedText).toMatch(/时间是\d{1,2}:\d{2}:\d{2}/)
+    })
+  })
+
+  describe("Mixed Variable Types with {{user}}", () => {
+    test("should handle setvar, getvar, and simple {{user}} variables together", () => {
+      const text = `
+{{setvar::greeting::你好，{{user}}！}}
+{{setvar::farewell::再见，{{user}}！}}
+
+{{greeting}}
+{{getvar::user}}，这是中间的消息。
+{{farewell}}
+
+简单变量测试：{{user}}
+      `.trim()
+
+      const result = processTemplateVariables(text, {
+        variables: {
+          user: "Bob"
+        }
+      })
+
+      expect(result.processedText).toContain("你好，Bob！")
+      expect(result.processedText).toContain("再见，Bob！")
+      expect(result.processedText).toContain("Bob，这是中间的消息。")
+      expect(result.processedText).toContain("简单变量测试：Bob")
+      expect(result.processedText).not.toContain("{{setvar::")
+      expect(result.processedText).not.toContain("{{getvar::")
+    })
+
+    test("should handle nested {{user}} references", () => {
+      const text = `
+{{setvar::message::{{user}}说：你好！}}
+{{setvar::response::{{char}}回复：{{message}}}}
+
+{{response}}
+      `.trim()
+
+      const result = processTemplateVariables(text, {
+        variables: {
+          user: "Alice",
+          char: "Bob"
+        }
+      })
+
+      expect(result.processedText).toContain("Bob回复：Alice说：你好！")
+      expect(result.setVariables.message).toBe("Alice说：你好！")
+    })
+  })
+
+  describe("Error Handling for {{user}}", () => {
+    test("should warn about undefined variables in strict mode", () => {
+      const text = "Hello {{unknown_user}}!"
+      const options = {
+        strict: true
+      }
+
+      const result = processTemplateVariables(text, options)
+
+      expect(result.errors.length).toBeGreaterThan(0)
+      expect(result.errors[0]).toContain("未定义的变量: unknown_user")
+    })
+
+    test("should preserve {{user}} when removeUnprocessed is false", () => {
+      const text = "Hello {{user}} and {{unknown}}!"
+      const options = {
+        removeUnprocessed: false,
+        variables: {
+          user: "Alice"
+        }
+      }
+
+      const result = processTemplateVariables(text, options)
+
+      expect(result.processedText).toBe("Hello Alice and {{unknown}}!")
+      expect(result.unprocessedTemplates).toContain("{{unknown}}")
+    })
+
+    test("should remove {{user}} when removeUnprocessed is true", () => {
+      const text = "Hello {{user}} and {{unknown}}!"
+      const options = {
+        removeUnprocessed: true,
+        variables: {
+          user: "Alice"
+        }
+      }
+
+      const result = processTemplateVariables(text, options)
+
+      expect(result.processedText).toBe("Hello Alice and !")
+      expect(result.unprocessedTemplates).toHaveLength(0)
+    })
+  })
+
+  describe("Performance with {{user}}", () => {
+    test("should handle many {{user}} references efficiently", () => {
+      let text = ""
+      for (let i = 0; i < 1000; i++) {
+        text += `Message ${i}: {{user}} says hello. `
+      }
+
+      const startTime = Date.now()
+      const result = processTemplateVariables(text)
+      const endTime = Date.now()
+
+      expect(endTime - startTime).toBeLessThan(1000) // Should complete within 1 second
+      expect(result.processedText).toContain("用户 says hello")
+      expect(result.stats.processedTemplates).toBe(1000)
+      expect(result.errors).toHaveLength(0)
+    })
+
+    test("should handle large text with mixed {{user}} variables", () => {
+      const text = `
+这是一个很长很长的文本，包含多个{{user}}变量引用。
+
+第一段：
+{{user}}是故事的主角，{{char}}是故事中的另一个重要角色。{{user}}决定开始一场冒险。
+
+第二段：
+在冒险的过程中，{{user}}遇到了很多挑战。{{char}}作为{{user}}的朋友，总是帮助{{user}}解决问题。
+
+第三段：
+最终，{{user}}成功完成了冒险，{{char}}为{{user}}庆祝。故事结束时间是{{isodate}}，具体时间是{{isotime}}。
+
+总结：
+这是一个关于{{user}}和{{char}}的冒险故事。
+      `.trim()
+
+      const result = processTemplateVariables(text)
+
+      expect(result.processedText).toContain("用户是故事的主角")
+      expect(result.processedText).toContain("角色是故事中的另一个重要角色")
+      expect(result.processedText).toContain("用户决定开始一场冒险")
+      expect(result.processedText).toContain("用户成功完成了冒险")
+      expect(result.processedText).toContain("角色为用户庆祝")
+      expect(result.processedText).toContain("这是一个关于用户和角色的冒险故事")
+    })
+  })
+
+  describe("Real-world Scenarios", () => {
+    test("should handle chat conversation format", () => {
+      const chatText = `
+对话记录：
+用户: {{user}}
+助手: {{char}}
+时间: {{isodate}} {{isotime}}
+
+对话开始：
+{{user}}: 你好！
+{{char}}: 你好，{{user}}！有什么可以帮助你的吗？
+
+{{user}}: 我想了解你的功能。
+{{char}}: 我是AI助手，专门为{{user}}提供帮助。
+      `.trim()
+
+      const result = processTemplateVariables(chatText)
+
+      expect(result.processedText).toContain("用户: 用户")
+      expect(result.processedText).toContain("助手: 角色")
+      expect(result.processedText).toContain("你好，用户！")
+      expect(result.processedText).toContain("你好，用户！有什么可以帮助你的吗？")
+      expect(result.processedText).toContain("我是AI助手，专门为用户提供帮助。")
+    })
+
+    test("should handle story narration format", () => {
+      const storyText = `
+故事标题：{{user}}的冒险
+
+第一章：开始
+{{user}}站在森林的入口，深吸一口气。{{char}}站在{{user}}身边，表情严肃。
+
+{{char}}对{{user}}说："{{user}}，你确定要进去吗？"
+
+{{user}}点点头："是的，{{char}}。我必须进去找到失落的宝藏。"
+      `.trim()
+
+      const result = processTemplateVariables(storyText)
+
+      expect(result.processedText).toContain("故事标题：用户的冒险")
+      expect(result.processedText).toContain("用户站在森林的入口")
+      expect(result.processedText).toContain("角色站在用户身边")
+      expect(result.processedText).toContain("角色对用户说：")
+      expect(result.processedText).toContain("用户，你确定要进去吗？")
+      expect(result.processedText).toContain("用户点点头：")
+    })
+  })
+})

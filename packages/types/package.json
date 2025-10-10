@@ -23,6 +23,7 @@
 		"clean": "rimraf dist .turbo"
 	},
 	"dependencies": {
+		"liquidjs": "^10.22.0",
 		"zod": "^3.25.61"
 	},
 	"devDependencies": {

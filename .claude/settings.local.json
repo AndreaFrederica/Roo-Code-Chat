@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm test:*)",
+      "Bash(pnpm build:*)",
+      "Bash(npx tsx:*)",
+      "Bash(pnpm build:types:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

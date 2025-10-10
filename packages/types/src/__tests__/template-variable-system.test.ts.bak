@@ -1,0 +1,381 @@
+/**
+ * 模板变量系统测试
+ * 测试模板变量解析、替换和验证功能
+ */
+
+import { describe, test, expect } from "vitest"
+import {
+  TemplateProcessor,
+  processTemplateVariables,
+  replaceSimpleVariables,
+  extractVariableDefinitions,
+  validateTemplateSyntax,
+  type TemplateProcessingOptions,
+  type TemplateProcessingResult
+} from "../template-variable-system.js"
+
+describe("Template Variable System", () => {
+  describe("TemplateProcessor Basic Functionality", () => {
+    test("should handle simple variable replacement", () => {
+      const processor = new TemplateProcessor()
+      processor.setVariable("name", "Alice")
+      processor.setVariable("age", "25")
+
+      const result = processor.processText("My name is {{name}} and I am {{age}} years old.")
+
+      expect(result.processedText).toBe("My name is Alice and I am 25 years old.")
+      expect(result.errors).toHaveLength(0)
+      expect(result.warnings).toHaveLength(0)
+      expect(result.stats.processedTemplates).toBe(2)
+    })
+
+    test("should handle setvar variables", () => {
+      const text = "{{setvar::greeting::Hello}}{{setvar::name::World}} {{greeting}} {{name}}!"
+      const result = processTemplateVariables(text)
+
+      expect(result.processedText).toBe(" Hello World!")
+      expect(result.setVariables).toEqual({
+        greeting: "Hello",
+        name: "World"
+      })
+      expect(result.stats.setVarCount).toBe(2)
+      expect(result.stats.processedTemplates).toBe(4) // 2 setvar + 2 usage
+    })
+
+    test("should handle getvar variables", () => {
+      const processor = new TemplateProcessor()
+      processor.setVariable("city", "Tokyo")
+
+      const result = processor.processText("I live in {{getvar::city}}.")
+
+      expect(result.processedText).toBe("I live in Tokyo.")
+      expect(result.usedVariables).toContain("city")
+      expect(result.stats.getVarCount).toBe(1)
+    })
+
+    test("should handle mixed template types", () => {
+      const text = `
+{{setvar::min字数::1000}}
+{{setvar::max字数::6000}}
+{{setvar::角色::艾蜜莉雅}}
+
+角色名称：{{getvar::角色}}
+字数要求：{{min字数}}-{{max字数}}
+简单变量：{{角色}}
+`.trim()
+
+      const result = processTemplateVariables(text)
+
+      expect(result.processedText).toContain("角色名称：艾蜜莉雅")
+      expect(result.processedText).toContain("字数要求：1000-6000")
+      expect(result.processedText).toContain("简单变量：艾蜜莉雅")
+      expect(result.setVariables).toEqual({
+        min字数: "1000",
+        max字数: "6000",
+        角色: "艾蜜莉雅"
+      })
+    })
+
+    test("should remove comments", () => {
+      const text = "Before comment{{// This is a comment}}After comment{{// Another comment}}"
+      const result = processTemplateVariables(text)
+
+      expect(result.processedText).toBe("Before commentAfter comment")
+    })
+
+    test("should handle empty and undefined variables", () => {
+      const processor = new TemplateProcessor()
+      processor.setVariable("empty", "")
+      processor.setVariable("undefined", undefined as any)
+
+      const result = processor.processText("Empty: {{empty}}, Undefined: {{undefined}}, Missing: {{missing}}")
+
+      expect(result.processedText).toBe("Empty: , Undefined: undefined, Missing: {{missing}}")
+      expect(result.warnings).toHaveLength(1) // Only for missing variable
+      expect(result.unprocessedTemplates).toContain("{{missing}}")
+    })
+  })
+
+  describe("Template Processing Options", () => {
+    test("should respect strict mode", () => {
+      const options: TemplateProcessingOptions = {
+        strict: true,
+        variables: {
+          known: "value"
+        }
+      }
+
+      const result = processTemplateVariables("Known: {{known}}, Unknown: {{unknown}}", options)
+
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0]).toContain("未定义的变量: unknown")
+    })
+
+    test("should remove unprocessed templates when requested", () => {
+      const options: TemplateProcessingOptions = {
+        removeUnprocessed: true,
+        variables: {
+          known: "value"
+        }
+      }
+
+      const result = processTemplateVariables("Known: {{known}}, Unknown: {{unknown}}", options)
+
+      expect(result.processedText).toBe("Known: value, ")
+      expect(result.unprocessedTemplates).toHaveLength(0)
+    })
+
+    test("should keep variable definitions when requested", () => {
+      const options: TemplateProcessingOptions = {
+        keepVariableDefinitions: true
+      }
+
+      const result = processTemplateVariables("{{setvar::test::value}} {{test}}", options)
+
+      expect(result.processedText).toBe("{{setvar::test::value}} value")
+    })
+  })
+
+  describe("Complex Template Scenarios", () => {
+    test("should handle the GrayWill template scenario", () => {
+      const grayWillTemplate = `{{setvar::min字数::}}{{setvar::max字数::}}{{setvar::本体附加::}}{{setvar::卡思维链::}}
+请回答你谁？
+
+<settings>
+- 用户与{{user}}的区分：
+用户扮演{{user}}：用户对{{user}}心理，行为，语言的补充，是信息填充而非命令。
+- "{{user}}"是用户在推演中扮演的角色与身份
+- 以下是{{user}}设定
+
+<用户角色>
+{{getvar::本体附加}}
+</用户角色>
+</settings>`
+
+      const options: TemplateProcessingOptions = {
+        variables: {
+          min字数: "1000",
+          max字数: "6000",
+          本体附加: "这是一个勇敢的冒险者",
+          卡思维链: "思维链内容"
+        }
+      }
+
+      const result = processTemplateVariables(grayWillTemplate, options)
+
+      expect(result.processedText).toContain("请回答你谁？")
+      expect(result.processedText).toContain("这是一个勇敢的冒险者")
+      expect(result.processedText).toContain("用户扮演{{user}}：")
+      expect(result.stats.setVarCount).toBe(4)
+      expect(result.stats.processedTemplates).toBe(7) // 4 setvar + 3 getvar
+    })
+
+    test("should handle recursive variable references", () => {
+      const text = `
+{{setvar::base::Hello}}
+{{setvar::greeting::{{base}} World}}
+{{setvar::message::{{greeting}}!}}
+
+{{message}}
+`.trim()
+
+      const result = processTemplateVariables(text)
+
+      expect(result.processedText).toContain("Hello World!")
+      expect(result.setVariables).toEqual({
+        base: "Hello",
+        greeting: "Hello World",
+        message: "Hello World!"
+      })
+    })
+
+    test("should handle complex nested templates", () => {
+      const processor = new TemplateProcessor({
+        variables: {
+          用户名: "Alice",
+          场景: "森林",
+          难度: "困难",
+          奖励: "100金币"
+        }
+      })
+
+      const text = `
+任务简报
+========
+任务目标：{{用户名}}需要探索{{场景}}
+难度等级：{{难度}}
+预期奖励：{{奖励}}
+
+{{setvar::任务描述::前往{{场景}}完成调查任务}}
+{{setvar::注意事项::注意安全，{{场景}}中可能存在危险}}
+
+详细描述：{{getvar::任务描述}}
+注意事项：{{getvar::注意事项}}
+`.trim()
+
+      const result = processor.processText(text)
+
+      expect(result.processedText).toContain("任务目标：Alice需要探索森林")
+      expect(result.processedText).toContain("详细描述：前往森林完成调查任务")
+      expect(result.processedText).toContain("注意事项：注意安全，森林中可能存在危险")
+    })
+  })
+
+  describe("Template Validation", () => {
+    test("should validate correct template syntax", () => {
+      const text = "{{setvar::name::value}} {{name}} {{// comment}}"
+      const result = validateTemplateSyntax(text)
+
+      expect(result.isValid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+      expect(result.variables).toHaveLength(2) // setvar and simple var
+    })
+
+    test("should detect malformed templates", () => {
+      const text = "{{setvar::name::value {{name}} {{incomplete::template"
+      const result = validateTemplateSyntax(text)
+
+      expect(result.isValid).toBe(false)
+      expect(result.errors.length).toBeGreaterThan(0)
+    })
+
+    test("should provide detailed variable information", () => {
+      const text = `
+{{setvar::var1::value1}}
+{{getvar::var2}}
+{{simpleVar}}
+{{// comment}}
+{{setvar::complex::multi line value}}
+      `.trim()
+
+      const result = validateTemplateSyntax(text)
+
+      expect(result.variables).toHaveLength(4)
+      expect(result.variables.filter(v => v.type === 'setvar')).toHaveLength(2)
+      expect(result.variables.filter(v => v.type === 'getvar')).toHaveLength(1)
+      expect(result.variables.filter(v => v.type === 'simple')).toHaveLength(1)
+    })
+  })
+
+  describe("Convenience Functions", () => {
+    test("replaceSimpleVariables should work correctly", () => {
+      const text = "Hello {{name}}, you are {{age}} years old."
+      const variables = { name: "Bob", age: "30" }
+
+      const result = replaceSimpleVariables(text, variables)
+
+      expect(result).toBe("Hello Bob, you are 30 years old.")
+    })
+
+    test("extractVariableDefinitions should extract setvar variables", () => {
+      const text = "{{setvar::var1::value1}}{{setvar::var2::value2}}Normal text{{setvar::var3::value3}}"
+      const result = extractVariableDefinitions(text)
+
+      expect(result).toEqual({
+        var1: "value1",
+        var2: "value2",
+        var3: "value3"
+      })
+    })
+
+    test("convenience functions should handle options", () => {
+      const text = "Hello {{name}}, missing {{unknown}}"
+      const variables = { name: "Alice" }
+
+      const result = replaceSimpleVariables(text, variables, { removeUnprocessed: true })
+
+      expect(result).toBe("Hello Alice, missing ")
+    })
+  })
+
+  describe("Error Handling and Edge Cases", () => {
+    test("should handle empty input", () => {
+      const result = processTemplateVariables("")
+
+      expect(result.processedText).toBe("")
+      expect(result.errors).toHaveLength(0)
+      expect(result.warnings).toHaveLength(0)
+    })
+
+    test("should handle null/undefined input gracefully", () => {
+      const processor = new TemplateProcessor()
+
+      expect(() => processor.processText(null as any)).not.toThrow()
+      expect(() => processor.processText(undefined as any)).not.toThrow()
+    })
+
+    test("should handle very long template content", () => {
+      const longContent = "{{setvar::long::" + "a".repeat(10000) + "}} {{long}}"
+      const result = processTemplateVariables(longContent)
+
+      expect(result.processedText).toContain("a".repeat(10000))
+      expect(result.errors).toHaveLength(0)
+    })
+
+    test("should prevent infinite recursion", () => {
+      const processor = new TemplateProcessor({ maxRecursionDepth: 2 })
+      processor.setVariable("var1", "{{var2}}")
+      processor.setVariable("var2", "{{var1}}")
+
+      const result = processor.processText("{{var1}}")
+
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0]).toContain("递归深度超过限制")
+    })
+
+    test("should handle special characters in variable names and values", () => {
+      const processor = new TemplateProcessor()
+      processor.setVariable("变量名", "值")
+      processor.setVariable("var-with-dashes", "dash-value")
+      processor.setVariable("var_with_underscores", "underscore_value")
+
+      const result = processor.processText("{{变量名}} {{var-with-dashes}} {{var_with_underscores}}")
+
+      expect(result.processedText).toBe("值 dash-value underscore_value")
+    })
+  })
+
+  describe("Performance and Memory", () => {
+    test("should handle large numbers of variables efficiently", () => {
+      const processor = new TemplateProcessor()
+
+      // Set 1000 variables
+      for (let i = 0; i < 1000; i++) {
+        processor.setVariable(`var${i}`, `value${i}`)
+      }
+
+      // Create text with 100 variable references
+      let text = ""
+      for (let i = 0; i < 100; i++) {
+        text += `{{var${i}}} `
+      }
+
+      const startTime = Date.now()
+      const result = processor.processText(text)
+      const endTime = Date.now()
+
+      expect(endTime - startTime).toBeLessThan(1000) // Should complete within 1 second
+      expect(result.errors).toHaveLength(0)
+      expect(result.stats.processedTemplates).toBe(100)
+    })
+
+    test("should clean up memory properly", () => {
+      const processor = new TemplateProcessor()
+
+      // Add many variables
+      for (let i = 0; i < 1000; i++) {
+        processor.setVariable(`temp${i}`, `value${i}`)
+      }
+
+      // Clear variables
+      processor.clearVariables()
+
+      // Variables should be cleared
+      expect(processor.getAllVariables()).toEqual({})
+
+      // Processing should work with empty variables
+      const result = processor.processText("{{anyVar}}")
+      expect(result.warnings).toHaveLength(1)
+    })
+  })
+})
