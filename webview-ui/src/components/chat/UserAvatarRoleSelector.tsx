@@ -2,7 +2,12 @@ import React from "react"
 import { Fzf } from "fzf"
 import { Check, X, User, UserX } from "lucide-react"
 
-import { type Role, type RoleSummary } from "@roo-code/types"
+import {
+	type Role,
+	type RoleSummary,
+	DEFAULT_ASSISTANT_ROLE,
+	DEFAULT_ASSISTANT_ROLE_UUID,
+} from "@roo-code/types"
 
 import { vscode } from "@/utils/vscode"
 import { telemetryClient } from "@/utils/TelemetryClient"
@@ -122,46 +127,53 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 		telemetryClient.capture("user_avatar_role_selector_opened")
 	}, [])
 
-	// Create default role for when no roles are loaded
+	// Localized copy of the built-in default assistant role for user avatar
 	const defaultRole: Role = React.useMemo(
 		() => ({
-			uuid: "",
-			name: "默认用户",
-			type: "用户" as any,
-			description: "默认用户角色",
-			createdAt: Date.now(),
-			updatedAt: Date.now(),
+			...DEFAULT_ASSISTANT_ROLE,
+			name: t("chat:roleSelector.defaultRole"),
+			description: t("chat:roleSelector.defaultRole"),
 		}),
-		[],
+		[t],
 	)
 
 	// Combine all roles including default role for display
 	const allRoles = React.useMemo(() => {
-		const roleList = roles.map(
-			(summary) =>
-				({
-					...summary,
-					description: summary.name, // Use name as description for display
-					createdAt: summary.lastUpdatedAt,
-					updatedAt: summary.lastUpdatedAt,
-				}) as Role,
-		)
+		const roleList = roles
+			.filter((summary) => summary.uuid !== DEFAULT_ASSISTANT_ROLE_UUID)
+			.map(
+				(summary) =>
+					({
+						...summary,
+						description: summary.name, // Use name as description for display
+						createdAt: summary.lastUpdatedAt,
+						updatedAt: summary.lastUpdatedAt,
+					}) as Role,
+			)
 
-		// Add default role at the beginning
 		return [defaultRole, ...roleList]
 	}, [roles, defaultRole])
 
 	// Find the selected role
 	const selectedRole = React.useMemo(() => {
-		if (userAvatarRole?.uuid) {
-			// If userAvatarRole is a complete role object (with profile), use it directly
-			if (userAvatarRole.profile && Object.keys(userAvatarRole.profile).length > 0) {
-				return userAvatarRole
-			}
-			// Otherwise, find the matching role from allRoles
-			return allRoles.find((role) => role.uuid === userAvatarRole.uuid) || defaultRole
+		if (!userAvatarRole?.uuid) {
+			return defaultRole
 		}
-		return defaultRole
+
+		if (userAvatarRole.uuid === DEFAULT_ASSISTANT_ROLE_UUID) {
+			return {
+				...defaultRole,
+				...userAvatarRole,
+				name: defaultRole.name,
+				description: defaultRole.description,
+			}
+		}
+
+		if (userAvatarRole.profile && Object.keys(userAvatarRole.profile).length > 0) {
+			return userAvatarRole
+		}
+
+		return allRoles.find((role) => role.uuid === userAvatarRole.uuid) || userAvatarRole
 	}, [userAvatarRole, allRoles, defaultRole])
 
 	// Memoize searchable items for fuzzy search with separate name and description search
@@ -225,7 +237,10 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 			console.log("=== UserAvatar: Selecting Role ===")
 			console.log("Selected role:", role)
 			
-			if (role.uuid) {
+			const targetUuid = role.uuid ?? DEFAULT_ASSISTANT_ROLE_UUID
+			const isDefault = targetUuid === DEFAULT_ASSISTANT_ROLE_UUID
+
+			if (!isDefault) {
 				// 选择其他角色时：先启用UA
 				setEnableUserAvatar(true)
 				
@@ -239,7 +254,7 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 				// 不要在这里立即设置userAvatarRole，等待后端返回完整数据
 				vscode.postMessage({
 					type: "loadUserAvatarRole",
-					roleUuid: role.uuid,
+					roleUuid: targetUuid,
 				})
 			} else {
 				// 选择默认角色时：关闭UA

@@ -26,8 +26,10 @@ import {
 	SquareSlash,
 	Glasses,
 	User,
+	UserCog,
 	BookOpen,
 	Puzzle,
+	Users,
 } from "lucide-react"
 
 import type { ProviderSettings, ExperimentId, TelemetrySetting, UserAvatarVisibility } from "@roo-code/types"
@@ -74,6 +76,7 @@ import { UISettings } from "./UISettings"
 import UserAvatarSettings from "./UserAvatarSettings"
 import { WorldviewSettings } from "./WorldviewSettings"
 import { ExtensionsSettings } from "./ExtensionsSettings"
+import { AssistantRoleSettings } from "./AssistantRoleSettings"
 
 export const settingsTabsContainer = "flex flex-1 overflow-hidden [&.narrow_.tab-label]:hidden"
 export const settingsTabList =
@@ -95,6 +98,7 @@ const sectionNames = [
 	"notifications",
 	"contextManagement",
 	"terminal",
+	"assistantRole",
 	"userAvatar",
 	"prompts",
 	"ui",
@@ -217,10 +221,11 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		openRouterImageApiKey,
 		openRouterImageGenerationSelectedModel,
 		reasoningBlockCollapsed,
-		anhChatModeHideTaskCompletion,
-		anhShowRoleCardOnSwitch,
-		anhExtensionSettings: cachedAnhExtensionSettings = extensionAnhExtensionSettings,
-		userAvatarRole,
+	anhChatModeHideTaskCompletion,
+	anhShowRoleCardOnSwitch,
+	anhExtensionSettings: cachedAnhExtensionSettings = extensionAnhExtensionSettings,
+	currentAnhRole,
+	userAvatarRole,
 		enableUserAvatar,
 		userAvatarVisibility,
 		hideRoleDescription,
@@ -248,16 +253,22 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		}
 	}, [settingsImportedAt, extensionState])
 
-	const setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType> = useCallback((field, value) => {
-		setCachedState((prevState) => {
-			if (prevState[field] === value) {
-				return prevState
-			}
+	const setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType> = useCallback(
+		(field, value) => {
+			setCachedState((prevState) => {
+				if (prevState[field] === value) {
+					return prevState
+				}
 
-		setChangeDetected(true)
-		return { ...prevState, [field]: value }
-		})
-	}, [])
+				if (field !== "currentAnhRole") {
+					setChangeDetected(true)
+				}
+
+				return { ...prevState, [field]: value }
+			})
+		},
+		[],
+	)
 
 	const handleExtensionSettingChange = useCallback(
 		(extensionId: string, key: string, value: unknown) => {
@@ -541,6 +552,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			{ id: "notifications", icon: Bell },
 			{ id: "contextManagement", icon: Database },
 			{ id: "terminal", icon: SquareTerminal },
+			{ id: "assistantRole", icon: Users },
 			{ id: "userAvatar", icon: User },
 			{ id: "prompts", icon: MessageSquare },
 			{ id: "ui", icon: Glasses },
@@ -829,6 +841,14 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							terminalZshP10k={terminalZshP10k}
 							terminalZdotdir={terminalZdotdir}
 							terminalCompressProgressBar={terminalCompressProgressBar}
+							setCachedStateField={setCachedStateField}
+						/>
+					)}
+
+					{/* Assistant Role Section */}
+					{activeTab === "assistantRole" && (
+						<AssistantRoleSettings
+							currentRole={currentAnhRole}
 							setCachedStateField={setCachedStateField}
 						/>
 					)}

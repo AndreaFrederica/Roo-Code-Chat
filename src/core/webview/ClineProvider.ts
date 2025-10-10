@@ -42,6 +42,9 @@ import {
 	DEFAULT_WRITE_DELAY_MS,
 	ORGANIZATION_ALLOW_ALL,
 	DEFAULT_MODES,
+	DEFAULT_ASSISTANT_ROLE,
+	DEFAULT_ASSISTANT_ROLE_PROMPT_DATA,
+	DEFAULT_ASSISTANT_ROLE_UUID,
 } from "@roo-code/types"
 import { TelemetryService } from "@roo-code/telemetry"
 import { CloudService, BridgeOrchestrator, getRooCodeApiUrl } from "@roo-code/cloud"
@@ -2490,7 +2493,15 @@ export class ClineProvider
 
 	// ANH (Advanced Novel Helper) methods
 	public async setCurrentAnhRole(role: Role | undefined) {
-		const nextUuid = role?.uuid
+		const resolvedRole = role ?? DEFAULT_ASSISTANT_ROLE
+		const sanitizedRole = JSON.parse(JSON.stringify(resolvedRole)) as Role
+
+		if (!sanitizedRole.uuid) {
+			sanitizedRole.uuid = DEFAULT_ASSISTANT_ROLE_UUID
+		}
+
+		const nextUuid = sanitizedRole.uuid
+
 		if (this.activeRoleUuid !== nextUuid) {
 			this.activeRoleUuid = nextUuid
 			// Clear cached data when role changes
@@ -2498,16 +2509,14 @@ export class ClineProvider
 			this.cachedRolePromptData = undefined
 			console.log("[ANH-Chat:Roles] Cleared role cache due to role change")
 		}
-		await this.setValue("currentAnhRole", role)
+
+		await this.setValue("currentAnhRole", sanitizedRole)
 		await this.postStateToWebview()
-		
-		// 修复：明确区分默认助手和角色
-		if (role && role.uuid) {
-			console.log(`[ANH-Chat:Roles] Set current ANH role: ${role.name} (${role.uuid})`)
+
+		if (nextUuid === DEFAULT_ASSISTANT_ROLE_UUID) {
+			console.log("[ANH-Chat:Roles] Set current ANH role: Default Assistant (builtin)")
 		} else {
-			console.log("[ANH-Chat:Roles] Set current ANH role: Default Assistant (no role)")
-			// 确保清除 activeRoleUuid
-			this.activeRoleUuid = undefined
+			console.log(`[ANH-Chat:Roles] Set current ANH role: ${sanitizedRole.name} (${nextUuid})`)
 		}
 	}
 
@@ -2806,32 +2815,29 @@ export class ClineProvider
 
 	public async getRolePromptData(): Promise<RolePromptData | undefined> {
 		const storedRole = this.getCurrentAnhRole()
-		
-		// 修复：当用户明确选择默认助手时，应该返回 undefined
-		if (storedRole && storedRole.uuid === "") {
-			// 用户选择了默认助手，清除任何角色数据
-			if (this.cachedRoleUuid !== undefined) {
-				this.cachedRoleUuid = undefined
-				this.cachedRolePromptData = undefined
-				this.outputChannel.appendLine("[AnhChat] Cleared role data for default assistant")
-			}
-			return undefined
-		}
-		
-		const roleUuid = this.activeRoleUuid ?? storedRole?.uuid
+		const fallbackUuid = this.anhChatServices?.roleRegistry.getDefaultRoleUuid() ?? DEFAULT_ASSISTANT_ROLE_UUID
+		const roleUuid = this.activeRoleUuid ?? storedRole?.uuid ?? fallbackUuid
 
-		if (!roleUuid) {
-			// 没有角色时返回 undefined，而不是默认角色数据
-			if (this.cachedRoleUuid !== undefined) {
-				this.cachedRoleUuid = undefined
-				this.cachedRolePromptData = undefined
-				this.outputChannel.appendLine("[AnhChat] No role selected, using default behavior")
-			}
-			return undefined
+		if (!this.activeRoleUuid && roleUuid) {
+			this.activeRoleUuid = roleUuid
 		}
 
 		if (this.cachedRolePromptData && this.cachedRoleUuid === roleUuid) {
 			return this.cachedRolePromptData
+		}
+
+		if (roleUuid === DEFAULT_ASSISTANT_ROLE_UUID) {
+			const promptData: RolePromptData = {
+				role: JSON.parse(JSON.stringify(DEFAULT_ASSISTANT_ROLE)) as Role,
+				storyline: DEFAULT_ASSISTANT_ROLE_PROMPT_DATA.storyline,
+				memory: DEFAULT_ASSISTANT_ROLE_PROMPT_DATA.memory,
+			}
+
+			this.cachedRolePromptData = promptData
+			this.cachedRoleUuid = roleUuid
+			this.outputChannel.appendLine("[AnhChat] Role prompt data prepared for Default Assistant (builtin)")
+
+			return promptData
 		}
 
 		try {

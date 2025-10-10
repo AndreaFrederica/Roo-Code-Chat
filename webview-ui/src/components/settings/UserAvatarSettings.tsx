@@ -2,7 +2,13 @@ import React, { useCallback, useEffect, useState } from "react"
 import { Fzf } from "fzf"
 import { Check, X, User, UserX } from "lucide-react"
 
-import { type Role, type RoleSummary, type UserAvatarVisibility } from "@roo-code/types"
+import {
+	type Role,
+	type RoleSummary,
+	type UserAvatarVisibility,
+	DEFAULT_ASSISTANT_ROLE,
+	DEFAULT_ASSISTANT_ROLE_UUID,
+} from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
 import { cn } from "@src/lib/utils"
@@ -72,30 +78,29 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 		return () => window.removeEventListener("message", handleMessage)
 	}, [])
 
-	// Create default role for when no roles are loaded
+	// Localized copy of the built-in default assistant role for settings view
 	const defaultRole: Role = React.useMemo(
 		() => ({
-			uuid: "",
+			...DEFAULT_ASSISTANT_ROLE,
 			name: t("settings:userAvatar.noRole"),
-			type: "主角" as any,
 			description: t("settings:userAvatar.noRoleDescription"),
-			createdAt: Date.now(),
-			updatedAt: Date.now(),
 		}),
 		[t],
 	)
 
 	// Combine all roles including default role for display
 	const allRoles = React.useMemo(() => {
-		const roleList = roles.map(
-			(summary) =>
-				({
-					...summary,
-					description: summary.name, // Use name as description for display
-					createdAt: summary.lastUpdatedAt,
-					updatedAt: summary.lastUpdatedAt,
-				}) as Role,
-		)
+		const roleList = roles
+			.filter((summary) => summary.uuid !== DEFAULT_ASSISTANT_ROLE_UUID)
+			.map(
+				(summary) =>
+					({
+						...summary,
+						description: summary.name, // Use name as description for display
+						createdAt: summary.lastUpdatedAt,
+						updatedAt: summary.lastUpdatedAt,
+					}) as Role,
+			)
 
 		// Add default role at the beginning
 		return [defaultRole, ...roleList]
@@ -103,15 +108,23 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 
 	// Find the selected role
 	const selectedRole = React.useMemo(() => {
-		if (userAvatarRole?.uuid) {
-			// If userAvatarRole is a complete role object (with profile), use it directly
-			if (userAvatarRole.profile && Object.keys(userAvatarRole.profile).length > 0) {
-				return userAvatarRole
-			}
-			// Otherwise, find the matching role from allRoles
-			return allRoles.find((role) => role.uuid === userAvatarRole.uuid) || defaultRole
+		if (!userAvatarRole?.uuid) {
+			return defaultRole
 		}
-		return defaultRole
+
+		if (userAvatarRole.uuid === DEFAULT_ASSISTANT_ROLE_UUID) {
+			return {
+				...defaultRole,
+				...userAvatarRole,
+				name: defaultRole.name,
+				description: defaultRole.description,
+			}
+		}
+
+		if (userAvatarRole.profile && Object.keys(userAvatarRole.profile).length > 0) {
+			return userAvatarRole
+		}
+		return allRoles.find((role) => role.uuid === userAvatarRole.uuid) || userAvatarRole
 	}, [userAvatarRole, allRoles, defaultRole])
 
 	// Memoize searchable items for fuzzy search with separate name and description search
@@ -172,11 +185,12 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 			setOpen(false)
 			setSearchValue("")
 			
-			if (role.uuid) {
+			const targetUuid = role.uuid ?? DEFAULT_ASSISTANT_ROLE_UUID
+			if (targetUuid !== DEFAULT_ASSISTANT_ROLE_UUID) {
 				// Load the complete role data using UserAvatar-specific message
 				vscode.postMessage({
 					type: "loadUserAvatarRole",
-					roleUuid: role.uuid,
+					roleUuid: targetUuid,
 				})
 				
 				// Set a temporary role while loading
@@ -409,7 +423,7 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 						</div>
 
 						{/* Selected Role Info */}
-						{selectedRole && selectedRole.uuid && (
+						{selectedRole && selectedRole.uuid && selectedRole.uuid !== DEFAULT_ASSISTANT_ROLE_UUID && (
 							<div className="mt-3 p-3 bg-vscode-textBlockQuote-background border-l-4 border-vscode-textBlockQuote-border rounded-r-md">
 								<div className="flex items-center gap-2 mb-2">
 									{selectedRole.color && (

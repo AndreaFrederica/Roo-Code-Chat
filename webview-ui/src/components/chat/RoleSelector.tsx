@@ -2,7 +2,12 @@ import React from "react"
 import { Fzf } from "fzf"
 import { Check, X } from "lucide-react"
 
-import { type Role, type RoleSummary } from "@roo-code/types"
+import {
+	type Role,
+	type RoleSummary,
+	DEFAULT_ASSISTANT_ROLE,
+	DEFAULT_ASSISTANT_ROLE_UUID,
+} from "@roo-code/types"
 
 import { vscode } from "@/utils/vscode"
 import { telemetryClient } from "@/utils/TelemetryClient"
@@ -25,6 +30,9 @@ interface RoleSelectorProps {
 	title: string
 	triggerClassName?: string
 	roleShortcutText: string
+	allowOverride?: boolean
+	onOverrideAttempt?: (role: Role) => Promise<boolean> | boolean
+	showChevron?: boolean
 }
 
 export const RoleSelector: React.FC<RoleSelectorProps> = ({
@@ -34,6 +42,9 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 	title,
 	triggerClassName = "",
 	roleShortcutText,
+	allowOverride = false,
+	onOverrideAttempt,
+	showChevron = false,
 }) => {
 	const [open, setOpen] = React.useState(false)
 	const [searchValue, setSearchValue] = React.useState("")
@@ -131,46 +142,51 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 		telemetryClient.capture("role_selector_opened")
 	}, [])
 
-	// Create default role for when no roles are loaded
+	// Localized copy of the built-in default assistant role
 	const defaultRole: Role = React.useMemo(
 		() => ({
-			uuid: "",
+			...DEFAULT_ASSISTANT_ROLE,
 			name: t("chat:roleSelector.defaultRole"),
-			type: "主角" as any,
 			description: t("chat:roleSelector.defaultRole"),
-			createdAt: Date.now(),
-			updatedAt: Date.now(),
 		}),
 		[t],
 	)
 
 	// Combine all roles including default role for display
 	const allRoles = React.useMemo(() => {
-		const roleList = roles.map(
-			(summary) =>
-				({
-					...summary,
-					description: summary.name, // Use name as description for display
-					createdAt: summary.lastUpdatedAt,
-					updatedAt: summary.lastUpdatedAt,
-				}) as Role,
-		)
+		const roleList = roles
+			.filter((summary) => summary.uuid !== DEFAULT_ASSISTANT_ROLE_UUID)
+			.map(
+				(summary) =>
+					({
+						...summary,
+						description: summary.name, // Use name as description for display
+						createdAt: summary.lastUpdatedAt,
+						updatedAt: summary.lastUpdatedAt,
+					}) as Role,
+			)
 
-		// Add default role at the beginning
 		return [defaultRole, ...roleList]
 	}, [roles, defaultRole])
 
 	// Find the selected role
 	const selectedRole = React.useMemo(() => {
-		if (value?.uuid) {
-			// If value is a complete role object (with profile), use it directly
-			if (value.profile && Object.keys(value.profile).length > 0) {
-				return value
-			}
-			// Otherwise, find the matching role from allRoles
-			return allRoles.find((role) => role.uuid === value.uuid) || defaultRole
+		if (!value?.uuid) {
+			return defaultRole
 		}
-		return defaultRole
+
+		if (value.uuid === DEFAULT_ASSISTANT_ROLE_UUID) {
+			return {
+				...value,
+				name: defaultRole.name,
+				description: defaultRole.description,
+			}
+		}
+
+		if (value.profile && Object.keys(value.profile).length > 0) {
+			return value
+		}
+		return allRoles.find((role) => role.uuid === value.uuid) || value
 	}, [value, allRoles, defaultRole])
 
 	// Memoize searchable items for fuzzy search with separate name and description search
@@ -227,38 +243,44 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 	}, [])
 
 	const handleSelect = React.useCallback(
-		(role: Role) => {
-			// Prevent role switching if not allowed
+		async (role: Role) => {
 			if (!allowRoleSwitching) {
-				addNotification({
-					title: t("chat:roleSelector.taskActiveTitle"),
-					message: t("chat:roleSelector.taskActiveMessage"),
-					type: "warning",
-					duration: 3000
-				})
-				return
+				if (allowOverride) {
+					const shouldOverride = onOverrideAttempt ? await onOverrideAttempt(role) : true
+					if (!shouldOverride) {
+						return
+					}
+				} else {
+					addNotification({
+						title: t("chat:roleSelector.taskActiveTitle"),
+						message: t("chat:roleSelector.taskActiveMessage"),
+						type: "warning",
+						duration: 3000,
+					})
+					return
+				}
 			}
 
 			setOpen(false)
 			setSearchValue("")
 			onChange(role)
 
-			if (role.uuid) {
-				vscode.postMessage({
-					type: "loadAnhRole",
-					roleUuid: role.uuid,
-				})
-			} else {
-				vscode.postMessage({
-					type: "selectAnhRole",
-					role: undefined,
-				})
-			}
+			vscode.postMessage({
+				type: "loadAnhRole",
+				roleUuid: role.uuid ?? DEFAULT_ASSISTANT_ROLE_UUID,
+			})
 
 			// After selecting a role, disable further switching until next task
 			setAllowRoleSwitching(false)
 		},
-		[onChange, allowRoleSwitching, showRoleDebugInfo, t],
+		[
+			onChange,
+			allowRoleSwitching,
+			allowOverride,
+			onOverrideAttempt,
+			addNotification,
+			t,
+		],
 	)
 
 	const onOpenChange = React.useCallback(
@@ -314,22 +336,26 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 	// Combine instruction text for tooltip
 	const instructionText = `${t("chat:roleSelector.description")} ${roleShortcutText}`
 
+	const isSwitchDisabled = disabled || (!allowOverride && !allowRoleSwitching)
+	const tooltipContent = !allowRoleSwitching && !allowOverride ? t("chat:roleSelector.taskActiveTooltip") : title
+
 	return (
 		<Popover open={open} onOpenChange={onOpenChange} data-testid="role-selector-root">
-			<StandardTooltip content={!allowRoleSwitching ? t("chat:roleSelector.taskActiveTooltip") : title}>
+			<StandardTooltip content={tooltipContent}>
 				<PopoverTrigger
-					disabled={disabled || !allowRoleSwitching}
+					disabled={isSwitchDisabled}
 					data-testid="role-selector-trigger"
 					className={cn(
 						"inline-flex items-center relative whitespace-nowrap px-1.5 py-1 text-xs",
 						"bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md text-vscode-foreground",
 						"transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-vscode-focusBorder focus-visible:ring-inset",
-						(disabled || !allowRoleSwitching)
+						isSwitchDisabled
 							? "opacity-50 cursor-not-allowed"
 							: "opacity-90 hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)] cursor-pointer",
 						triggerClassName,
 					)}>
 					<span className="truncate">{selectedRole?.name || ""}</span>
+					{showChevron && <span className="codicon codicon-chevron-down ml-2 opacity-70" />}
 				</PopoverTrigger>
 			</StandardTooltip>
 			<PopoverContent

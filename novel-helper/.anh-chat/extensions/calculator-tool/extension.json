@@ -1,0 +1,8 @@
+{
+	"name": "Calculator Launcher",
+	"main": "./index.mjs",
+	"capabilities": ["tools"],
+	"modules": ["os"],
+	"enabled": true,
+	"description": "Provides a tool that opens the system calculator using the appropriate OS command."
+}

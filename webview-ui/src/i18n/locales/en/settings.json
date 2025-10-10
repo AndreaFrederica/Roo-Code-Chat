@@ -23,19 +23,39 @@
 	"sections": {
 		"providers": "Providers",
 		"autoApprove": "Auto-Approve",
+		"slashCommands": "Slash Commands",
 		"browser": "Browser",
 		"checkpoints": "Checkpoints",
 		"notifications": "Notifications",
 		"contextManagement": "Context",
 		"terminal": "Terminal",
-		"slashCommands": "Slash Commands",
+		"assistantRole": "Assistant Role",
+		"userAvatar": "User Avatar",
 		"prompts": "Prompts",
 		"ui": "UI",
 		"extensions": "Extensions",
+		"worldview": "Worldview",
 		"experimental": "Experimental",
 		"language": "Language",
-		"userAvatar": "User Avatar",
 		"about": "About ANH CHAT"
+	},
+	"assistantRole": {
+		"title": "Assistant Role",
+		"description": "Choose which role the assistant uses during chats. The selection follows the same safety rules as the in-chat switcher.",
+		"selectorLabel": "Current role",
+		"selectorShortcut": "Ctrl+R",
+		"selectorDescription": "Pick the default character card used when starting new conversations.",
+		"forceSwitchConfirm": "A chat is currently active. Force switch to \"{{role}}\"?",
+		"fields": {
+			"type": "Role Type",
+			"description": "Description",
+			"personality": "Personality",
+			"scenario": "Scenario",
+			"greeting": "Greeting",
+			"systemPrompt": "System Prompt"
+		},
+		"profileTitle": "Profile Details",
+		"noProfile": "This role does not define any profile fields."
 	},
 	"slashCommands": {
 		"description": "Manage your slash commands to quickly execute custom workflows and actions. <DocsLink>Learn more</DocsLink>"

@@ -1,7 +1,13 @@
 import * as path from "path"
 import * as fs from "fs/promises"
 
-import type { Role, RoleSummary } from "@roo-code/types"
+import {
+	type Role,
+	type RoleSummary,
+	DEFAULT_ASSISTANT_ROLE,
+	DEFAULT_ASSISTANT_ROLE_SUMMARY,
+	DEFAULT_ASSISTANT_ROLE_UUID,
+} from "@roo-code/types"
 import { fileExistsAtPath } from "../../utils/fs"
 import { safeWriteJson } from "../../utils/safeWriteJson"
 import { SillyTavernParser } from "../../utils/sillytavern-parser"
@@ -13,12 +19,24 @@ export class RoleRegistry {
 	private roleCache = new Map<string, Role>()
 	private summaryCache = new Map<string, RoleSummary>()
 	private initialized = false
+	private readonly builtinRoles = new Map<string, Role>([
+		[DEFAULT_ASSISTANT_ROLE_UUID, DEFAULT_ASSISTANT_ROLE],
+	])
+	private readonly builtinSummaries = new Map<string, RoleSummary>([
+		[DEFAULT_ASSISTANT_ROLE_UUID, DEFAULT_ASSISTANT_ROLE_SUMMARY],
+	])
 
 	private constructor(private readonly rootDir: string) {
 		this.rolesDir = path.join(rootDir, "roles")
 	}
 
 	getDefaultRoleUuid(): string | undefined {
+		const builtinIterator = this.builtinSummaries.keys()
+		const builtinFirst = builtinIterator.next()
+		if (!builtinFirst.done) {
+			return builtinFirst.value
+		}
+
 		const iterator = this.summaryCache.values()
 		const first = iterator.next()
 		return first.done ? undefined : first.value.uuid
@@ -56,14 +74,24 @@ export class RoleRegistry {
 	}
 
 	listSummaries(): RoleSummary[] {
-		return Array.from(this.summaryCache.values())
+		return [
+			...Array.from(this.builtinSummaries.values()).map(cloneSummary),
+			...Array.from(this.summaryCache.values()).map(cloneSummary),
+		]
 	}
 
 	getRole(uuid: string): Role | undefined {
+		if (this.builtinRoles.has(uuid)) {
+			return cloneRole(this.builtinRoles.get(uuid)!)
+		}
 		return this.roleCache.get(uuid)
 	}
 
 	async loadRole(uuid: string): Promise<Role | undefined> {
+		if (this.builtinRoles.has(uuid)) {
+			return cloneRole(this.builtinRoles.get(uuid)!)
+		}
+
 		const cached = this.roleCache.get(uuid)
 		if (cached) {
 			return cached
@@ -81,6 +109,10 @@ export class RoleRegistry {
 	}
 
 	async saveRole(uuid: string, role: Role, summary: RoleSummary) {
+		if (this.builtinRoles.has(uuid)) {
+			throw new Error("Built-in roles cannot be overwritten")
+		}
+
 		await fs.mkdir(this.rolesDir, { recursive: true })
 		const rolePath = path.join(this.rolesDir, `${uuid}.json`)
 		await safeWriteJson(rolePath, role)
@@ -89,9 +121,16 @@ export class RoleRegistry {
 		await this.persistIndex()
 	}
 
+	public async reload() {
+		this.initialized = false
+		this.roleCache.clear()
+		this.summaryCache.clear()
+		await this.initialize()
+	}
+
 	private async persistIndex() {
 		const indexPath = path.join(this.rolesDir, "index.json")
-		await safeWriteJson(indexPath, this.listSummaries())
+		await safeWriteJson(indexPath, Array.from(this.summaryCache.values()))
 	}
 
 	/**
@@ -177,3 +216,6 @@ export class RoleRegistry {
 		}
 	}
 }
+
+const cloneRole = (role: Role): Role => JSON.parse(JSON.stringify(role)) as Role
+const cloneSummary = (summary: RoleSummary): RoleSummary => ({ ...summary })

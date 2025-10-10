@@ -7,7 +7,7 @@ import { mentionRegex, mentionRegexGlobal, commandRegexGlobal, unescapeSpaces } 
 import { WebviewMessage } from "@roo/WebviewMessage"
 import { Mode, getAllModes } from "@roo/modes"
 import { ExtensionMessage } from "@roo/ExtensionMessage"
-import { type Role } from "@roo-code/types"
+import { type Role, DEFAULT_ASSISTANT_ROLE, DEFAULT_ASSISTANT_ROLE_UUID } from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
@@ -915,15 +915,23 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		)
 
 		// Role selector handler
-		const handleRoleChange = useCallback((role: Role) => {
-			if (role.uuid) {
-				setCurrentAnhRole(role)
-				vscode.postMessage({ type: "selectAnhRole", role })
-			} else {
-				setCurrentAnhRole(undefined)
-				vscode.postMessage({ type: "selectAnhRole", role: undefined })
-			}
-		}, [setCurrentAnhRole])
+		const handleRoleChange = useCallback(
+			(role: Role) => {
+				const roleUuid = role.uuid ?? DEFAULT_ASSISTANT_ROLE_UUID
+				const resolvedRole =
+					roleUuid === DEFAULT_ASSISTANT_ROLE_UUID
+						? {
+								...DEFAULT_ASSISTANT_ROLE,
+								name: role.name ?? DEFAULT_ASSISTANT_ROLE.name,
+								description: role.description ?? DEFAULT_ASSISTANT_ROLE.description,
+							}
+						: role
+
+				setCurrentAnhRole(resolvedRole)
+				vscode.postMessage({ type: "selectAnhRole", role: resolvedRole })
+			},
+			[setCurrentAnhRole],
+		)
 
 		// Persona mode handler
 		const handlePersonaModeChange = useCallback((value: "chat" | "hybrid") => {

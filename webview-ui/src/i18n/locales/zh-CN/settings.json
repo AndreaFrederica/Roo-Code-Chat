@@ -25,20 +25,39 @@
 	"sections": {
 		"providers": "提供商",
 		"autoApprove": "自动批准",
+		"slashCommands": "斜杠命令",
 		"browser": "计算机交互",
 		"checkpoints": "存档点",
 		"notifications": "通知",
 		"contextManagement": "上下文",
 		"terminal": "终端",
-		"slashCommands": "斜杠命令",
+		"assistantRole": "助手角色",
+		"userAvatar": "用户代理角色",
 		"prompts": "提示词",
 		"ui": "UI",
 		"extensions": "Extensions",
 		"worldview": "世界观",
 		"experimental": "实验性",
 		"language": "语言",
-		"userAvatar": "用户代理角色",
 		"about": "关于 ANH CHAT"
+	},
+	"assistantRole": {
+		"title": "助手角色",
+		"description": "选择聊天时使用的助手角色。此选择遵循与对话面板相同的安全限制。",
+		"selectorLabel": "当前角色",
+		"selectorShortcut": "Ctrl+R",
+		"selectorDescription": "选择在新对话中默认使用的角色卡。",
+		"forceSwitchConfirm": "当前有对话正在进行，确定要强制切换到“{{role}}”吗？",
+		"fields": {
+			"type": "角色类型",
+			"description": "角色描述",
+			"personality": "性格特点",
+			"scenario": "背景设定",
+			"greeting": "问候语",
+			"systemPrompt": "系统提示词"
+		},
+		"profileTitle": "角色档案",
+		"noProfile": "该角色未定义详细档案。"
 	},
 	"slashCommands": {
 		"description": "管理您的斜杠命令，以快速执行自定义工作流和操作。 <DocsLink>了解更多</DocsLink>"

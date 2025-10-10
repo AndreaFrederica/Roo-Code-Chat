@@ -179,6 +179,16 @@
 				"command": "anh-cline.toggleAutoApprove",
 				"title": "%command.toggleAutoApprove.title%",
 				"category": "%configuration.title%"
+			},
+			{
+				"command": "anh-cline.reloadRoleCards",
+				"title": "ANH Chat: Reload Role Cards",
+				"category": "%configuration.title%"
+			},
+			{
+				"command": "anh-cline.reloadExtensions",
+				"title": "ANH Chat: Reload Extensions",
+				"category": "%configuration.title%"
 			}
 		],
 		"menus": {

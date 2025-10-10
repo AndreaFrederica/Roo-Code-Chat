@@ -13,6 +13,8 @@ import {
 	type Role,
 	TelemetryEventName,
 	UserSettingsConfig,
+	DEFAULT_ASSISTANT_ROLE,
+	DEFAULT_ASSISTANT_ROLE_UUID,
 } from "@roo-code/types"
 import { CloudService } from "@roo-code/cloud"
 import { TelemetryService } from "@roo-code/telemetry"
@@ -3164,49 +3166,48 @@ export const webviewMessageHandler = async (
 		}
 		case "loadAnhRole": {
 			try {
-			if (!message.roleUuid) {
-				// Default role requested
-				await provider.setCurrentAnhRole(undefined)
-				await provider.postMessageToWebview({
-					type: "anhRoleLoaded",
-					role: undefined,
-				})
-				break
-			}				const { RoleRegistry } = await import("../../services/anh-chat")
+				const targetUuid = message.roleUuid ?? DEFAULT_ASSISTANT_ROLE_UUID
+				const { RoleRegistry } = await import("../../services/anh-chat")
 				const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
 				if (!workspaceRoot) {
 					throw new Error("No workspace folder found")
 				}
 				const registry = await RoleRegistry.create(workspaceRoot)
-				const role = await registry.loadRole(message.roleUuid)
+				let role = await registry.loadRole(targetUuid)
+
+				if (!role && targetUuid === DEFAULT_ASSISTANT_ROLE_UUID) {
+					role = JSON.parse(JSON.stringify(DEFAULT_ASSISTANT_ROLE)) as Role
+				}
 
 				if (role) {
 					provider.log(`ANH role loaded successfully: ${role.name}`)
 					provider.log(`Role has profile: ${!!role.profile}`)
-					
-					// Load timeline data if available
-					try {
-						const { StorylineRepository } = await import("../../services/anh-chat")
-						const storylineRepo = await StorylineRepository.create(workspaceRoot)
-						const storyline = await storylineRepo.getStoryline(role.uuid)
-						if (storyline) {
-							provider.log(`Timeline loaded: ${storyline.arcs.length} arcs`)
-							// Attach timeline to role for frontend display
-							;(role as any).timeline = storyline
-						} else {
-							provider.log("No timeline file found")
+
+					if (targetUuid !== DEFAULT_ASSISTANT_ROLE_UUID) {
+						try {
+							const { StorylineRepository } = await import("../../services/anh-chat")
+							const storylineRepo = await StorylineRepository.create(workspaceRoot)
+							const storyline = await storylineRepo.getStoryline(role.uuid)
+							if (storyline) {
+								provider.log(`Timeline loaded: ${storyline.arcs.length} arcs`)
+								;(role as any).timeline = storyline
+							} else {
+								provider.log("No timeline file found")
+							}
+						} catch (timelineError) {
+							provider.log(
+								`Error loading timeline: ${timelineError instanceof Error ? timelineError.message : String(timelineError)}`,
+							)
 						}
-					} catch (timelineError) {
-						provider.log(`Error loading timeline: ${timelineError instanceof Error ? timelineError.message : String(timelineError)}`)
 					}
-					
+
 					await provider.setCurrentAnhRole(role)
 					await provider.postMessageToWebview({
 						type: "anhRoleLoaded",
-						role: role,
+						role,
 					})
 				} else {
-					provider.log(`ANH role not found: ${message.roleUuid}`)
+					provider.log(`ANH role not found: ${targetUuid}`)
 					await provider.postMessageToWebview({
 						type: "anhRoleLoaded",
 						role: undefined,
@@ -3223,15 +3224,16 @@ export const webviewMessageHandler = async (
 		}
 		case "selectAnhRole": {
 			try {
-				const role = message.role
-				if (role) {
-					// Save selected role to global state
-					await provider.setCurrentAnhRole(role)
-					provider.log(`ANH role selected: ${role.name} (${role.uuid})`)
+				const incomingRole = message.role as Role | undefined
+				const resolvedRole =
+					incomingRole ?? (JSON.parse(JSON.stringify(DEFAULT_ASSISTANT_ROLE)) as Role)
+
+				await provider.setCurrentAnhRole(resolvedRole)
+
+				if (resolvedRole.uuid === DEFAULT_ASSISTANT_ROLE_UUID) {
+					provider.log("ANH default assistant selected")
 				} else {
-					// Clear selected role
-					await provider.setCurrentAnhRole(undefined)
-					provider.log('ANH role cleared')
+					provider.log(`ANH role selected: ${resolvedRole.name} (${resolvedRole.uuid})`)
 				}
 			} catch (error) {
 				provider.log(`Error selecting ANH role: ${error instanceof Error ? error.message : String(error)}`)
@@ -3240,11 +3242,11 @@ export const webviewMessageHandler = async (
 		}
 		case "loadUserAvatarRole": {
 			try {
-				if (!message.roleUuid) {
-					// Default role requested
+				const targetUuid = message.roleUuid ?? DEFAULT_ASSISTANT_ROLE_UUID
+				if (targetUuid === DEFAULT_ASSISTANT_ROLE_UUID) {
 					await provider.postMessageToWebview({
 						type: "userAvatarRoleLoaded",
-						role: undefined,
+						role: JSON.parse(JSON.stringify(DEFAULT_ASSISTANT_ROLE)) as Role,
 					})
 					break
 				}
@@ -3255,7 +3257,7 @@ export const webviewMessageHandler = async (
 					throw new Error("No workspace folder found")
 				}
 				const registry = await RoleRegistry.create(workspaceRoot)
-				const role = await registry.loadRole(message.roleUuid)
+				const role = await registry.loadRole(targetUuid)
 
 				if (role) {
 					provider.log(`User Avatar role loaded successfully: ${role.name}`)
@@ -3264,7 +3266,7 @@ export const webviewMessageHandler = async (
 						role,
 					})
 				} else {
-					provider.log(`User Avatar role not found: ${message.roleUuid}`)
+					provider.log(`User Avatar role not found: ${targetUuid}`)
 					await provider.postMessageToWebview({
 						type: "userAvatarRoleLoaded",
 						role: undefined,

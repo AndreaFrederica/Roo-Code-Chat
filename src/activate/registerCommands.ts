@@ -240,6 +240,31 @@ const getCommandsMap = ({
 			action: "toggleAutoApprove",
 		})
 	},
+	reloadRoleCards: async () => {
+		if (!anhChatServices?.roleRegistry) {
+			vscode.window.showErrorMessage("Role registry is not initialized yet.")
+			return
+		}
+
+		try {
+			await anhChatServices.roleRegistry.reload()
+			await provider.postStateToWebview()
+			vscode.window.showInformationMessage("Role cards reloaded.")
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			vscode.window.showErrorMessage(`Failed to reload role cards: ${message}`)
+		}
+	},
+	reloadExtensions: async () => {
+		try {
+			await provider.refreshAnhExtensions()
+			await provider.postStateToWebview()
+			vscode.window.showInformationMessage("Extensions reloaded.")
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			vscode.window.showErrorMessage(`Failed to reload extensions: ${message}`)
+		}
+	},
 })
 
 export const openClineInNewTab = async ({
