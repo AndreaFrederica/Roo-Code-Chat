@@ -174,6 +174,12 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setAnhChatModeHideTaskCompletion: (value: boolean) => void
 	anhShowRoleCardOnSwitch?: boolean
 	setAnhShowRoleCardOnSwitch: (value: boolean) => void
+	enabledTSProfiles?: string[]
+	setEnabledTSProfiles: (value: string[]) => void
+	anhTsProfileAutoInject?: boolean
+	setAnhTsProfileAutoInject: (value: boolean) => void
+	anhTsProfileVariables?: Record<string, string>
+	setAnhTsProfileVariables: (value: Record<string, string>) => void
 	displayMode?: "coding" | "chat"
 	setDisplayMode: (value: "coding" | "chat") => void
 	enableUserAvatar?: boolean
@@ -676,6 +682,12 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setAnhChatModeHideTaskCompletion: (value) => setState((prevState) => ({ ...prevState, anhChatModeHideTaskCompletion: value })),
 		anhShowRoleCardOnSwitch: state.anhShowRoleCardOnSwitch ?? false,
 		setAnhShowRoleCardOnSwitch: (value) => setState((prevState) => ({ ...prevState, anhShowRoleCardOnSwitch: value })),
+		enabledTSProfiles: state.enabledTSProfiles ?? [],
+		setEnabledTSProfiles: (value: string[]) => setState((prevState) => ({ ...prevState, enabledTSProfiles: value })),
+		anhTsProfileAutoInject: state.anhTsProfileAutoInject ?? true,
+		setAnhTsProfileAutoInject: (value: boolean) => setState((prevState) => ({ ...prevState, anhTsProfileAutoInject: value })),
+		anhTsProfileVariables: state.anhTsProfileVariables ?? {},
+		setAnhTsProfileVariables: (value: Record<string, string>) => setState((prevState) => ({ ...prevState, anhTsProfileVariables: value })),
 		displayMode: state.displayMode ?? "coding",
 		setDisplayMode: (value) => setState((prevState) => ({ ...prevState, displayMode: value })),
 		enableUserAvatar: state.enableUserAvatar ?? false,

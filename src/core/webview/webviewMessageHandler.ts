@@ -57,6 +57,7 @@ import { getModels, flushModels } from "../../api/providers/fetchers/modelCache"
 import { GetModelsOptions } from "../../shared/api"
 import { generateSystemPrompt } from "./generateSystemPrompt"
 import { getCommand } from "../../utils/commands"
+import { loadTsProfiles, validateTsProfile, browseTsProfile } from "../../services/anh-chat/tsProfileService"
 
 const ALLOWED_VSCODE_SETTINGS = new Set(["terminal.integrated.inheritEnv"])
 
@@ -2712,6 +2713,92 @@ export const webviewMessageHandler = async (
 			} catch (error) {
 				provider.log(`Error starting indexing: ${error instanceof Error ? error.message : String(error)}`)
 			}
+			break
+		}
+		case "loadTsProfiles": {
+			try {
+				provider.log("[TSProfile] Loading TSProfiles...")
+				const profiles = await loadTsProfiles()
+				provider.log(`[TSProfile] Loaded ${profiles.length} profiles`)
+				provider.postMessageToWebview({
+					type: "tsProfilesLoaded",
+					profiles
+				})
+			} catch (error) {
+				provider.log(`Error loading TSProfiles: ${error}`)
+				vscode.window.showErrorMessage(`Failed to load TSProfiles: ${error}`)
+			}
+			break
+		}
+		case "validateTsProfile": {
+			try {
+				if (!message.path) {
+					throw new Error("Path is required for validating TSProfile")
+				}
+				const result = await validateTsProfile(message.path)
+				provider.postMessageToWebview({
+					type: "tsProfileValidated",
+					tsProfileSuccess: result.success,
+					tsProfileName: result.profileName,
+					tsProfilePromptsCount: result.promptsCount,
+					tsProfileError: result.error,
+					path: result.path
+				})
+			} catch (error) {
+				provider.log(`Error validating TSProfile: ${error}`)
+				provider.postMessageToWebview({
+					type: "tsProfileValidated",
+					success: false,
+					error: error instanceof Error ? error.message : String(error)
+				})
+			}
+			break
+		}
+		case "browseTsProfile": {
+			try {
+				const filePath = await browseTsProfile()
+				if (filePath) {
+					provider.postMessageToWebview({
+						type: "tsProfileSelected",
+						path: filePath
+					})
+				}
+			} catch (error) {
+				provider.log(`Error browsing TSProfile: ${error}`)
+				vscode.window.showErrorMessage(`Failed to browse TSProfile: ${error}`)
+			}
+			break
+		}
+		case "enableTSProfile": {
+			if (message.tsProfileName) {
+				const currentProfiles = provider.contextProxy.getValue("enabledTSProfiles") as string[] || []
+				const newProfiles = [...currentProfiles, message.tsProfileName].filter((name, index, arr) => arr.indexOf(name) === index)
+				await updateGlobalState("enabledTSProfiles", newProfiles)
+				await provider.postStateToWebview()
+			}
+			break
+		}
+		case "disableTSProfile": {
+			const currentProfiles = provider.contextProxy.getValue("enabledTSProfiles") as string[] || []
+			if (message.tsProfileName) {
+				// 禁用特定的TSProfile
+				const newProfiles = currentProfiles.filter(name => name !== message.tsProfileName)
+				await updateGlobalState("enabledTSProfiles", newProfiles)
+			} else {
+				// 禁用所有TSProfiles
+				await updateGlobalState("enabledTSProfiles", [])
+			}
+			await provider.postStateToWebview()
+			break
+		}
+		case "anhTsProfileAutoInject": {
+			await updateGlobalState("anhTsProfileAutoInject", message.bool ?? true)
+			await provider.postStateToWebview()
+			break
+		}
+		case "anhTsProfileVariables": {
+			await updateGlobalState("anhTsProfileVariables", message.values ?? {})
+			await provider.postStateToWebview()
 			break
 		}
 		case "clearIndexData": {

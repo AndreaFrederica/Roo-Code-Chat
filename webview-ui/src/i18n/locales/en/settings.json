@@ -30,6 +30,7 @@
 		"contextManagement": "Context",
 		"terminal": "Terminal",
 		"assistantRole": "Assistant Role",
+		"tsProfile": "TSProfile",
 		"userAvatar": "User Avatar",
 		"prompts": "Prompts",
 		"ui": "UI",
@@ -56,6 +57,34 @@
 		},
 		"profileTitle": "Profile Details",
 		"noProfile": "This role does not define any profile fields."
+	},
+	"tsProfile": {
+		"title": "TSProfile Configuration",
+		"description": "Configure Tavern Style Profile files for role preprocessing during system prompt generation. This allows using complex prompt templates and variable replacement.",
+		"enableLabel": "Enable TSProfile",
+		"enableTooltip": "When enabled, the system will use Profile files to preprocess roles during prompt generation.",
+		"autoInjectLabel": "Auto Inject",
+		"autoInjectTooltip": "Automatically inject compiled system prompts from Profile into the role's system_prompt field.",
+		"selectLabel": "Select Profile File",
+		"searchPlaceholder": "Search Profile files...",
+		"noProfiles": "No Profile files found",
+		"currentPath": "Current Path",
+		"promptsCount": "{{count}} prompts",
+		"enabledCount": "{{count}} enabled",
+		"profileInfo": "Profile Info",
+		"profileName": "File Name",
+		"profilePath": "File Path",
+		"variablesLabel": "Template Variables",
+		"variablesTooltip": "Set custom variables for template variable replacement. These variables will replace {{variable_name}} placeholders during Profile processing.",
+		"variableNamePlaceholder": "Variable name",
+		"variableValuePlaceholder": "Variable value",
+		"noVariables": "No custom variables",
+		"variablesHelp": "Common variables: user (user avatar role name), char (target character name), name (target character name), description (character description), personality (character traits), scenario (setting), first_mes (first message), mes_example (conversation examples), isodate (date), isotime (time), etc.",
+		"validation": {
+			"success": "Profile file \"{{name}}\" validated successfully, contains {{promptsCount}} prompts",
+			"error": "Profile file validation failed: {{error}}",
+			"loadError": "Error loading Profile file: {{error}}"
+		}
 	},
 	"slashCommands": {
 		"description": "Manage your slash commands to quickly execute custom workflows and actions. <DocsLink>Learn more</DocsLink>"

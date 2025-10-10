@@ -32,6 +32,7 @@
 		"contextManagement": "上下文",
 		"terminal": "终端",
 		"assistantRole": "助手角色",
+		"tsProfile": "TSProfile",
 		"userAvatar": "用户代理角色",
 		"prompts": "提示词",
 		"ui": "UI",
@@ -47,7 +48,7 @@
 		"selectorLabel": "当前角色",
 		"selectorShortcut": "Ctrl+R",
 		"selectorDescription": "选择在新对话中默认使用的角色卡。",
-		"forceSwitchConfirm": "当前有对话正在进行，确定要强制切换到“{{role}}”吗？",
+		"forceSwitchConfirm": "当前有对话正在进行，确定要强制切换到\"{{role}}\"吗？",
 		"fields": {
 			"type": "角色类型",
 			"description": "角色描述",
@@ -58,6 +59,34 @@
 		},
 		"profileTitle": "角色档案",
 		"noProfile": "该角色未定义详细档案。"
+	},
+	"tsProfile": {
+		"title": "TSProfile配置",
+		"description": "配置Tavern Style Profile文件，用于在生成系统提示词时对角色进行预处理。这允许使用复杂的提示词模板和变量替换。",
+		"enableLabel": "启用TSProfile",
+		"enableTooltip": "启用TSProfile功能后，系统将在生成提示词时使用Profile文件对角色进行预处理。",
+		"autoInjectLabel": "自动注入",
+		"autoInjectTooltip": "自动将Profile编译后的系统提示词注入到角色的system_prompt字段中。",
+		"selectLabel": "选择Profile文件",
+		"searchPlaceholder": "搜索Profile文件...",
+		"noProfiles": "未找到Profile文件",
+		"currentPath": "当前路径",
+		"promptsCount": "{{count}} 个提示词",
+		"enabledCount": "{{count}} 个已启用",
+		"profileInfo": "Profile信息",
+		"profileName": "文件名",
+		"profilePath": "文件路径",
+		"variablesLabel": "模板变量",
+		"variablesTooltip": "设置用于模板变量替换的自定义变量。这些变量将在Profile处理时替换{{变量名}}占位符。",
+		"variableNamePlaceholder": "变量名",
+		"variableValuePlaceholder": "变量值",
+		"noVariables": "暂无自定义变量",
+		"variablesHelp": "常用变量：user（用户角色名）、char（目标角色名）、name（目标角色名）、description（角色描述）、personality（性格）、scenario（场景）、first_mes（首条消息）、mes_example（对话示例）、isodate（日期）、isotime（时间）等。",
+		"validation": {
+			"success": "Profile文件 \"{{name}}\" 验证成功，包含 {{promptsCount}} 个提示词",
+			"error": "Profile文件验证失败：{{error}}",
+			"loadError": "加载Profile文件时出错：{{error}}"
+		}
 	},
 	"slashCommands": {
 		"description": "管理您的斜杠命令，以快速执行自定义工作流和操作。 <DocsLink>了解更多</DocsLink>"

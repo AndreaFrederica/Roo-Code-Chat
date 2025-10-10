@@ -2520,6 +2520,10 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				throw new Error("Provider not available")
 			}
 
+			// Get fresh role prompt data to apply latest TSProfile settings
+			// This ensures that TSProfile changes are reflected immediately
+			const freshRolePromptData = await provider.getRolePromptData()
+
 			const resolvedUserAvatarVisibility =
 				userAvatarVisibility === "full" ||
 				userAvatarVisibility === "summary" ||
@@ -2567,7 +2571,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				systemPromptSettings,
 				this.todoList, // 修复：传递实际的 todoList
 				modelId,
-				this.rolePromptData,
+				freshRolePromptData, // Use fresh role data with latest TSProfile applied
 				currentPersonaMode,
 				currentToneStrict,
 				undefined, // anhUseAskTool - not needed here
@@ -2587,7 +2591,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				browserViewportSize: browserViewportSize ?? "900x600",
 				todoList: this.todoList,
 				modelId,
-				rolePromptData: this.rolePromptData,
+				rolePromptData: freshRolePromptData, // Use fresh role data with latest TSProfile applied
 				personaMode: currentPersonaMode,
 				toneStrict: currentToneStrict,
 				useAskTool: state?.anhUseAskTool,

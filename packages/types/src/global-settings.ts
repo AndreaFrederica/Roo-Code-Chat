@@ -168,6 +168,11 @@ export const globalSettingsSchema = z.object({
 	anhExtensionSettings: z
 		.record(z.string(), z.record(z.string(), z.any()))
 		.optional(),
+
+	// TSProfile (Tavern Style Profile) settings
+	enabledTSProfiles: z.array(z.string()).optional(),
+	anhTsProfileAutoInject: z.boolean().optional(),
+	anhTsProfileVariables: z.record(z.string(), z.string()).optional(),
 	
 	// User avatar role settings
 	userAvatarRole: roleSchema.optional(),

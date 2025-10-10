@@ -155,6 +155,9 @@ export interface ExtensionMessage {
 		| "worldsetStatus"
 		| "worldsetStatusUpdate"
 		| "worldsetFolderCreated"
+		| "tsProfilesLoaded"
+		| "tsProfileValidated"
+		| "tsProfileSelected"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -242,6 +245,12 @@ export interface ExtensionMessage {
 	worldsetName?: string // For worldsetFiles and other worldset operations
 	worldsetContent?: string // For worldsetContent
 	worldsetStatus?: { enabled: boolean; enabledWorldsets?: string[] } // For worldsetStatus
+	profiles?: any[] // For tsProfilesLoaded
+	tsProfileSuccess?: boolean // For tsProfileValidated
+	tsProfileName?: string // For tsProfileValidated
+	tsProfilePromptsCount?: number // For tsProfileValidated
+	tsProfileError?: string // For tsProfileValidated
+	path?: string // For tsProfileValidated and tsProfileSelected
 }
 
 export type ExtensionState = Pick<
@@ -336,6 +345,10 @@ export type ExtensionState = Pick<
 	| "anhExtensionsEnabled"
 	| "anhExtensionSettings"
 > & {
+	enabledTSProfiles?: string[]
+	anhTsProfileAutoInject?: boolean
+	anhTsProfileVariables?: Record<string, string>
+} & {
 	version: string
 	clineMessages: ClineMessage[]
 	currentTaskItem?: HistoryItem

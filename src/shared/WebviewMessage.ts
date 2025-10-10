@@ -257,6 +257,13 @@ export interface WebviewMessage {
 		| "disableWorldset"
 		| "getWorldsetStatus"
 		| "openWorldsetFolder"
+		| "loadTsProfiles"
+		| "validateTsProfile"
+		| "browseTsProfile"
+		| "enableTSProfile"
+		| "disableTSProfile"
+		| "anhTsProfileAutoInject"
+		| "anhTsProfileVariables"
 		| "hideRoleDescription"
 	text?: string
 	editedMessageContent?: string
@@ -307,6 +314,8 @@ export interface WebviewMessage {
 	upsellId?: string // For dismissUpsell
 	list?: string[] // For dismissedUpsells response
 	organizationId?: string | null // For organization switching
+	path?: string // For validateTsProfile and other path-based operations
+	tsProfileName?: string // For enable/disable TSProfile operations
 	// ANH role-related properties
 	roles?: any[] // For anhRolesLoaded
 	roleUuid?: string // For loadAnhRole
@@ -375,6 +384,10 @@ export interface IndexClearedPayload {
 	error?: string
 }
 
+export interface ValidateTsProfilePayload {
+	path: string
+}
+
 export const installMarketplaceItemWithParametersPayloadSchema = z.object({
 	item: marketplaceItemSchema,
 	parameters: z.record(z.string(), z.any()),
@@ -392,3 +405,4 @@ export type WebViewMessagePayload =
 	| InstallMarketplaceItemWithParametersPayload
 	| UpdateTodoListPayload
 	| EditQueuedMessagePayload
+	| ValidateTsProfilePayload

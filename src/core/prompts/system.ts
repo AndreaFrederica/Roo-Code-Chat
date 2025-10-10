@@ -449,8 +449,51 @@ function buildRolePromptSection(
 		}
 	}
 
-	// TODO: Extensions字段支持还未实现 (extensions field support not yet implemented)
-	// if (processedRole.extensions) { ... }
+	// Handle extensions field (for TSProfile injected content)
+	if (processedRole.extensions && typeof processedRole.extensions === 'object') {
+		// Check for TSProfile specific fields
+		const extensionEntries: string[] = []
+
+		// Handle depth_prompt (TSProfile system prompts)
+		if (processedRole.extensions.depth_prompt && typeof processedRole.extensions.depth_prompt === 'object') {
+			const depthPrompt = processedRole.extensions.depth_prompt as any
+			if (depthPrompt.system && typeof depthPrompt.system === 'string' && depthPrompt.system.trim()) {
+				extensionEntries.push(`### System Instructions\n${depthPrompt.system.trim()}`)
+			}
+			if (depthPrompt.user && typeof depthPrompt.user === 'string' && depthPrompt.user.trim()) {
+				extensionEntries.push(`### User Instructions\n${depthPrompt.user.trim()}`)
+			}
+			if (depthPrompt.assistant && typeof depthPrompt.assistant === 'string' && depthPrompt.assistant.trim()) {
+				extensionEntries.push(`### Assistant Guidelines\n${depthPrompt.assistant.trim()}`)
+			}
+		}
+
+		// Add other extension fields for debugging
+		Object.entries(processedRole.extensions).forEach(([key, value]) => {
+			if (key !== 'depth_prompt' && value !== null && value !== undefined) {
+				if (typeof value === 'string' && value.trim()) {
+					extensionEntries.push(`### ${key}\n${value.trim()}`)
+				} else if (Array.isArray(value) && value.length > 0) {
+					const stringValues = value.filter((v): v is string => typeof v === "string" && v.trim())
+					if (stringValues.length > 0) {
+						extensionEntries.push(`### ${key}\n${stringValues.map((v) => `- ${v.trim()}`).join("\n")}`)
+					}
+				} else if (typeof value === 'object' && value !== null && Object.keys(value).length > 0) {
+					try {
+						const jsonString = JSON.stringify(value, null, 2)
+						extensionEntries.push(`### ${key}\n\`\`\`json\n${jsonString}\n\`\`\``)
+					} catch (error) {
+						console.warn(`Failed to serialize extension ${key}:`, error)
+					}
+				}
+			}
+		})
+
+		// Add extension entries to sections
+		if (extensionEntries.length > 0) {
+			sections.push(...extensionEntries)
+		}
+	}
 
 	const arcs = storyline?.arcs?.slice(0, 3)
 	if (arcs && arcs.length > 0) {
@@ -494,6 +537,14 @@ function buildRolePromptSection(
 			)
 		}
 	}
+
+	// Debug: Log all sections before filtering
+	console.log('[DEBUG] buildRolePromptSection - All sections built:', {
+		sectionCount: sections.length,
+		sectionTitles: sections.map(s => s.split('\n', 1)[0]?.trim()),
+		hasSystemInstructions: sections.some(s => s.includes('### System Instructions')),
+		systemInstructionsContent: sections.find(s => s.includes('### System Instructions'))
+	})
 
 	const finalSections = summaryOnly
 		? (() => {
@@ -546,7 +597,17 @@ function buildRolePromptSection(
 		  })()
 		: sections
 
-	return finalSections.filter(Boolean).join("\n\n")
+	const result = finalSections.filter(Boolean).join("\n\n")
+
+	// Debug: Log final result
+	console.log('[DEBUG] buildRolePromptSection - Final result:', {
+		sectionCount: finalSections.length,
+		finalSectionTitles: finalSections.map(s => s.split('\n', 1)[0]?.trim()),
+		resultLength: result.length,
+		containsSystemInstructions: result.includes('### System Instructions')
+	})
+
+	return result
 }
 
 function buildUserAvatarSectionBlock(
@@ -914,6 +975,18 @@ async function generatePrompt(
 	])
 
 	const codeIndexManager = CodeIndexManager.getInstance(context, cwd)
+
+// Debug: Log role data before building sections
+	console.log('[DEBUG] buildRolePromptSection - Input role data:', {
+		roleName: rolePromptData?.role?.name,
+		hasSystemPrompt: !!rolePromptData?.role?.system_prompt,
+		systemPromptLength: rolePromptData?.role?.system_prompt?.length || 0,
+		hasPostHistoryInstructions: !!rolePromptData?.role?.post_history_instructions,
+		hasExtensions: !!rolePromptData?.role?.extensions,
+		extensionsKeys: rolePromptData?.role?.extensions ? Object.keys(rolePromptData.role.extensions) : [],
+		extensionsContent: rolePromptData?.role?.extensions,
+		allRoleFields: rolePromptData?.role ? Object.keys(rolePromptData.role) : []
+	})
 
 	// Build role sections for both AI role and user avatar role
 	const aiRoleSection = buildRolePromptSection(rolePromptData, userAvatarRole, enableUserAvatar)

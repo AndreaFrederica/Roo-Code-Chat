@@ -30,6 +30,7 @@ import {
 	BookOpen,
 	Puzzle,
 	Users,
+	FileText,
 } from "lucide-react"
 
 import type { ProviderSettings, ExperimentId, TelemetrySetting, UserAvatarVisibility } from "@roo-code/types"
@@ -77,6 +78,7 @@ import UserAvatarSettings from "./UserAvatarSettings"
 import { WorldviewSettings } from "./WorldviewSettings"
 import { ExtensionsSettings } from "./ExtensionsSettings"
 import { AssistantRoleSettings } from "./AssistantRoleSettings"
+import { TSProfileSettings } from "./TSProfileSettings"
 
 export const settingsTabsContainer = "flex flex-1 overflow-hidden [&.narrow_.tab-label]:hidden"
 export const settingsTabList =
@@ -99,6 +101,7 @@ const sectionNames = [
 	"contextManagement",
 	"terminal",
 	"assistantRole",
+	"tsProfile",
 	"userAvatar",
 	"prompts",
 	"ui",
@@ -229,6 +232,9 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		enableUserAvatar,
 		userAvatarVisibility,
 		hideRoleDescription,
+		enabledTSProfiles,
+		anhTsProfileAutoInject,
+		anhTsProfileVariables,
 	} = cachedState
 
 	const apiConfiguration = useMemo(() => cachedState.apiConfiguration ?? {}, [cachedState.apiConfiguration])
@@ -462,12 +468,15 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			setUserAvatarVisibility?.(resolvedUserAvatarVisibility)
 			setUserAvatarHideFullData?.(resolvedUserAvatarVisibility !== "full")
 			vscode.postMessage({ type: "userAvatarRole", values: userAvatarRole })
-		vscode.postMessage({ type: "openRouterImageApiKey", text: openRouterImageApiKey })
-		vscode.postMessage({
-			type: "openRouterImageGenerationSelectedModel",
-			text: openRouterImageGenerationSelectedModel,
-		})
-		setChangeDetected(false)
+			vscode.postMessage({ type: "openRouterImageApiKey", text: openRouterImageApiKey })
+			vscode.postMessage({
+				type: "openRouterImageGenerationSelectedModel",
+				text: openRouterImageGenerationSelectedModel,
+			})
+			// TSProfile settings
+			vscode.postMessage({ type: "anhTsProfileAutoInject", bool: anhTsProfileAutoInject })
+			vscode.postMessage({ type: "anhTsProfileVariables", values: anhTsProfileVariables || {} })
+			setChangeDetected(false)
 		}
 	}
 
@@ -553,6 +562,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			{ id: "contextManagement", icon: Database },
 			{ id: "terminal", icon: SquareTerminal },
 			{ id: "assistantRole", icon: Users },
+			{ id: "tsProfile", icon: FileText },
 			{ id: "userAvatar", icon: User },
 			{ id: "prompts", icon: MessageSquare },
 			{ id: "ui", icon: Glasses },
@@ -849,6 +859,13 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 					{activeTab === "assistantRole" && (
 						<AssistantRoleSettings
 							currentRole={currentAnhRole}
+							setCachedStateField={setCachedStateField}
+						/>
+					)}
+
+					{/* TSProfile Section */}
+					{activeTab === "tsProfile" && (
+						<TSProfileSettings
 							setCachedStateField={setCachedStateField}
 						/>
 					)}

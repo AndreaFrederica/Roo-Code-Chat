@@ -75,6 +75,15 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 
 	const rolePromptData = await provider.getRolePromptData()
 
+	// Debug: Check if TSProfile data is present
+	console.log('[DEBUG] generateSystemPrompt - rolePromptData:', {
+		roleName: rolePromptData?.role?.name,
+		hasSystemPrompt: !!rolePromptData?.role?.system_prompt,
+		hasExtensions: !!rolePromptData?.role?.extensions,
+		extensionsKeys: rolePromptData?.role?.extensions ? Object.keys(rolePromptData.role.extensions) : [],
+		enabledTSProfiles: (await provider.getState()).enabledTSProfiles
+	})
+
 	// Get current task's todo list and model ID
 	const currentTask = provider.getCurrentTask()
 	const todoList = currentTask?.todoList
