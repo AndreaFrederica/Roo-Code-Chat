@@ -158,6 +158,8 @@ export interface ExtensionMessage {
 		| "tsProfilesLoaded"
 		| "tsProfileValidated"
 		| "tsProfileSelected"
+		| "STWordBookBrowseResponse"
+		| "STWordBookValidateResponse"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -245,12 +247,17 @@ export interface ExtensionMessage {
 	worldsetName?: string // For worldsetFiles and other worldset operations
 	worldsetContent?: string // For worldsetContent
 	worldsetStatus?: { enabled: boolean; enabledWorldsets?: string[] } // For worldsetStatus
-	profiles?: any[] // For tsProfilesLoaded
+	tsProfiles?: any[] // For tsProfilesLoaded
 	tsProfileSuccess?: boolean // For tsProfileValidated
 	tsProfileName?: string // For tsProfileValidated
 	tsProfilePromptsCount?: number // For tsProfileValidated
 	tsProfileError?: string // For tsProfileValidated
-	path?: string // For tsProfileValidated and tsProfileSelected
+	tsProfilePath?: string // For tsProfileValidated and tsProfileSelected
+	// STWordBook-related properties
+	worldBookFilePath?: string // For STWordBookBrowseResponse
+	worldBookValid?: boolean // For STWordBookValidateResponse
+	worldBookValidationError?: string // For STWordBookValidateResponse
+	worldBookInfo?: any // For STWordBookValidateResponse (WorldBookInfo)
 }
 
 export type ExtensionState = Pick<
@@ -428,6 +435,20 @@ export type ExtensionState = Pick<
 	anhExtensionsRuntime?: AnhExtensionRuntimeState[]
 	anhExtensionCapabilityRegistry?: AnhExtensionCapabilityRegistry
 	anhExtensionSettings?: Record<string, Record<string, unknown>>
+	sillyTavernWorldBookState?: {
+		loadedWorldBooks: Array<{
+			name: string
+			path: string
+			entryCount: number
+			fileSize: number
+			lastModified: number
+			loaded: boolean
+			error?: string
+		}>
+		activeWorldBooks: string[]
+		configs: Record<string, any>
+		lastUpdated: number
+	}
 }
 
 export interface ClineSayTool {

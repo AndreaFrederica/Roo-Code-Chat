@@ -265,6 +265,13 @@ export interface WebviewMessage {
 		| "anhTsProfileAutoInject"
 		| "anhTsProfileVariables"
 		| "hideRoleDescription"
+		| "STWordBookToggle"
+		| "STWordBookAdd"
+		| "STWordBookRemove"
+		| "STWordBookUpdate"
+		| "STWordBookReload"
+		| "STWordBookBrowse"
+		| "STWordBookValidate"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -314,7 +321,7 @@ export interface WebviewMessage {
 	upsellId?: string // For dismissUpsell
 	list?: string[] // For dismissedUpsells response
 	organizationId?: string | null // For organization switching
-	path?: string // For validateTsProfile and other path-based operations
+	tsProfilePath?: string // For validateTsProfile and other path-based operations
 	tsProfileName?: string // For enable/disable TSProfile operations
 	// ANH role-related properties
 	roles?: any[] // For anhRolesLoaded
@@ -355,6 +362,10 @@ export interface WebviewMessage {
 		enabled: boolean
 		currentWorldset?: string
 	}
+	// STWordBook-related properties
+	worldBookFilePath?: string // For worldbook file path operations
+	worldBookEnabled?: boolean // For toggling worldbook enabled state
+	worldBookConfig?: any // For worldbook configuration (WorldBookConfig)
 }
 
 export const checkoutDiffPayloadSchema = z.object({

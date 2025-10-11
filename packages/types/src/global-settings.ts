@@ -186,6 +186,24 @@ export const globalSettingsSchema = z.object({
 
 	// Worldset settings
 	enabledWorldsets: z.array(z.string()).optional(),
+
+	// SillyTavern WorldBook settings
+	sillyTavernWorldBookConfigs: z.record(z.string(), z.object({
+		filePath: z.string(),
+		enabled: z.boolean(),
+		markdownOptions: z.object({
+			headingLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
+			titleStrategy: z.enum(['auto', 'comment', 'key', 'uid']).optional(),
+			includeDisabled: z.boolean().optional(),
+			sortBy: z.enum(['order', 'displayIndex', 'uid', 'title', 'none']).optional(),
+			includeFrontMatter: z.boolean().optional(),
+			frontMatterStyle: z.enum(['table', 'yaml']).optional(),
+			includeKeys: z.boolean().optional()
+		}).optional(),
+		autoReload: z.boolean().optional(),
+		reloadInterval: z.number().optional()
+	})).optional(),
+	sillyTavernWorldBookActiveBooks: z.array(z.string()).optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>

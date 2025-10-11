@@ -3,6 +3,7 @@ import { WebviewMessage } from "../../shared/WebviewMessage"
 import { defaultModeSlug, getModeBySlug, getGroupName } from "../../shared/modes"
 import { buildApiHandler } from "../../api"
 import { experiments as experimentsModule, EXPERIMENT_IDS } from "../../shared/experiments"
+import { debugLog, debugError } from "../../utils/debug"
 
 import { SYSTEM_PROMPT } from "../prompts/system"
 import { MultiSearchReplaceDiffStrategy } from "../diff/strategies/multi-search-replace"
@@ -75,13 +76,53 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 
 	const rolePromptData = await provider.getRolePromptData()
 
+	// Get WorldBook content if available
+	let worldBookContent = ""
+	if (provider.anhChatServices?.worldBookService) {
+		try {
+			worldBookContent = await provider.anhChatServices.worldBookService.getActiveWorldBooksMarkdown()
+			debugLog('generateSystemPrompt - WorldBook content loaded:', {
+				contentLength: worldBookContent.length,
+				hasContent: worldBookContent.length > 0
+			})
+		} catch (error) {
+			debugError('generateSystemPrompt - Error loading WorldBook content:', error)
+		}
+	}
+
+	// Get triggered WorldBook content if available
+	let triggeredWorldBookContent = ""
+	if (provider.anhChatServices?.worldBookTriggerService) {
+		try {
+			// For now, we'll get the constant content. In a real implementation,
+			// this would be called with actual message content and conversation history
+			triggeredWorldBookContent = await provider.anhChatServices.worldBookTriggerService.getConstantContent()
+			debugLog('generateSystemPrompt - Triggered WorldBook content loaded:', {
+				contentLength: triggeredWorldBookContent.length,
+				hasContent: triggeredWorldBookContent.length > 0
+			})
+		} catch (error) {
+			debugError('generateSystemPrompt - Error loading triggered WorldBook content:', error)
+		}
+	}
+
+	// Combine both WorldBook contents
+	if (triggeredWorldBookContent) {
+		if (worldBookContent) {
+			worldBookContent += '\n\n---\n\n' + triggeredWorldBookContent
+		} else {
+			worldBookContent = triggeredWorldBookContent
+		}
+	}
+
 	// Debug: Check if TSProfile data is present
-	console.log('[DEBUG] generateSystemPrompt - rolePromptData:', {
+	debugLog('generateSystemPrompt - rolePromptData:', {
 		roleName: rolePromptData?.role?.name,
 		hasSystemPrompt: !!rolePromptData?.role?.system_prompt,
 		hasExtensions: !!rolePromptData?.role?.extensions,
 		extensionsKeys: rolePromptData?.role?.extensions ? Object.keys(rolePromptData.role.extensions) : [],
-		enabledTSProfiles: (await provider.getState()).enabledTSProfiles
+		enabledTSProfiles: (await provider.getState()).enabledTSProfiles,
+		worldBookContentLength: worldBookContent.length
 	})
 
 	// Get current task's todo list and model ID
@@ -90,7 +131,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	const modelId = currentTask?.api?.getModel().id
 
 	// Get user avatar role if enabled - align with Task.getSystemPrompt() implementation
-	console.log('[DEBUG] generateSystemPrompt - enableUserAvatar:', enableUserAvatar, 'userAvatarRole:', userAvatarRole)
+	debugLog('generateSystemPrompt - enableUserAvatar:', enableUserAvatar, 'userAvatarRole:', userAvatarRole)
 	
 	const resolvedUserAvatarVisibility =
 		userAvatarVisibility === "full" ||
@@ -144,6 +185,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		enabledWorldsets, // 传递启用的世界观设定
 		resolvedUserAvatarVisibility,
 		extensionToolDescriptions,
+		worldBookContent, // 传递世界书内容
 	)
 
 	const finalPrompt = await provider.applySystemPromptExtensions(systemPrompt, {

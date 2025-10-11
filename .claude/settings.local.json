@@ -6,7 +6,10 @@
       "Bash(npm test:*)",
       "Bash(pnpm build:*)",
       "Bash(npx tsx:*)",
-      "Bash(pnpm build:types:*)"
+      "Bash(pnpm build:types:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run)",
+      "Bash(pnpm:*)"
     ],
     "deny": [],
     "ask": []

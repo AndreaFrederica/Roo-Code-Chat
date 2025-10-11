@@ -37,6 +37,7 @@ import {
 	QueuedMessage,
 	RolePromptData,
 	RolePersona,
+	type ChatMessage,
 } from "@roo-code/types"
 import { TelemetryService } from "@roo-code/telemetry"
 import { CloudService, BridgeOrchestrator } from "@roo-code/cloud"
@@ -75,6 +76,7 @@ import { TerminalRegistry } from "../../integrations/terminal/TerminalRegistry"
 // utils
 import { calculateApiCostAnthropic } from "../../shared/cost"
 import { getWorkspacePath } from "../../utils/path"
+import { debugLog } from "../../utils/debug"
 
 // prompts
 import { formatResponse } from "../prompts/responses"
@@ -994,6 +996,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			const provider = this.providerRef.deref()
 
 			if (provider) {
+				// Process world book triggers before sending the message
+				await this.processWorldBookTriggers(text, this.clineMessages)
+
 				if (mode) {
 					await provider.setMode(mode)
 				}
@@ -1616,7 +1621,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	}
 
 	public dispose(): void {
-		console.log(`[ANH-Chat:Task#dispose] disposing task ${this.taskId}.${this.instanceId}`)
+		debugLog(`Task#dispose: disposing task ${this.taskId}.${this.instanceId}`)
 
 		// Dispose message queue and remove event listeners.
 		try {
@@ -3104,6 +3109,57 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	}
 
 	/**
+	 * Process world book triggers for the given user message and conversation history.
+	 * This method will analyze the message and conversation history to trigger relevant
+	 * world book entries based on keywords and other matching criteria.
+	 *
+	 * @param userMessage - The current user message text
+	 * @param conversationHistory - The conversation history (ClineMessage array)
+	 */
+	public async processWorldBookTriggers(userMessage: string, conversationHistory: ClineMessage[]): Promise<void> {
+		try {
+			const provider = this.providerRef.deref()
+			if (!provider?.anhChatServices?.worldBookTriggerService) {
+				return
+			}
+
+			const triggerService = provider.anhChatServices.worldBookTriggerService
+			
+			// Convert ClineMessage to ChatMessage format for the trigger service
+			const chatHistory = conversationHistory.map(msg => ({
+				role: (msg.type === "say" && msg.say === "user_feedback" ? "user" : "assistant") as "user" | "assistant",
+				content: msg.text || "",
+				timestamp: msg.ts
+			})).filter(msg => msg.content) // Filter out empty messages
+
+			const currentMessage: ChatMessage = {
+				role: "user",
+				content: userMessage,
+				timestamp: Date.now()
+			}
+
+			// Process the message through the trigger service
+			const result = await triggerService.processMessage(currentMessage, chatHistory)
+			
+			if (result && result.injectedCount > 0) {
+				provider.log(`[ANH-Chat:Task#${this.taskId}] World book triggers processed: ${result.injectedCount} entries injected, duration: ${result.duration}ms`)
+				
+				// If triggers were found, we could optionally add a system message to indicate this
+				// For now, we'll just log it for debugging purposes
+				if (result.triggeredContent) {
+					provider.log(`[ANH-Chat:Task#${this.taskId}] Triggered content preview: ${result.triggeredContent.substring(0, 100)}...`)
+				}
+			}
+		} catch (error) {
+			const provider = this.providerRef.deref()
+			if (provider) {
+				provider.log(`[ANH-Chat:Task#${this.taskId}] Error processing world book triggers: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			console.error(`[ANH-Chat:Task#${this.taskId}] Error processing world book triggers:`, error)
+		}
+	}
+
+	/**
 	 * Process any queued messages by dequeuing and submitting them.
 	 * This ensures that queued user messages are sent when appropriate,
 	 * preventing them from getting stuck in the queue.
@@ -3163,5 +3219,23 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 		// Emit tone strict change event
 		this.emit(RooCodeEventName.TaskToneStrictChanged, this.taskId, toneStrict)
+	}
+
+	/**
+	 * Get the current persona mode for this task.
+	 *
+	 * @returns The current persona mode
+	 */
+	public getPersonaMode(): RolePersona {
+		return this.anhPersonaMode ?? "hybrid"
+	}
+
+	/**
+	 * Get the current tone strict setting for this task.
+	 *
+	 * @returns The current tone strict setting
+	 */
+	public getToneStrict(): boolean {
+		return this.anhToneStrict ?? true
 	}
 }

@@ -86,6 +86,7 @@ import { setTtsEnabled, setTtsSpeed } from "../../utils/tts"
 import { getWorkspaceGitInfo } from "../../utils/git"
 import { getWorkspacePath } from "../../utils/path"
 import { OrganizationAllowListViolationError } from "../../utils/errors"
+import { debugLog } from "../../utils/debug"
 
 import { setPanel } from "../../activate/registerCommands"
 
@@ -2209,6 +2210,13 @@ export class ClineProvider
 			enabledTSProfiles: enabledTSProfiles ?? [],
 			anhTsProfileAutoInject: anhTsProfileAutoInject ?? true,
 			anhTsProfileVariables: anhTsProfileVariables ?? {},
+			sillyTavernWorldBookState: this.anhChatServices?.worldBookService ?
+				this.anhChatServices.worldBookService.getState() : {
+				loadedWorldBooks: [],
+				activeWorldBooks: [],
+				configs: {},
+				lastUpdated: 0
+			},
 		}
 	}
 
@@ -2466,6 +2474,13 @@ export class ClineProvider
 			enabledTSProfiles: stateValues.enabledTSProfiles ?? [],
 			anhTsProfileAutoInject: stateValues.anhTsProfileAutoInject ?? true,
 			anhTsProfileVariables: stateValues.anhTsProfileVariables ?? {},
+			sillyTavernWorldBookState: this.anhChatServices?.worldBookService ?
+				this.anhChatServices.worldBookService.getState() : {
+				loadedWorldBooks: [],
+				activeWorldBooks: [],
+				configs: {},
+				lastUpdated: 0
+			},
 		}
 	}
 
@@ -2521,16 +2536,16 @@ export class ClineProvider
 			// Clear cached data when role changes
 			this.cachedRoleUuid = undefined
 			this.cachedRolePromptData = undefined
-			console.log("[ANH-Chat:Roles] Cleared role cache due to role change")
+			debugLog("Cleared role cache due to role change")
 		}
 
 		await this.setValue("currentAnhRole", sanitizedRole)
 		await this.postStateToWebview()
 
 		if (nextUuid === DEFAULT_ASSISTANT_ROLE_UUID) {
-			console.log("[ANH-Chat:Roles] Set current ANH role: Default Assistant (builtin)")
+			debugLog("Set current ANH role: Default Assistant (builtin)")
 		} else {
-			console.log(`[ANH-Chat:Roles] Set current ANH role: ${sanitizedRole.name} (${nextUuid})`)
+			debugLog(`Set current ANH role: ${sanitizedRole.name} (${nextUuid})`)
 		}
 	}
 
@@ -2541,7 +2556,7 @@ export class ClineProvider
 	public async setAnhPersonaMode(mode: "hybrid" | "chat") {
 		await this.setValue("anhPersonaMode", mode)
 		await this.postStateToWebview()
-		console.log("[ANH-Chat:Roles] Set ANH persona mode:", mode)
+		debugLog("Set ANH persona mode:", mode)
 	}
 
 	public getAnhPersonaMode() {
@@ -2551,7 +2566,7 @@ export class ClineProvider
 	public async setAnhToneStrict(value: boolean) {
 		await this.setValue("anhToneStrict", value)
 		await this.postStateToWebview()
-		console.log("[ANH-Chat:Roles] Set ANH tone strict:", value)
+		debugLog("Set ANH tone strict:", value)
 	}
 
 	public getAnhToneStrict() {
@@ -2561,13 +2576,13 @@ export class ClineProvider
 	public async setAnhUseAskTool(value: boolean) {
 		await this.setValue("anhUseAskTool", value)
 		await this.postStateToWebview()
-		console.log("[ANH-Chat:Roles] Set ANH use ask tool:", value)
+		debugLog("Set ANH use ask tool:", value)
 	}
 
 	public async setDisplayMode(value: "coding" | "chat") {
 		await this.setValue("displayMode", value)
 		await this.postStateToWebview()
-		console.log("[DisplayMode] Set display mode:", value)
+		debugLog("Set display mode:", value)
 	}
 
 	public getAnhUseAskTool() {
@@ -2915,7 +2930,7 @@ export class ClineProvider
 			} = state
 
 			// Debug: Log TSProfile state
-			console.log('[DEBUG] applyTsProfilePreprocessing - Start:', {
+			debugLog('applyTsProfilePreprocessing - Start:', {
 				roleName: role.name,
 				enabledTSProfiles,
 				anhTsProfileAutoInject,
@@ -2924,7 +2939,7 @@ export class ClineProvider
 
 			// If no TSProfiles are enabled, return original role
 			if (enabledTSProfiles.length === 0) {
-				console.log('[DEBUG] applyTsProfilePreprocessing - No TSProfiles enabled, returning original role')
+				debugLog('applyTsProfilePreprocessing - No TSProfiles enabled, returning original role')
 				return role
 			}
 
@@ -2933,6 +2948,21 @@ export class ClineProvider
 			// Load all available profiles
 			const allProfiles = await loadTsProfiles()
 			let processedRole = { ...role }
+
+			// If role doesn't have system_prompt, generate basic "You are..." introduction first
+			if (!processedRole.system_prompt && processedRole.name) {
+				const name = processedRole.name || "Assistant"
+				const description = processedRole.description || ""
+				const personality = processedRole.personality || ""
+
+				processedRole.system_prompt = `You are ${name}${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.`
+
+				debugLog('applyTsProfilePreprocessing - Generated basic role definition:', {
+					roleName: processedRole.name,
+					generatedSystemPrompt: processedRole.system_prompt,
+					length: processedRole.system_prompt.length
+				})
+			}
 
 			// Process each enabled profile
 			for (const profileName of enabledTSProfiles) {
@@ -2993,7 +3023,7 @@ export class ClineProvider
 				const assistantResult = liquidProcessor.processTextSync(compiled.assistant)
 
 				// Debug: Log injection results
-				console.log(`[DEBUG] TSProfile injection for ${profileName}:`, {
+				debugLog(`TSProfile injection for ${profileName}:`, {
 					anhTsProfileAutoInject,
 					hasSystemResult: !!systemResult,
 					systemLength: systemResult?.processedText?.length || 0,
@@ -3020,13 +3050,13 @@ export class ClineProvider
 						keepRawInExtensions: false
 					})
 
-					console.log(`[DEBUG] TSProfile injection completed for ${profileName}:`, {
+					debugLog(`TSProfile injection completed for ${profileName}:`, {
 						hasSystemPrompt: !!processedRole.system_prompt,
 						hasExtensions: !!processedRole.extensions,
 						extensionsKeys: processedRole.extensions ? Object.keys(processedRole.extensions) : []
 					})
 				} else {
-					console.log(`[DEBUG] TSProfile injection skipped for ${profileName}:`, {
+					debugLog(`TSProfile injection skipped for ${profileName}:`, {
 						anhTsProfileAutoInject,
 						hasSystemResult: !!systemResult
 					})

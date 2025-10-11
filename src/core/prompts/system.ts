@@ -474,7 +474,7 @@ function buildRolePromptSection(
 				if (typeof value === 'string' && value.trim()) {
 					extensionEntries.push(`### ${key}\n${value.trim()}`)
 				} else if (Array.isArray(value) && value.length > 0) {
-					const stringValues = value.filter((v): v is string => typeof v === "string" && v.trim())
+				const stringValues = value.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
 					if (stringValues.length > 0) {
 						extensionEntries.push(`### ${key}\n${stringValues.map((v) => `- ${v.trim()}`).join("\n")}`)
 					}
@@ -638,7 +638,7 @@ function buildUserAvatarSectionBlock(
 		return `
 
 USER AVATAR
-用户选择隐藏所有角色信息。请仅以“用户”称呼，不要推断或假设任何背景、性格或身份细节。
+用户选择隐藏所有角色信息。请仅以"用户"称呼，不要推断或假设任何背景、性格或身份细节。
 
 `
 	}
@@ -935,6 +935,7 @@ async function generatePrompt(
 	enabledWorldsets?: string[],
 	userAvatarVisibility?: UserAvatarVisibility,
 	extensionToolDescriptions?: string[],
+	worldBookContent?: string,
 ): Promise<string> {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -1041,6 +1042,24 @@ ${worldsetContents.join('\n\n---\n\n')}
 		}
 	}
 
+	// Add worldbook content if available
+	let worldBookSectionBlock = ""
+	if (worldBookContent && worldBookContent.trim()) {
+		worldBookSectionBlock = `
+
+====
+
+SILLY TAVERN WORLD BOOK
+
+The following world book information is available and should be used to enhance responses with relevant context and details:
+
+${worldBookContent}
+
+====
+
+`
+	}
+
 	// Determine if we're in pure chat mode
 	const isPureChatMode = anhPersonaMode === "chat"
 
@@ -1053,6 +1072,7 @@ ${worldsetContents.join('\n\n---\n\n')}
 		"",
 		roleSectionBlock,
 		worldsetSectionBlock, // Add worldset content here
+		worldBookSectionBlock, // Add worldbook content here
 		markdownFormattingSection(),
 		""
 	]
@@ -1192,6 +1212,7 @@ export const SYSTEM_PROMPT = async (
 	enabledWorldsets?: string[],
 	userAvatarVisibility?: UserAvatarVisibility,
 	extensionToolDescriptions?: string[],
+	worldBookContent?: string,
 ): Promise<string> => {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -1295,11 +1316,10 @@ ${customInstructions}`
 		anhToneStrict,
 		anhUseAskTool,
 		userAvatarRole,
-	enableUserAvatar,
-	enabledWorldsets,
-	userAvatarVisibility ?? "full",
+		enableUserAvatar,
+		enabledWorldsets,
+		userAvatarVisibility ?? "full",
 	extensionToolDescriptions,
-)
+		worldBookContent,
+	)
 }
-
-

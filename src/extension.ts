@@ -33,6 +33,8 @@ import {
 	StorylineRepository,
 	RoleMemoryService,
 	ConversationLogService,
+	WorldBookService,
+	SillyTavernWorldBookTriggerService,
 	AnhExtensionManager,
 	type AnhChatServices,
 } from "./services/anh-chat"
@@ -133,6 +135,38 @@ export async function activate(context: vscode.ExtensionContext) {
 			},
 		}
 		const extensionManager = new AnhExtensionManager(resolvedBasePath, extensionLogger)
+		const worldBookService = new WorldBookService(outputChannel, contextProxy)
+		const worldBookTriggerService = new SillyTavernWorldBookTriggerService({
+			enabled: true,
+			triggerConfig: {
+				enabled: true,
+				checkHistoryLength: 10,
+				matchStrategy: 'contains',
+				caseSensitive: false,
+				enableSynonyms: true,
+				fuzzyThreshold: 0.7,
+				semanticThreshold: 0.6,
+				maxInjectEntries: 5,
+				injectionStrategy: 'append',
+				injectionCooldown: 30000,
+				debugMode: true
+			},
+			realTimeConfig: {
+				enabled: true,
+				debounceDelay: 500,
+				minTriggerInterval: 1000,
+				allowConcurrent: false
+			},
+			worldBookFiles: [],
+			autoReloadWorldBooks: true,
+			reloadInterval: 5
+		}, outputChannel)
+
+		// Initialize WorldBookService to create directories
+		await worldBookService.initialize()
+
+		// Initialize WorldBookTriggerService
+		await worldBookTriggerService.initialize()
 
 		anhChatServices = {
 			basePath: resolvedBasePath,
@@ -140,6 +174,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			storylineRepository,
 			roleMemoryService,
 			conversationLogService,
+			worldBookService,
+			worldBookTriggerService,
 			extensionManager,
 		}
 

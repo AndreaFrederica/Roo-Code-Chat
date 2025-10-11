@@ -48,6 +48,7 @@ import { fileExistsAtPath } from "../../utils/fs"
 import { playTts, setTtsEnabled, setTtsSpeed, stopTts } from "../../utils/tts"
 import { searchCommits } from "../../utils/git"
 import { exportSettings, importSettingsWithFeedback } from "../config/importExport"
+import type { WorldBookConfig } from "../../services/silly-tavern/sillyTavernWorldBookService"
 import { getOpenAiModels } from "../../api/providers/openai"
 import { getVsCodeLmModels } from "../../api/providers/vscode-lm"
 import { openMention } from "../mentions"
@@ -2722,7 +2723,7 @@ export const webviewMessageHandler = async (
 				provider.log(`[TSProfile] Loaded ${profiles.length} profiles`)
 				provider.postMessageToWebview({
 					type: "tsProfilesLoaded",
-					profiles
+					tsProfiles: profiles
 				})
 			} catch (error) {
 				provider.log(`Error loading TSProfiles: ${error}`)
@@ -2732,17 +2733,17 @@ export const webviewMessageHandler = async (
 		}
 		case "validateTsProfile": {
 			try {
-				if (!message.path) {
+				if (!message.tsProfilePath) {
 					throw new Error("Path is required for validating TSProfile")
 				}
-				const result = await validateTsProfile(message.path)
+				const result = await validateTsProfile(message.tsProfilePath)
 				provider.postMessageToWebview({
 					type: "tsProfileValidated",
 					tsProfileSuccess: result.success,
 					tsProfileName: result.profileName,
 					tsProfilePromptsCount: result.promptsCount,
 					tsProfileError: result.error,
-					path: result.path
+					tsProfilePath: result.path
 				})
 			} catch (error) {
 				provider.log(`Error validating TSProfile: ${error}`)
@@ -2760,7 +2761,7 @@ export const webviewMessageHandler = async (
 				if (filePath) {
 					provider.postMessageToWebview({
 						type: "tsProfileSelected",
-						path: filePath
+						tsProfilePath: filePath
 					})
 				}
 			} catch (error) {
@@ -3853,6 +3854,181 @@ export const webviewMessageHandler = async (
 			} catch (error) {
 				provider.log(`Error opening worldset folder: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
 				vscode.window.showErrorMessage("Failed to open worldset folder")
+			}
+			break
+		}
+
+		// STWordBook management cases
+		case "STWordBookToggle": {
+			try {
+				const filePath = message.worldBookFilePath
+				const enabled = message.worldBookEnabled
+
+				if (!filePath || typeof enabled !== "boolean") {
+					vscode.window.showErrorMessage("Invalid worldbook toggle parameters")
+					break
+				}
+
+				const success = await provider.anhChatServices?.worldBookService.toggleWorldBook(filePath, enabled)
+				if (success) {
+					await provider.postStateToWebview()
+					provider.log(`WorldBook ${enabled ? 'enabled' : 'disabled'}: ${filePath}`)
+				} else {
+					vscode.window.showErrorMessage(`Failed to ${enabled ? 'enable' : 'disable'} worldbook`)
+				}
+			} catch (error) {
+				provider.log(`Error toggling worldbook: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("Failed to toggle worldbook")
+			}
+			break
+		}
+
+		case "STWordBookAdd": {
+			try {
+				const config = message.worldBookConfig as WorldBookConfig
+
+				if (!config || !config.filePath) {
+					vscode.window.showErrorMessage("Invalid worldbook configuration")
+					break
+				}
+
+				const success = await provider.anhChatServices?.worldBookService.addWorldBookConfig(config)
+				if (success) {
+					await provider.postStateToWebview()
+					provider.log(`WorldBook added: ${config.filePath}`)
+				} else {
+					vscode.window.showErrorMessage("Failed to add worldbook")
+				}
+			} catch (error) {
+				provider.log(`Error adding worldbook: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("Failed to add worldbook")
+			}
+			break
+		}
+
+		case "STWordBookRemove": {
+			try {
+				const filePath = message.worldBookFilePath
+
+				if (!filePath) {
+					vscode.window.showErrorMessage("Invalid worldbook file path")
+					break
+				}
+
+				const success = await provider.anhChatServices?.worldBookService.removeWorldBookConfig(filePath)
+				if (success) {
+					await provider.postStateToWebview()
+					provider.log(`WorldBook removed: ${filePath}`)
+				} else {
+					vscode.window.showErrorMessage("Failed to remove worldbook")
+				}
+			} catch (error) {
+				provider.log(`Error removing worldbook: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("Failed to remove worldbook")
+			}
+			break
+		}
+
+		case "STWordBookUpdate": {
+			try {
+				const filePath = message.worldBookFilePath
+				const config = message.worldBookConfig as WorldBookConfig
+
+				if (!filePath || !config) {
+					vscode.window.showErrorMessage("Invalid worldbook update parameters")
+					break
+				}
+
+				// Update the config by removing the old one and adding the new one
+				await provider.anhChatServices?.worldBookService.removeWorldBookConfig(filePath)
+				const success = await provider.anhChatServices?.worldBookService.addWorldBookConfig(config)
+				if (success) {
+					await provider.postStateToWebview()
+					provider.log(`WorldBook updated: ${filePath}`)
+				} else {
+					vscode.window.showErrorMessage("Failed to update worldbook")
+				}
+			} catch (error) {
+				provider.log(`Error updating worldbook: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("Failed to update worldbook")
+			}
+			break
+		}
+
+		case "STWordBookReload": {
+			try {
+				const filePath = message.worldBookFilePath
+
+				if (!filePath) {
+					vscode.window.showErrorMessage("Invalid worldbook file path")
+					break
+				}
+
+				const success = await provider.anhChatServices?.worldBookService.reloadWorldBook(filePath)
+				if (success) {
+					await provider.postStateToWebview()
+					provider.log(`WorldBook reloaded: ${filePath}`)
+				} else {
+					vscode.window.showErrorMessage("Failed to reload worldbook")
+				}
+			} catch (error) {
+				provider.log(`Error reloading worldbook: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("Failed to reload worldbook")
+			}
+			break
+		}
+
+		case "STWordBookBrowse": {
+			try {
+				const options: vscode.OpenDialogOptions = {
+					canSelectMany: false,
+					openLabel: 'Select WorldBook File',
+					filters: {
+						'JSON Files': ['json']
+					}
+				}
+
+				const fileUri = await vscode.window.showOpenDialog(options)
+				if (fileUri && fileUri[0]) {
+					await provider.postMessageToWebview({
+						type: "STWordBookBrowseResponse",
+						worldBookFilePath: fileUri[0].fsPath
+					})
+				}
+			} catch (error) {
+				provider.log(`Error browsing worldbook file: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("Failed to browse worldbook file")
+			}
+			break
+		}
+
+		case "STWordBookValidate": {
+			try {
+				const filePath = message.worldBookFilePath
+
+				if (!filePath) {
+					await provider.postMessageToWebview({
+						type: "STWordBookValidateResponse",
+						worldBookValid: false,
+						worldBookValidationError: "Invalid file path"
+					})
+					break
+				}
+
+				const validation = await provider.anhChatServices?.worldBookService.validateWorldBookFile(filePath)
+				await provider.postMessageToWebview({
+					type: "STWordBookValidateResponse",
+					worldBookValid: validation?.valid,
+					worldBookInfo: validation?.info,
+					worldBookValidationError: validation?.error
+				})
+			} catch (error) {
+				provider.log(`Error validating worldbook: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "STWordBookValidateResponse",
+					worldBookValid: false,
+					worldBookValidationError: error instanceof Error ? error.message : String(error)
+				})
 			}
 			break
 		}

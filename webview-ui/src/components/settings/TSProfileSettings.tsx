@@ -68,8 +68,8 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 
 			switch (message.type) {
 				case "tsProfilesLoaded":
-					console.log("[TSProfile] Received profiles:", message.profiles)
-					setProfiles(message.profiles || [])
+					console.log("[TSProfile] Received profiles:", message.tsProfiles)
+					setProfiles(message.tsProfiles || [])
 					break
 				case "tsProfileValidated":
 					if (message.tsProfileSuccess) {
@@ -83,7 +83,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 					break
 				case "tsProfileSelected":
 					// 当用户通过浏览器选择文件时
-					const fileName = message.path ? message.path.split(/[/\\]/).pop() : ""
+					const fileName = message.tsProfilePath ? message.tsProfilePath.split(/[/\\]/).pop() : ""
 					if (fileName) {
 						handleProfileSelect(fileName)
 					}
@@ -107,7 +107,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 		if (profile) {
 			vscode.postMessage({
 				type: "validateTsProfile",
-				path: profile.path
+				tsProfilePath: profile.path
 			})
 		}
 		setLoading(false)

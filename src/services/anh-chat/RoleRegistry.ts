@@ -11,6 +11,7 @@ import {
 import { fileExistsAtPath } from "../../utils/fs"
 import { safeWriteJson } from "../../utils/safeWriteJson"
 import { SillyTavernParser } from "../../utils/sillytavern-parser"
+import { debugLog } from "../../utils/debug"
 
 import { ensureAnhChatRoot } from "./pathUtils"
 
@@ -138,17 +139,17 @@ export class RoleRegistry {
 	 */
 	private async autoDetectSillyTavernCards() {
 		try {
-			console.log(`Scanning for SillyTavern PNG files in: ${this.rolesDir}`)
-			
+			debugLog(`Scanning for SillyTavern PNG files in: ${this.rolesDir}`)
+
 			// 扫描角色目录下的PNG文件
 			const files = await fs.readdir(this.rolesDir)
 			const pngFiles = files.filter(file => file.toLowerCase().endsWith('.png'))
-			
-			console.log(`Found ${pngFiles.length} PNG files: ${pngFiles.join(', ')}`)
+
+			debugLog(`Found ${pngFiles.length} PNG files: ${pngFiles.join(', ')}`)
 
 			for (const pngFile of pngFiles) {
 				const pngPath = path.join(this.rolesDir, pngFile)
-				console.log(`Processing PNG file: ${pngPath}`)
+				debugLog(`Processing PNG file: ${pngPath}`)
 				
 				try {
 					// 获取PNG文件的修改时间
@@ -157,7 +158,7 @@ export class RoleRegistry {
 					
 					// 尝试解析PNG文件
 					const parseResult = await SillyTavernParser.parseFromPngFile(pngPath)
-					console.log(`Parse result for ${pngFile}:`, parseResult.success ? 'SUCCESS' : 'FAILED', parseResult.error || '')
+					debugLog(`Parse result for ${pngFile}:`, parseResult.success ? 'SUCCESS' : 'FAILED', parseResult.error || '')
 					
 					if (parseResult.success && parseResult.role) {
 						const role = parseResult.role
@@ -201,14 +202,14 @@ export class RoleRegistry {
 							this.summaryCache.set(anhRole.uuid, summary)
 							this.roleCache.set(anhRole.uuid, anhRole)
 							
-							console.log(`Auto-imported SillyTavern card: ${anhRole.name} from ${pngFile} (memory only, converted to anh format)`)
+							debugLog(`Auto-imported SillyTavern card: ${anhRole.name} from ${pngFile} (memory only, converted to anh format)`)
 						} else {
-							console.log(`Skipped ${pngFile}: role ${role.name} already exists`)
+							debugLog(`Skipped ${pngFile}: role ${role.name} already exists`)
 						}
 					}
 				} catch (parseError) {
 					// 如果解析失败，可能不是有效的SillyTavern PNG，跳过
-					console.log(`Skipped ${pngFile}: parsing failed -`, parseError)
+					debugLog(`Skipped ${pngFile}: parsing failed -`, parseError)
 				}
 			}
 		} catch (error) {

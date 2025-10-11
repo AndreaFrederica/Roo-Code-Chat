@@ -100,7 +100,7 @@ async function runUltimateTest() {
     const profileData = JSON.parse(fs.readFileSync(profilePath, 'utf-8'))
     console.log(`✅ Profile读取完成`)
     console.log(`   Prompts数量: ${profileData.prompts?.length || 0}`)
-    console.log(`   启用的Prompts: ${profileData.prompts?.filter(p => p.enabled !== false).length || 0}`)
+    console.log(`   启用的Prompts: ${profileData.prompts?.filter((p: any) => p.enabled !== false).length || 0}`)
 
     // 3. 使用完整的处理流程
     console.log(`\n🔧 开始使用完整处理流程...`)
@@ -174,7 +174,7 @@ async function runUltimateTest() {
       variableData,
       profileStats: {
         totalPrompts: profileData.prompts?.length || 0,
-        enabledPrompts: profileData.prompts?.filter(p => p.enabled !== false).length || 0,
+        enabledPrompts: profileData.prompts?.filter((p: any) => p.enabled !== false).length || 0,
         systemLength: compiled.system.length,
         userLength: compiled.user.length,
         assistantLength: compiled.assistant.length
@@ -207,7 +207,7 @@ async function runUltimateTest() {
   }
 }
 
-function generateTestReport(originalRole, processedRole, data) {
+function generateTestReport(originalRole: any, processedRole: any, data: any) {
   const now = new Date().toISOString()
 
   return `# LiquidJS 模板系统 - 终极测试报告
@@ -299,7 +299,7 @@ LiquidJS模板系统成功处理了完整的Profile数据，实现了从${data.p
 `
 }
 
-async function performanceTest(liquidProcessor, template, variableData) {
+async function performanceTest(liquidProcessor: any, template: any, variableData: any) {
   const iterations = 1000
   console.log(`   测试 ${iterations} 次模板渲染...`)
 

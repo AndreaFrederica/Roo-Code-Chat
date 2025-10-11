@@ -76,6 +76,7 @@ import { SlashCommandsSettings } from "./SlashCommandsSettings"
 import { UISettings } from "./UISettings"
 import UserAvatarSettings from "./UserAvatarSettings"
 import { WorldviewSettings } from "./WorldviewSettings"
+import { SillyTavernWorldBookSettings } from "./SillyTavernWorldBookSettings"
 import { ExtensionsSettings } from "./ExtensionsSettings"
 import { AssistantRoleSettings } from "./AssistantRoleSettings"
 import { TSProfileSettings } from "./TSProfileSettings"
@@ -107,6 +108,7 @@ const sectionNames = [
 	"ui",
 	"extensions",
 	"worldview",
+	"sillyTavernWorldBook",
 	"experimental",
 	"language",
 	"about",
@@ -568,6 +570,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			{ id: "ui", icon: Glasses },
 			{ id: "extensions", icon: Puzzle },
 			{ id: "worldview", icon: BookOpen },
+			{ id: "sillyTavernWorldBook", icon: BookOpen },
 			{ id: "experimental", icon: FlaskConical },
 			{ id: "language", icon: Globe },
 			{ id: "about", icon: Info },
@@ -917,6 +920,14 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 					{/* Worldview Section */}
 					{activeTab === "worldview" && <WorldviewSettings />}
+
+					{/* SillyTavern World Book Section */}
+					{activeTab === "sillyTavernWorldBook" && (
+						<SillyTavernWorldBookSettings 
+							state={extensionState}
+							vscode={vscode}
+						/>
+					)}
 
 					{/* Experimental Section */}
 					{activeTab === "experimental" && (

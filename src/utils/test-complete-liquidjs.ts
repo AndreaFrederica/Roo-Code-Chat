@@ -86,7 +86,7 @@ async function generateCompleteRoleJSON() {
 
     console.log(`✅ Profile读取完成`)
     console.log(`   Prompts数量: ${profileData.prompts?.length || 0}`)
-    console.log(`   启用的Prompts: ${profileData.prompts?.filter(p => p.enabled !== false).length || 0}`)
+    console.log(`   启用的Prompts: ${profileData.prompts?.filter((p: any) => p.enabled !== false).length || 0}`)
 
     // 处理profile
     const preset = parseTavernPresetStrict(profileData)
@@ -124,18 +124,18 @@ async function generateCompleteRoleJSON() {
     console.log(`🔧 使用完整LiquidJS模板系统处理...`)
 
     // 使用完整的LiquidJS处理模板变量
-    const systemResult = liquidProcessor.processTextSync(compiled.system, { variables: templateVariables })
-    const userResult = liquidProcessor.processTextSync(compiled.user, { variables: templateVariables })
-    const assistantResult = liquidProcessor.processTextSync(compiled.assistant, { variables: templateVariables })
+    const systemResult = liquidProcessor.processTextSync(compiled.system, templateVariables)
+    const userResult = liquidProcessor.processTextSync(compiled.user, templateVariables)
+    const assistantResult = liquidProcessor.processTextSync(compiled.assistant, templateVariables)
 
     console.log(`✅ LiquidJS模板处理完成`)
     console.log(`   处理后系统提示词长度: ${systemResult.processedText?.length || 0} 字符`)
     console.log(`   设置的变量数量: ${systemResult.setVariables ? Object.keys(systemResult.setVariables).length : 0}`)
     console.log(`   使用的变量数量: ${systemResult.usedVariables?.length || 0}`)
-    console.log(`   未处理的变量数量: ${systemResult.unprocessedVariables?.length || 0}`)
+    console.log(`   未处理的变量数量: ${(systemResult as any).unprocessedVariables?.length || 0}`)
 
     // 注入到角色
-    const processedRole = injectCompiledPresetIntoRole(originalRole, {
+    const processedRole = injectCompiledPresetIntoRole(originalRole as any, {
       system: systemResult.processedText,
       user: userResult.processedText,
       assistant: assistantResult.processedText,

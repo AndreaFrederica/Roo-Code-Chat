@@ -2,6 +2,7 @@ import * as vscode from "vscode"
 import * as path from "path"
 import * as fs from "fs/promises"
 import { parseTavernPresetStrict, compilePresetChannels } from "@roo-code/types"
+import { debugLog } from "../../utils/debug"
 
 export interface ProfileInfo {
 	name: string
@@ -27,26 +28,26 @@ export async function loadTsProfiles(): Promise<ProfileInfo[]> {
 	try {
 		const workspacePath = getWorkspacePath()
 		if (!workspacePath) {
-			console.log("[TSProfile] No workspace path found")
+			debugLog("TSProfile: No workspace path found")
 			return []
 		}
 
 		const profileDir = path.join(workspacePath, "novel-helper", ".anh-chat", "tsprofile")
-		console.log(`[TSProfile] Profile directory: ${profileDir}`)
+		debugLog(`TSProfile: Profile directory: ${profileDir}`)
 
 		// 检查profile目录是否存在
 		try {
 			await fs.access(profileDir)
-			console.log(`[TSProfile] Directory exists: ${profileDir}`)
+			debugLog(`TSProfile: Directory exists: ${profileDir}`)
 		} catch {
 			// 目录不存在，创建它
-			console.log(`[TSProfile] Creating directory: ${profileDir}`)
+			debugLog(`TSProfile: Creating directory: ${profileDir}`)
 			await fs.mkdir(profileDir, { recursive: true })
 			return []
 		}
 
 		const files = await fs.readdir(profileDir, { withFileTypes: true })
-		console.log(`[TSProfile] Found ${files.length} files in directory`)
+		debugLog(`TSProfile: Found ${files.length} files in directory`)
 		const profiles: ProfileInfo[] = []
 
 		for (const file of files) {
