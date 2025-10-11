@@ -36,7 +36,9 @@
 - **多角色管理**：同时设定和管理多个不同特性的角色
 - **用户代理角色**：支持设定用户代理角色，实现更丰富的交互体验
 - **角色切换**：在不同场景下快速切换到最适合的角色
-- **SillyTavern 角色卡支持**：直接使用 SillyTavern 导出的角色卡，无需额外配置。计划实现一键导出ANH（小说助手角色）为SillyTavern角色卡。
+- **SillyTavern 角色卡支持**：直接使用 SillyTavern 导出的角色卡，无需额外配置。计划实现一键导出ANH（小说助手角色）为SillyTavern角色卡。（目前不支持使用酒馆助手的角色卡 请注意）
+- **SillyTavern 预设支持**: 支持使用ST的预设（注意 支持不全）
+**SillyTavern 世界书支持**：支持导入ST的世界书
 
 ### 💻 强大的编码能力（继承自 Roo Code）
 - 从自然语言描述和规范生成代码
@@ -67,17 +69,18 @@ Anh Chat 继承了 Roo Code 的强大模式系统，并在此基础上增强了�
 
 了解更多: [Using Modes](https://docs.roocode.com/basic-usage/using-modes) • [Custom Modes](https://docs.roocode.com/advanced-usage/custom-modes) • [Roomote Control](https://docs.roocode.com/roo-code-cloud/roomote-control)
 
-## 角色系统特性
+## 注意
 
-### 🎨 角色创建
-```yaml
-# 示例角色配置
-name: "编程导师"
-personality: "耐心、专业、善于解释复杂概念"
-expertise: ["Python", "JavaScript", "系统设计"]
-communication_style: "友好而专业，喜欢用比喻解释技术概念"
-background: "拥有10年开发经验的资深工程师"
-```
+请勿滥用ANH-CHAT AI集成服务
+如果您使用了ST兼容部分 请勿上报bug和问题到ST社区 除非这个问题在ST上能够复现
+也不要上报到上游Roo Code社区 除非这个问题在Roo Code上复现
+任何ANH-CHAT的问题 请在群里和Github社区 Issue 上报
+
+您可以从ST社区获取ST格式的角色卡 世界书 预设 加载到ANH-CHAT里 为您的写作提供辅助支持 但是预设尚未完全兼容
+
+也可以自行编写较为简单的ANH-CHAT格式角色卡 角色卡示例见我们的Github
+
+## 角色系统特性
 
 ### 🔄 多角色切换
 **目前每个会话只能使用一个角色**
