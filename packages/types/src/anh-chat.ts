@@ -232,6 +232,61 @@ export const memoryEpisodicRecordSchema = z.object({
 
 export type MemoryEpisodicRecord = z.infer<typeof memoryEpisodicRecordSchema>
 
+// Enhanced memory schemas with trigger support
+export const enhancedMemoryTraitSchema = memoryTraitSchema.extend({
+	id: z.string().optional(),
+	keywords: z.array(z.string()).optional(),
+	triggerType: z.enum(['keyword', 'semantic', 'temporal', 'emotional']).optional(),
+	priority: z.number().min(0).max(100).optional(),
+	isConstant: z.boolean().optional(),
+	lastAccessed: z.number().optional(),
+	accessCount: z.number().min(0).optional(),
+	relevanceWeight: z.number().min(0).max(1).optional(),
+	emotionalWeight: z.number().min(0).max(1).optional(),
+	timeDecayFactor: z.number().min(0).max(1).optional(),
+	relatedTopics: z.array(z.string()).optional(),
+	emotionalContext: z.array(z.string()).optional(),
+	metadata: z.record(z.unknown()).optional()
+});
+
+export type EnhancedMemoryTrait = z.infer<typeof enhancedMemoryTraitSchema>
+
+export const enhancedMemoryGoalSchema = memoryGoalSchema.extend({
+	id: z.string().optional(),
+	keywords: z.array(z.string()).optional(),
+	triggerType: z.enum(['keyword', 'semantic', 'temporal', 'emotional']).optional(),
+	priority: z.number().min(0).max(100).optional(),
+	isConstant: z.boolean().optional(),
+	lastAccessed: z.number().optional(),
+	accessCount: z.number().min(0).optional(),
+	relevanceWeight: z.number().min(0).max(1).optional(),
+	emotionalWeight: z.number().min(0).max(1).optional(),
+	timeDecayFactor: z.number().min(0).max(1).optional(),
+	relatedTopics: z.array(z.string()).optional(),
+	emotionalContext: z.array(z.string()).optional(),
+	metadata: z.record(z.unknown()).optional()
+});
+
+export type EnhancedMemoryGoal = z.infer<typeof enhancedMemoryGoalSchema>
+
+export const enhancedMemoryEpisodicRecordSchema = memoryEpisodicRecordSchema.extend({
+	id: z.string().optional(),
+	keywords: z.array(z.string()).optional(),
+	triggerType: z.enum(['keyword', 'semantic', 'temporal', 'emotional']).optional(),
+	priority: z.number().min(0).max(100).optional(),
+	isConstant: z.boolean().optional(),
+	lastAccessed: z.number().optional(),
+	accessCount: z.number().min(0).optional(),
+	relevanceWeight: z.number().min(0).max(1).optional(),
+	emotionalWeight: z.number().min(0).max(1).optional(),
+	timeDecayFactor: z.number().min(0).max(1).optional(),
+	relatedTopics: z.array(z.string()).optional(),
+	emotionalContext: z.array(z.string()).optional(),
+	metadata: z.record(z.unknown()).optional()
+});
+
+export type EnhancedMemoryEpisodicRecord = z.infer<typeof enhancedMemoryEpisodicRecordSchema>
+
 // Memory schema
 export const memorySchema = z.object({
 	traits: z.array(memoryTraitSchema).optional(),

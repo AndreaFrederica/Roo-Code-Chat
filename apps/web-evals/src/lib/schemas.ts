@@ -16,7 +16,7 @@ export const TIMEOUT_MIN = 5
 export const TIMEOUT_MAX = 10
 export const TIMEOUT_DEFAULT = 5
 
-export const createRunSchema = z
+const _createRunSchema = z
 	.object({
 		model: z.string().min(1, { message: "Model is required." }),
 		description: z.string().optional(),
@@ -31,5 +31,20 @@ export const createRunSchema = z
 		message: "Exercises are required when running a partial suite.",
 		path: ["exercises"],
 	})
+
+export const createRunSchema: z.ZodEffects<
+	z.ZodObject<{
+		model: z.ZodString
+		description: z.ZodOptional<z.ZodString>
+		suite: z.ZodEnum<["full", "partial"]>
+		exercises: z.ZodOptional<z.ZodArray<z.ZodString, "many">>
+		settings: z.ZodOptional<any>
+		concurrency: z.ZodNumber
+		timeout: z.ZodNumber
+		systemPrompt: z.ZodOptional<z.ZodString>
+	}>,
+	any,
+	any
+> = _createRunSchema
 
 export type CreateRun = z.infer<typeof createRunSchema>

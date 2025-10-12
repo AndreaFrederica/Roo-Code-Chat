@@ -204,6 +204,10 @@ export const globalSettingsSchema = z.object({
 		reloadInterval: z.number().optional()
 	})).optional(),
 	sillyTavernWorldBookActiveBooks: z.array(z.string()).optional(),
+
+	// Memory system settings
+	memoryToolsEnabled: z.boolean().optional(),
+	memorySystemEnabled: z.boolean().optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>

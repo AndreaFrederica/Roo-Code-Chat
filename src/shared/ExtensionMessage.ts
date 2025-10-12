@@ -160,6 +160,7 @@ export interface ExtensionMessage {
 		| "tsProfileSelected"
 		| "STWordBookBrowseResponse"
 		| "STWordBookValidateResponse"
+		| "memoryManagementResponse"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -351,6 +352,8 @@ export type ExtensionState = Pick<
 	| "enabledWorldsets"
 	| "anhExtensionsEnabled"
 	| "anhExtensionSettings"
+	| "memorySystemEnabled"
+	| "memoryToolsEnabled"
 > & {
 	enabledTSProfiles?: string[]
 	anhTsProfileAutoInject?: boolean
@@ -435,6 +438,8 @@ export type ExtensionState = Pick<
 	anhExtensionsRuntime?: AnhExtensionRuntimeState[]
 	anhExtensionCapabilityRegistry?: AnhExtensionCapabilityRegistry
 	anhExtensionSettings?: Record<string, Record<string, unknown>>
+	memorySystemEnabled?: boolean // Whether the memory system is enabled
+	memoryToolsEnabled?: boolean // Whether the memory tools are enabled
 	sillyTavernWorldBookState?: {
 		loadedWorldBooks: Array<{
 			name: string

@@ -7,6 +7,81 @@ import { TelemetryService } from "@roo-code/telemetry"
 import { defaultModeSlug, getModeBySlug } from "../../shared/modes"
 import type { ToolParamName, ToolResponse } from "../../shared/tools"
 
+// XML解析器函数
+function extractContentFromXml(xmlString: string): string {
+	const extractTagContent = (tag: string): string => {
+		const regex = new RegExp(`<${tag}[^>]*>(.*?)<\/${tag}>`, 'is')
+		const match = xmlString.match(regex)
+		return match ? match[1].trim() : ''
+	}
+
+	const extractAttribute = (tag: string, attr: string): string => {
+		const regex = new RegExp(`<${tag}[^>]*${attr}=["']([^"']*)["'][^>]*>`, 'i')
+		const match = xmlString.match(regex)
+		return match ? match[1] : ''
+	}
+
+	return extractTagContent('content') || extractAttribute('memory', 'content') || ''
+}
+
+function extractTraitNamesFromXml(xmlString: string): string[] {
+	const traitRegex = /<trait[^>]*>.*?<\/trait>/gis
+	const traitMatches = xmlString.match(traitRegex)
+	const traitNames: string[] = []
+
+	if (traitMatches) {
+		for (const traitMatch of traitMatches) {
+			const extractTagContent = (tag: string): string => {
+				const regex = new RegExp(`<${tag}[^>]*>(.*?)<\/${tag}>`, 'is')
+				const match = traitMatch.match(regex)
+				return match ? match[1].trim() : ''
+			}
+
+			const extractAttribute = (tag: string, attr: string): string => {
+				const regex = new RegExp(`<${tag}[^>]*${attr}=["']([^"']*)["'][^>]*>`, 'i')
+				const match = traitMatch.match(regex)
+				return match ? match[1] : ''
+			}
+
+			const name = extractTagContent('name') || extractAttribute('trait', 'name')
+			if (name) {
+				traitNames.push(name)
+			}
+		}
+	}
+
+	return traitNames
+}
+
+function extractGoalDescriptionsFromXml(xmlString: string): string[] {
+	const goalRegex = /<goal[^>]*>.*?<\/goal>/gis
+	const goalMatches = xmlString.match(goalRegex)
+	const goalDescriptions: string[] = []
+
+	if (goalMatches) {
+		for (const goalMatch of goalMatches) {
+			const extractTagContent = (tag: string): string => {
+				const regex = new RegExp(`<${tag}[^>]*>(.*?)<\/${tag}>`, 'is')
+				const match = goalMatch.match(regex)
+				return match ? match[1].trim() : ''
+			}
+
+			const extractAttribute = (tag: string, attr: string): string => {
+				const regex = new RegExp(`<${tag}[^>]*${attr}=["']([^"']*)["'][^>]*>`, 'i')
+				const match = goalMatch.match(regex)
+				return match ? match[1] : ''
+			}
+
+			const value = extractTagContent('value') || extractAttribute('goal', 'value')
+			if (value) {
+				goalDescriptions.push(value)
+			}
+		}
+	}
+
+	return goalDescriptions
+}
+
 import { fetchInstructionsTool } from "../tools/fetchInstructionsTool"
 import { listFilesTool } from "../tools/listFilesTool"
 import { getReadFileToolDescription, readFileTool } from "../tools/readFileTool"
@@ -30,6 +105,14 @@ import { newTaskTool } from "../tools/newTaskTool"
 import { updateTodoListTool } from "../tools/updateTodoListTool"
 import { runSlashCommandTool } from "../tools/runSlashCommandTool"
 import { generateImageTool } from "../tools/generateImageTool"
+import { addEpisodicMemoryTool, addEpisodicMemoryFunction } from "../tools/memoryTools/addEpisodicMemoryTool"
+import { addSemanticMemoryTool, addSemanticMemoryFunction } from "../tools/memoryTools/addSemanticMemoryTool"
+import { updateTraitsTool, updateTraitsFunction } from "../tools/memoryTools/updateTraitsTool"
+import { updateGoalsTool, updateGoalsFunction } from "../tools/memoryTools/updateGoalsTool"
+import { searchMemoriesTool, searchMemoriesFunction } from "../tools/memoryTools/searchMemoriesTool"
+import { getMemoryStatsTool, getMemoryStatsFunction } from "../tools/memoryTools/getMemoryStatsTool"
+import { getRecentMemoriesTool, getRecentMemoriesFunction } from "../tools/memoryTools/getRecentMemoriesTool"
+import { cleanupMemoriesTool, cleanupMemoriesFunction } from "../tools/memoryTools/cleanupMemoriesTool"
 
 import { formatResponse } from "../prompts/responses"
 import { validateToolUse } from "../tools/validateToolUse"
@@ -191,9 +274,8 @@ export async function presentAssistantMessage(cline: Task) {
 						}
 						return `[${block.name}]`
 					case "search_files":
-						return `[${block.name} for '${block.params.regex}'${
-							block.params.file_pattern ? ` in '${block.params.file_pattern}'` : ""
-						}]`
+						return `[${block.name} for '${block.params.regex}'${block.params.file_pattern ? ` in '${block.params.file_pattern}'` : ""
+							}]`
 					case "insert_content":
 						return `[${block.name} for '${block.params.path}']`
 					case "search_and_replace":
@@ -226,16 +308,32 @@ export async function presentAssistantMessage(cline: Task) {
 					}
 					case "run_slash_command":
 						return `[${block.name} for '${block.params.command}'${block.params.args ? ` with args: ${block.params.args}` : ""}]`
-				case "generate_image":
-					return `[${block.name} for '${block.params.path}']`
-				default: {
-					const extensionTool = provider?.getAnhExtensionToolByName(block.name)
-					if (extensionTool) {
-						return `[${extensionTool.displayName}]`
-					}
+					case "generate_image":
+						return `[${block.name} for '${block.params.path}']`
+					case "add_episodic_memory":
+						return `[${block.name} for 添加情景记忆]`
+					case "add_semantic_memory":
+						return `[${block.name} for 添加语义记忆]`
+					case "update_traits":
+						return `[${block.name} for 更新角色特质]`
+					case "update_goals":
+						return `[${block.name} for 更新角色目标]`
+					case "search_memories":
+						return `[${block.name} for '${(block.params as any).search_text || "搜索记忆"}']`
+					case "get_memory_stats":
+						return `[${block.name} for 获取记忆统计]`
+					case "get_recent_memories":
+						return `[${block.name} for 获取最近记忆]`
+					case "cleanup_memories":
+						return `[${block.name} for 清理过期记忆]`
+					default: {
+						const extensionTool = provider?.getAnhExtensionToolByName(block.name)
+						if (extensionTool) {
+							return `[${extensionTool.displayName}]`
+						}
 
-					return `[${block.name}]`
-				}
+						return `[${block.name}]`
+					}
 				}
 			}
 
@@ -561,89 +659,254 @@ export async function presentAssistantMessage(cline: Task) {
 						askFinishSubTaskApproval,
 					)
 					break
-		case "run_slash_command":
-			await runSlashCommandTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
-			break
-		case "generate_image":
-			await generateImageTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
-			break
-		default: {
-			if (block.partial) {
-				break
-			}
-
-			if (!provider) {
-				pushToolResult(formatResponse.toolError(`Extension tool '${block.name}' cannot run without a provider context.`))
-				break
-			}
-
-			const extensionTool = provider.getAnhExtensionToolByName(block.name)
-			if (!extensionTool) {
-				pushToolResult(formatResponse.toolError(`Unknown tool '${block.name}'.`))
-				break
-			}
-
-			let approved = true
-			if (extensionTool.requiresApproval) {
-				const approvalPayload = JSON.stringify({ tool: block.name, params: block.params })
-				approved = await askApproval("tool", approvalPayload)
-				if (!approved) {
+				case "run_slash_command":
+					await runSlashCommandTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
 					break
-				}
-			}
-
-			try {
-				const mode = await cline.getTaskMode().catch(() => undefined)
-				const providerState = await provider.getState()
-				const result = await provider.invokeAnhExtensionTool(block.name, {
-					parameters: block.params,
-					taskId: cline.taskId,
-					cwd: cline.cwd,
-					workspacePath: cline.workspacePath,
-					mode,
-					providerState,
-				})
-
-				if (!result) {
-					cline.consecutiveMistakeCount = 0
-					pushToolResult("")
+				case "generate_image":
+					await generateImageTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
 					break
-				}
-
-				if (!result.success) {
-					cline.consecutiveMistakeCount++
-					pushToolResult(formatResponse.toolError(result.error))
+				case "add_episodic_memory":
+					// 等待参数完全解析后再执行
+					if (block.partial) {
+						break
+					}
+					try {
+						const result = await addEpisodicMemoryFunction(cline, block)
+						if (result?.message || result?.success) {
+							// 使用动态的用户消息
+							const userMessage = (block.params as any).user_message || "我将这段珍贵的经历保存到了我的记忆中"
+							await cline.say("text", userMessage)
+							pushToolResult("记忆已保存")
+						} else {
+							await cline.say("text", "抱歉，我在保存这段记忆时遇到了一些问题。")
+							pushToolResult("记忆保存失败")
+						}
+					} catch (error) {
+						await cline.say("text", "我在尝试保存记忆时感到了困惑，让我再想想...")
+						await handleError("添加情景记忆", error as Error)
+					}
 					break
-				}
+				case "add_semantic_memory":
+					// 等待参数完全解析后再执行
+					if (block.partial) {
+						break
+					}
+					try {
+						const result = await addSemanticMemoryFunction(cline, block)
+						if (result?.message || result?.success) {
+							// 使用动态的用户消息
+							const userMessage = (block.params as any).user_message || "我记下了这个重要的信息"
+							await cline.say("text", userMessage)
+							pushToolResult("信息已记录")
+						} else {
+							await cline.say("text", "抱歉，我在记录这条信息时遇到了一些问题。")
+							pushToolResult("信息记录失败")
+						}
+					} catch (error) {
+						await cline.say("text", "我在尝试记录信息时感到了困惑，让我再想想...")
+						await handleError("添加语义记忆", error as Error)
+					}
+					break
+				case "update_traits":
+					// 等待参数完全解析后再执行
+					if (block.partial) {
+						break
+					}
+					try {
+						const result = await updateTraitsFunction(cline, block)
+						if (result?.message || result?.success) {
+							// 使用动态的用户消息
+							const userMessage = (block.params as any).user_message || "我对你的理解又加深了一些"
+							await cline.say("text", userMessage)
+							pushToolResult("特质已更新")
+						} else {
+							await cline.say("text", "抱歉，我在更新对你的理解时遇到了一些问题。")
+							pushToolResult("特质更新失败")
+						}
+					} catch (error) {
+						await cline.say("text", "我在尝试理解你的特质时感到了困惑，让我再想想...")
+						await handleError("更新角色特质", error as Error)
+					}
+					break
+				case "update_goals":
+					// 等待参数完全解析后再执行
+					if (block.partial) {
+						break
+					}
+					try {
+						const result = await updateGoalsFunction(cline, block)
+						if (result?.message || result?.success) {
+							// 使用动态的用户消息
+							const userMessage = (block.params as any).user_message || "我记下了你的目标，会支持你实现它们"
+							await cline.say("text", userMessage)
+							pushToolResult("目标已更新")
+						} else {
+							await cline.say("text", "抱歉，我在记录你的目标时遇到了一些问题。")
+							pushToolResult("目标更新失败")
+						}
+					} catch (error) {
+						await cline.say("text", "我在尝试记录你的目标时感到了困惑，让我再想想...")
+						await handleError("更新角色目标", error as Error)
+					}
+					break
+				case "search_memories":
+					// 等待参数完全解析后再执行
+					if (block.partial) {
+						break
+					}
+					try {
+						const searchText = (block.params as any).search_text || "相关内容"
+						await cline.say("text", `让我在记忆中搜索关于"${searchText}"的内容...`)
+						const result = await searchMemoriesFunction(cline, block)
+						if (result?.message || result?.success) {
+							await cline.say("text", "我想起了一些相关的事情...")
+							pushToolResult("记忆搜索完成")
+						} else {
+							await cline.say("text", "抱歉，我在回忆相关内容时遇到了一些问题。")
+							pushToolResult("记忆搜索失败")
+						}
+					} catch (error) {
+						await cline.say("text", "我在尝试回忆时感到了困惑，让我再想想...")
+						await handleError("搜索记忆", error as Error)
+					}
+					break
+				case "get_memory_stats":
+					// 等待参数完全解析后再执行
+					if (block.partial) {
+						break
+					}
+					try {
+						await cline.say("text", "让我整理一下我的记忆...")
+						const result = await getMemoryStatsFunction(cline, block)
+						if (result?.message || result?.success) {
+							await cline.say("text", "我已经整理好了我的记忆，现在可以和你分享了。")
+							pushToolResult("记忆统计完成")
+						} else {
+							await cline.say("text", "抱歉，我在整理记忆时遇到了一些问题。")
+							pushToolResult("记忆统计失败")
+						}
+					} catch (error) {
+						await cline.say("text", "我在尝试整理记忆时感到了困惑，让我再想想...")
+						await handleError("获取记忆统计", error as Error)
+					}
+					break
+				case "get_recent_memories":
+					// 等待参数完全解析后再执行
+					if (block.partial) {
+						break
+					}
+					try {
+						await cline.say("text", "让我回想一下最近发生的事情...")
+						const result = await getRecentMemoriesFunction(cline, block)
+						if (result?.message || result?.success) {
+							await cline.say("text", "我想起了一些最近的经历...")
+							pushToolResult("最近记忆获取完成")
+						} else {
+							await cline.say("text", "抱歉，我在回想最近的事情时遇到了一些问题。")
+							pushToolResult("最近记忆获取失败")
+						}
+					} catch (error) {
+						await cline.say("text", "我在尝试回想时感到了困惑，让我再想想...")
+						await handleError("获取最近记忆", error as Error)
+					}
+					break
+				case "cleanup_memories":
+					// 等待参数完全解析后再执行
+					if (block.partial) {
+						break
+					}
+					try {
+						await cline.say("text", "让我整理一下我的记忆，清理一些不再那么重要的内容...")
+						const result = await cleanupMemoriesFunction(cline, block)
+						if (result?.message || result?.success) {
+							await cline.say("text", "我已经整理好了我的记忆，保留下了真正重要的瞬间。")
+							pushToolResult("记忆清理完成")
+						} else {
+							await cline.say("text", "抱歉，我在整理记忆时遇到了一些问题。")
+							pushToolResult("记忆清理失败")
+						}
+					} catch (error) {
+						await cline.say("text", "我在尝试整理记忆时感到了困惑，让我再想想...")
+						await handleError("清理记忆", error as Error)
+					}
+					break
+				default: {
+					if (block.partial) {
+						break
+					}
 
-				cline.consecutiveMistakeCount = 0
+					if (!provider) {
+						pushToolResult(formatResponse.toolError(`Extension tool '${block.name}' cannot run without a provider context.`))
+						break
+					}
 
-				if (result.blocks?.length) {
-					const blockResponses = result.blocks.map((toolBlock) => {
-						if (toolBlock.type === "text") {
-							return { type: "text" as const, text: toolBlock.text }
+					const extensionTool = provider.getAnhExtensionToolByName(block.name)
+					if (!extensionTool) {
+						pushToolResult(formatResponse.toolError(`Unknown tool '${block.name}'.`))
+						break
+					}
+
+					let approved = true
+					if (extensionTool.requiresApproval) {
+						const approvalPayload = JSON.stringify({ tool: block.name, params: block.params })
+						approved = await askApproval("tool", approvalPayload)
+						if (!approved) {
+							break
+						}
+					}
+
+					try {
+						const mode = await cline.getTaskMode().catch(() => undefined)
+						const providerState = await provider.getState()
+						const result = await provider.invokeAnhExtensionTool(block.name, {
+							parameters: block.params,
+							taskId: cline.taskId,
+							cwd: cline.cwd,
+							workspacePath: cline.workspacePath,
+							mode,
+							providerState,
+						})
+
+						if (!result) {
+							cline.consecutiveMistakeCount = 0
+							pushToolResult("")
+							break
 						}
 
-						return {
-							type: "image" as const,
-							source: { type: "base64", media_type: toolBlock.mimeType, data: toolBlock.base64 },
-							alt_text: toolBlock.altText,
+						if (!result.success) {
+							cline.consecutiveMistakeCount++
+							pushToolResult(formatResponse.toolError(result.error))
+							break
 						}
-					})
 
-					pushToolResult(blockResponses as ToolResponse)
-				} else {
-					pushToolResult(result.message ?? "")
+						cline.consecutiveMistakeCount = 0
+
+						if (result.blocks?.length) {
+							const blockResponses = result.blocks.map((toolBlock) => {
+								if (toolBlock.type === "text") {
+									return { type: "text" as const, text: toolBlock.text }
+								}
+
+								return {
+									type: "image" as const,
+									source: { type: "base64", media_type: toolBlock.mimeType, data: toolBlock.base64 },
+									alt_text: toolBlock.altText,
+								}
+							})
+
+							pushToolResult(blockResponses as ToolResponse)
+						} else {
+							pushToolResult(result.message ?? "")
+						}
+					} catch (error) {
+						await handleError("executing extension tool", error as Error)
+					}
+
+					break
 				}
-			} catch (error) {
-				await handleError("executing extension tool", error as Error)
 			}
 
 			break
-		}
-		}
-
-		break
 	}
 
 	// Seeing out of bounds is fine, it means that the next too call is being

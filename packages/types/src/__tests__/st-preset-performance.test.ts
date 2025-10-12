@@ -33,7 +33,8 @@ describe("Performance and Stress Tests", () => {
           name: `Prompt ${i}`,
           role: i % 3 === 0 ? "system" : i % 3 === 1 ? "user" : "assistant",
           content: `This is prompt content number ${i}. `.repeat(10), // ~400 chars each
-          enabled: i % 10 !== 0 // Disable every 10th prompt
+          enabled: i % 10 !== 0, // Disable every 10th prompt
+          system_prompt: i % 3 === 0
         })),
         prompt_order: [
           {
@@ -69,7 +70,8 @@ describe("Performance and Stress Tests", () => {
           identifier: `prompt-${i}`,
           content: `Content ${i}`,
           role: "system" as const,
-          enabled: true
+          enabled: true,
+          system_prompt: i % 2 === 0
         })),
         prompt_order: Array.from({ length: 100 }, (_, charId) => ({
           character_id: charId,
@@ -101,7 +103,8 @@ describe("Performance and Stress Tests", () => {
             identifier: "long-prompt",
             content: longContent,
             role: "system" as const,
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [
@@ -131,10 +134,10 @@ describe("Performance and Stress Tests", () => {
       const complexPreset = {
         temperature: 0.9,
         prompts: [
-          { identifier: "simple", content: "Simple content" }
+          { identifier: "simple", content: "Simple content", enabled: true, system_prompt: true }
         ],
         prompt_order: [
-          { character_id: 1, order: [{ identifier: "simple" }] }
+          { character_id: 1, order: [{ identifier: "simple", enabled: true }] }
         ],
         complexNested: {
           level1: {
@@ -168,8 +171,8 @@ describe("Performance and Stress Tests", () => {
       const endTime = Date.now()
       const duration = endTime - startTime
 
-      expect(parsed.complexNested).toBeDefined()
-      expect(parsed.complexNested.level1.level2.level3.level4.deepArray).toHaveLength(100)
+      expect((parsed as any).complexNested).toBeDefined()
+      expect((parsed as any).complexNested.level1.level2.level3.level4.deepArray).toHaveLength(100)
       expect(duration).toBeLessThan(1000)
     })
 
@@ -178,7 +181,8 @@ describe("Performance and Stress Tests", () => {
         identifier: `template-${i}`,
         content: `This has {{variable${i}}} and {{other${i}}} and {{nested${i}.path}} and {{array${i}[0]}}`,
         role: ["system", "user", "assistant"][i % 3] as "system" | "user" | "assistant",
-        enabled: true
+        enabled: true,
+        system_prompt: i % 3 === 0
       }))
 
       const templatePreset = {
@@ -206,7 +210,8 @@ describe("Performance and Stress Tests", () => {
           identifier: `mem-test-${i}`,
           content: `Memory test content ${i}`,
           role: "system" as const,
-          enabled: true
+          enabled: true,
+          system_prompt: i % 2 === 0
         })),
         prompt_order: [
           {
@@ -243,9 +248,9 @@ describe("Performance and Stress Tests", () => {
     test("should handle concurrent-like operations", () => {
       const preset = {
         prompts: [
-          { identifier: "concurrent-1", content: "Content 1", role: "system" as const, enabled: true },
-          { identifier: "concurrent-2", content: "Content 2", role: "user" as const, enabled: true },
-          { identifier: "concurrent-3", content: "Content 3", role: "assistant" as const, enabled: true }
+          { identifier: "concurrent-1", content: "Content 1", role: "system" as const, enabled: true, system_prompt: true },
+          { identifier: "concurrent-2", content: "Content 2", role: "user" as const, enabled: true, system_prompt: false },
+          { identifier: "concurrent-3", content: "Content 3", role: "assistant" as const, enabled: true, system_prompt: false }
         ],
         prompt_order: [
           {
@@ -284,7 +289,7 @@ describe("Performance and Stress Tests", () => {
       const circularPreset = {
         temperature: 0.8,
         prompts: [
-          { identifier: "normal", content: "Normal content", role: "system" as const, enabled: true }
+          { identifier: "normal", content: "Normal content", role: "system" as const, enabled: true, system_prompt: true }
         ],
         prompt_order: [
           { character_id: 1, order: [{ identifier: "normal", enabled: true }] }
@@ -308,6 +313,7 @@ describe("Performance and Stress Tests", () => {
             content: "X".repeat(1_000_000), // 1MB content
             role: "system" as const,
             enabled: true,
+            system_prompt: true,
             injection_position: Number.MAX_SAFE_INTEGER,
             injection_depth: Number.MIN_SAFE_INTEGER,
             injection_order: Number.MAX_SAFE_INTEGER
@@ -337,6 +343,7 @@ describe("Performance and Stress Tests", () => {
             content: "", // Empty string content (valid)
             role: "system", // Valid
             enabled: true, // Valid boolean
+            system_prompt: true,
             marker: true, // Valid boolean
             unknownField: "some value" // Unknown field
           }
@@ -362,9 +369,11 @@ describe("Performance and Stress Tests", () => {
       const benchmarkPreset = {
         prompts: Array.from({ length: 500 }, (_, i) => ({
           identifier: `bench-${i}`,
+          name: `Benchmark ${i}`,
           content: `Benchmark content ${i}`.repeat(10),
           role: ["system", "user", "assistant"][i % 3] as "system" | "user" | "assistant",
-          enabled: i % 5 !== 0
+          enabled: i % 5 !== 0,
+          system_prompt: i % 3 === 0
         })),
         prompt_order: [
           {

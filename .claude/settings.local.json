@@ -9,7 +9,11 @@
       "Bash(pnpm build:types:*)",
       "Bash(npx tsc:*)",
       "Bash(npm run)",
-      "Bash(pnpm:*)"
+      "Bash(pnpm:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run check-types:*)",
+      "Bash(cut:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

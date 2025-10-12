@@ -3,8 +3,8 @@ import {
   parseCompileAndInjectPresetWithLiquidTemplates,
   processTextWithLiquidTemplates,
   createRoleWithLiquidTemplates
-} from '../st-preset-injector'
-import { Role } from '../anh-chat'
+} from '../st-preset-injector.js'
+import { Role } from '../anh-chat.js'
 
 // 辅助函数：创建测试 Role 对象
 function createTestRole(overrides: Partial<Role> = {}): Role {
@@ -35,7 +35,7 @@ function createTestRole(overrides: Partial<Role> = {}): Role {
     creator: '',
     character_version: '',
     extensions: {},
-    character_book: {},
+    character_book: { name: "", entries: [] },
     spec: 'chara_card_v2',
     spec_version: '2.0',
     ...overrides

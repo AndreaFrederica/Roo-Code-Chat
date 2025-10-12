@@ -272,6 +272,9 @@ export interface WebviewMessage {
 		| "STWordBookReload"
 		| "STWordBookBrowse"
 		| "STWordBookValidate"
+	| "memorySystemEnabled"
+	| "memoryToolsEnabled"
+	| "memoryManagement"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -366,6 +369,8 @@ export interface WebviewMessage {
 	worldBookFilePath?: string // For worldbook file path operations
 	worldBookEnabled?: boolean // For toggling worldbook enabled state
 	worldBookConfig?: any // For worldbook configuration (WorldBookConfig)
+	// Memory management-related properties
+	data?: any // For memory management messages
 }
 
 export const checkoutDiffPayloadSchema = z.object({

@@ -33,19 +33,22 @@ describe("ST Preset Injector with Template Processing", () => {
             identifier: "system-with-vars",
             role: "system" as const,
             content: "{{setvar::greeting::Hello}} {{setvar::name::World}} {{greeting}} {{name}}!",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           },
           {
             identifier: "user-with-vars",
             role: "user" as const,
             content: "User request: {{getvar::greeting}} {{getvar::name}}",
-            enabled: true
+            enabled: true,
+            system_prompt: false
           },
           {
             identifier: "assistant-with-vars",
             role: "assistant" as const,
             content: "Response: {{name}} says {{greeting}}",
-            enabled: true
+            enabled: true,
+            system_prompt: false
           }
         ],
         prompt_order: [
@@ -96,7 +99,8 @@ describe("ST Preset Injector with Template Processing", () => {
 - 思维模式：{{思维链1}} → {{思维链2}}
 
 请根据{{user}}的要求进行响应。`,
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [
@@ -132,7 +136,8 @@ describe("ST Preset Injector with Template Processing", () => {
             identifier: "missing-vars",
             role: "system" as const,
             content: "Hello {{missingVar}} {{setvar::defined::value}} {{defined}}",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [
@@ -181,7 +186,8 @@ describe("ST Preset Injector with Template Processing", () => {
             identifier: "raw-templates",
             role: "system" as const,
             content: "{{setvar::test::value}} {{test}} {{raw}}",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [
@@ -220,7 +226,8 @@ You are an AI assistant with the following traits:
 - Enhanced response quality: {{getvar::personality}} responses in {{getvar::expertise}} topics
 
 Original prompt preserved: {{original_prompt}}`,
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [
@@ -264,7 +271,8 @@ Original prompt preserved: {{original_prompt}}`,
             identifier: "var-test",
             role: "system" as const,
             content: "Character: {{character_name}}, Setting: {{setting}}, Mood: {{mood}}",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [
@@ -305,7 +313,8 @@ Original prompt preserved: {{original_prompt}}`,
             identifier: "error-test",
             role: "system" as const,
             content: "{{setvar::good::value}} {{bad_var}} {{incomplete::template",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [
@@ -369,7 +378,8 @@ Original prompt preserved: {{original_prompt}}`,
 - 字数范围：{{min字数}}-{{max字数}}
 - {{getvar::对白量}}
 - 思维流程：{{思维链1}} → {{思维链2}} → {{思维链3}}`,
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [
@@ -412,7 +422,8 @@ Original prompt preserved: {{original_prompt}}`,
 {{setvar::response::{{full_greeting}} How are you?}}
 
 Final message: {{response}}`,
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [
@@ -445,19 +456,22 @@ Final message: {{response}}`,
             identifier: "system-content",
             role: "system" as const,
             content: "{{setvar::system_info::Enhanced system information}}",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           },
           {
             identifier: "scenario-content",
             role: "user" as const,
             content: "{{setvar::scenario_info::Enhanced scenario setting}}",
-            enabled: true
+            enabled: true,
+            system_prompt: false
           },
           {
             identifier: "example-content",
             role: "assistant" as const,
             content: "{{setvar::example_info::Enhanced example dialogue}}",
-            enabled: true
+            enabled: true,
+            system_prompt: false
           }
         ],
         prompt_order: [
@@ -508,7 +522,8 @@ Final message: {{response}}`,
             identifier: "regular",
             role: "system" as const,
             content: "Regular content without templates",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [
@@ -547,7 +562,8 @@ Final message: {{response}}`,
             identifier: "test",
             role: "system" as const,
             content: "{{setvar::test::value}} {{test}}",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           }
         ],
         prompt_order: [

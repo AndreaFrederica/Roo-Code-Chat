@@ -10,7 +10,7 @@ import {
 import {
   WorldBookTriggerConfig,
   WorldBookTriggerEntry,
-  TriggerMatch,
+  WorldbookTriggerMatch,
   InjectionAction,
   InjectionResult,
   TriggerDebugInfo,
@@ -302,9 +302,9 @@ export class WorldBookTriggerEngine {
   private async findTriggerMatches(
     messages: ChatMessage[],
     debugInfo: TriggerDebugInfo
-  ): Promise<TriggerMatch[]> {
+  ): Promise<WorldbookTriggerMatch[]> {
     const startTime = Date.now();
-    const matches: TriggerMatch[] = [];
+    const matches: WorldbookTriggerMatch[] = [];
 
     for (const triggerEntry of this.state.loadedEntries) {
       // 跳过常驻词条（不进行触发匹配）
@@ -325,7 +325,7 @@ export class WorldBookTriggerEngine {
   private async matchEntry(
     triggerEntry: WorldBookTriggerEntry,
     messages: ChatMessage[]
-  ): Promise<TriggerMatch | null> {
+  ): Promise<WorldbookTriggerMatch | null> {
     const allKeywords = [
       ...triggerEntry.primaryKeys,
       ...triggerEntry.secondaryKeys
@@ -333,7 +333,7 @@ export class WorldBookTriggerEngine {
 
     if (allKeywords.length === 0) return null;
 
-    let bestMatch: TriggerMatch | null = null;
+    let bestMatch: WorldbookTriggerMatch | null = null;
     let bestScore = 0;
 
     for (const message of messages) {
@@ -504,12 +504,12 @@ export class WorldBookTriggerEngine {
   }
 
   private async validateTriggerMatches(
-    matches: TriggerMatch[],
+    matches: WorldbookTriggerMatch[],
     messages: ChatMessage[],
     debugInfo: TriggerDebugInfo
-  ): Promise<TriggerMatch[]> {
+  ): Promise<WorldbookTriggerMatch[]> {
     const startTime = Date.now();
-    const validMatches: TriggerMatch[] = [];
+    const validMatches: WorldbookTriggerMatch[] = [];
 
     for (const match of matches) {
       // 检查冷却时间
@@ -636,7 +636,7 @@ export class WorldBookTriggerEngine {
   }
 
   private async generateInjectionActions(
-    matches: TriggerMatch[],
+    matches: WorldbookTriggerMatch[],
     debugInfo: TriggerDebugInfo
   ): Promise<InjectionAction[]> {
     const startTime = Date.now();
@@ -829,7 +829,7 @@ export type {
   WorldBookTriggerState,
   WorldBookTriggerConfig,
   WorldBookTriggerEntry,
-  TriggerMatch,
+  WorldbookTriggerMatch,
   InjectionAction,
   InjectionResult,
   TriggerDebugInfo,

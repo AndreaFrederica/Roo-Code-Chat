@@ -68,6 +68,12 @@ export class AssistantMessageParser {
 			this.accumulator += char
 			const currentPosition = accumulatorStartLength + i
 
+			// DEBUG: 添加内存工具相关的调试日志
+			if (this.accumulator.includes('add_semantic_memory') || this.accumulator.includes('add_episodic_memory')) {
+				console.log(`[AMP Debug] Position ${currentPosition}, char: "${char}", accumulator ends with: "${this.accumulator.slice(-50)}"`)
+				console.log(`[AMP Debug] currentToolUse:`, this.currentToolUse?.name, 'currentParamName:', this.currentParamName)
+			}
+
 			// There should not be a param without a tool use.
 			if (this.currentToolUse && this.currentParamName) {
 				const currentParamValue = this.accumulator.slice(this.currentParamValueStartIndex)
@@ -109,19 +115,32 @@ export class AssistantMessageParser {
 					this.currentToolUse = undefined
 					continue
 				} else {
+					// 改进的参数识别逻辑，支持流式传输中的不完整标签
 					const possibleParamOpeningTags = toolParamNames.map((name) => `<${name}>`)
+
+					// 检查是否有参数标签的开始（更宽松的匹配）
 					for (const paramOpeningTag of possibleParamOpeningTags) {
+						// 方法1：检查是否以完整标签结尾
 						if (this.accumulator.endsWith(paramOpeningTag)) {
-							// Start of a new parameter.
 							const paramName = paramOpeningTag.slice(1, -1)
-							if (!toolParamNames.includes(paramName as ToolParamName)) {
-								// Handle invalid parameter name gracefully
-								continue
-							}
-							this.currentParamName = paramName as ToolParamName
-							this.currentParamValueStartIndex = this.accumulator.length
+							this.handleParameterStart(paramName)
 							break
 						}
+
+						// 方法2：在累积器中搜索完整的参数标签
+						const tagIndex = this.accumulator.lastIndexOf(paramOpeningTag)
+						if (tagIndex !== -1 && tagIndex + paramOpeningTag.length === this.accumulator.length) {
+							// 标签在末尾且完整
+							const paramName = paramOpeningTag.slice(1, -1)
+							this.handleParameterStart(paramName)
+							break
+						}
+					}
+
+					// 额外检查：如果有部分标签，等待更多数据
+					const partialTagMatch = this.accumulator.match(/<([a-zA-Z_][a-zA-Z0-9_]*)$/)
+					if (partialTagMatch && this.currentToolUse?.name?.includes('memory')) {
+						console.log(`[AMP Debug] 发现部分标签: ${partialTagMatch[1]}，等待更多数据`)
 					}
 
 					// There's no current param, and not starting a new param.
@@ -239,6 +258,33 @@ export class AssistantMessageParser {
 		return this.getContentBlocks()
 	}
 
+	/**
+	 * 处理参数开始的逻辑
+	 */
+	private handleParameterStart(paramName: string): void {
+		// DEBUG: 记录参数识别
+		if (this.currentToolUse?.name?.includes('memory')) {
+			console.log(`[AMP Debug] Found parameter tag: <${paramName}> for tool ${this.currentToolUse.name}`)
+			console.log(`[AMP Debug] paramName: ${paramName}, isValid: ${toolParamNames.includes(paramName as ToolParamName)}`)
+		}
+
+		if (!toolParamNames.includes(paramName as ToolParamName)) {
+			// Handle invalid parameter name gracefully
+			if (this.currentToolUse?.name?.includes('memory')) {
+				console.log(`[AMP Debug] Skipping invalid parameter: ${paramName}`)
+			}
+			return
+		}
+
+		// DEBUG: 记录成功识别的参数
+		if (this.currentToolUse?.name?.includes('memory')) {
+			console.log(`[AMP Debug] Successfully recognized parameter: ${paramName}`)
+		}
+
+		this.currentParamName = paramName as ToolParamName
+		this.currentParamValueStartIndex = this.accumulator.length
+	}
+
 	private getKnownToolNames(): string[] {
 		return Array.from(new Set([...toolNames, ...this.extraToolNames]))
 	}
@@ -259,6 +305,3 @@ export class AssistantMessageParser {
 		}
 	}
 }
-
-
-

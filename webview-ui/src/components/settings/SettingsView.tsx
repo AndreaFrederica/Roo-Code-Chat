@@ -31,6 +31,7 @@ import {
 	Puzzle,
 	Users,
 	FileText,
+	Brain,
 } from "lucide-react"
 
 import type { ProviderSettings, ExperimentId, TelemetrySetting, UserAvatarVisibility } from "@roo-code/types"
@@ -80,6 +81,7 @@ import { SillyTavernWorldBookSettings } from "./SillyTavernWorldBookSettings"
 import { ExtensionsSettings } from "./ExtensionsSettings"
 import { AssistantRoleSettings } from "./AssistantRoleSettings"
 import { TSProfileSettings } from "./TSProfileSettings"
+import { MemoryManagementSettings } from "./MemoryManagementSettings"
 
 export const settingsTabsContainer = "flex flex-1 overflow-hidden [&.narrow_.tab-label]:hidden"
 export const settingsTabList =
@@ -104,6 +106,7 @@ const sectionNames = [
 	"assistantRole",
 	"tsProfile",
 	"userAvatar",
+	"memoryManagement",
 	"prompts",
 	"ui",
 	"extensions",
@@ -478,6 +481,11 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			// TSProfile settings
 			vscode.postMessage({ type: "anhTsProfileAutoInject", bool: anhTsProfileAutoInject })
 			vscode.postMessage({ type: "anhTsProfileVariables", values: anhTsProfileVariables || {} })
+
+			// Memory System settings
+			vscode.postMessage({ type: "memorySystemEnabled", bool: cachedState.memorySystemEnabled ?? true })
+			vscode.postMessage({ type: "memoryToolsEnabled", bool: cachedState.memoryToolsEnabled ?? true })
+
 			setChangeDetected(false)
 		}
 	}
@@ -566,6 +574,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			{ id: "assistantRole", icon: Users },
 			{ id: "tsProfile", icon: FileText },
 			{ id: "userAvatar", icon: User },
+			{ id: "memoryManagement", icon: Brain },
 			{ id: "prompts", icon: MessageSquare },
 			{ id: "ui", icon: Glasses },
 			{ id: "extensions", icon: Puzzle },
@@ -879,6 +888,15 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							userAvatarRole={userAvatarRole}
 							enableUserAvatar={enableUserAvatar}
 							userAvatarVisibility={userAvatarVisibility ?? "full"}
+							setCachedStateField={setCachedStateField}
+						/>
+					)}
+
+					{/* Memory Management Section */}
+					{activeTab === "memoryManagement" && (
+						<MemoryManagementSettings
+							memorySystemEnabled={cachedState.memorySystemEnabled}
+							memoryToolsEnabled={cachedState.memoryToolsEnabled}
 							setCachedStateField={setCachedStateField}
 						/>
 					)}

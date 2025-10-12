@@ -260,7 +260,7 @@ export const runTask = async ({ run, task, publish, logger }: RunTaskOptions) =>
 
 		if (eventName === RooCodeEventName.TaskToolFailed) {
 			const [_taskId, toolName, error] = payload
-			await createToolError({ taskId: task.id, toolName, error })
+			await createToolError({ taskId: task.id, toolName: toolName as any, error })
 		}
 
 		if (

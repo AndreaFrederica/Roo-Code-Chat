@@ -220,6 +220,8 @@ export interface AnhExtensionSystemPromptContext {
 	rooIgnoreInstructions?: string
 	partialReadsEnabled?: boolean
 	settings?: SystemPromptSettings
+	currentTopic?: string
+	contextKeywords?: string[]
 }
 
 export interface AnhExtensionSystemPromptResult {

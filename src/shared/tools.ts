@@ -67,6 +67,16 @@ export const toolParamNames = [
 	"todos",
 	"prompt",
 	"image",
+	"xml_memory",
+	"user_message",
+	"xml_traits",
+	"xml_goals",
+	"search_text",
+	"memory_types",
+	"limit",
+	"max_results",
+	"max_age_days",
+	"dry_run",
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]
@@ -204,6 +214,14 @@ export const TOOL_DISPLAY_NAMES: Record<ToolName, string> = {
 	update_todo_list: "update todo list",
 	run_slash_command: "run slash command",
 	generate_image: "generate images",
+	add_episodic_memory: "add episodic memory",
+	add_semantic_memory: "add semantic memory",
+	update_traits: "update traits",
+	update_goals: "update goals",
+	search_memories: "search memories",
+	get_memory_stats: "get memory stats",
+	get_recent_memories: "get recent memories",
+	cleanup_memories: "cleanup memories",
 } as const
 
 // Define available tool groups.
@@ -233,6 +251,18 @@ export const TOOL_GROUPS: Record<ToolGroup, ToolGroupConfig> = {
 	modes: {
 		tools: ["switch_mode", "new_task"],
 		alwaysAvailable: true,
+	},
+	memory: {
+		tools: [
+			"add_episodic_memory",
+			"add_semantic_memory",
+			"update_traits",
+			"update_goals",
+			"search_memories",
+			"get_memory_stats",
+			"get_recent_memories",
+			"cleanup_memories"
+		],
 	},
 }
 

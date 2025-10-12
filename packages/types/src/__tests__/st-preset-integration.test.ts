@@ -186,7 +186,7 @@ describe("Real-World Preset Integration", () => {
       const parsed = parseTavernPresetStrict(realPresetData)
 
       if (parsed.prompt_order.length > 1) {
-        const firstCharId = parsed.prompt_order[0].character_id
+        const firstCharId = parsed.prompt_order[0]?.character_id
         const compiled1 = compilePresetChannels(parsed, { characterId: firstCharId })
 
         // Should use specified character ID
@@ -238,10 +238,10 @@ describe("Real-World Preset Integration", () => {
     test("should add preset metadata to extensions", () => {
       const injected = parseCompileAndInjectPreset(testRole, realPresetData)
 
-      expect(injected.extensions?.anh?.stPreset).toBeDefined()
-      expect(injected.extensions?.anh?.stPreset?.characterId).toBeDefined()
-      expect(injected.extensions?.anh?.stPreset?.sequence).toBeDefined()
-      expect(injected.extensions?.anh?.stPreset?.compiled).toBeDefined()
+      expect((injected.extensions as any)?.anh?.stPreset).toBeDefined()
+      expect((injected.extensions as any)?.anh?.stPreset?.characterId).toBeDefined()
+      expect((injected.extensions as any)?.anh?.stPreset?.sequence).toBeDefined()
+      expect((injected.extensions as any)?.anh?.stPreset?.compiled).toBeDefined()
     })
 
     test("should handle custom injection mapping with real preset", () => {

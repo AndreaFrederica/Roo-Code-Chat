@@ -26,35 +26,40 @@ describe("ST Preset Injection", () => {
         name: "System Prompt 1",
         role: "system" as const,
         content: "You are a helpful assistant.",
-        enabled: true
+        enabled: true,
+        system_prompt: true
       },
       {
         identifier: "sys-2",
         name: "System Prompt 2",
         role: "system" as const,
         content: "Be concise and accurate.",
-        enabled: true
+        enabled: true,
+        system_prompt: true
       },
       {
         identifier: "user-1",
         name: "User Prompt 1",
         role: "user" as const,
         content: "The user wants help with {{topic}}.",
-        enabled: true
+        enabled: true,
+        system_prompt: false
       },
       {
         identifier: "assistant-1",
         name: "Assistant Response 1",
         role: "assistant" as const,
         content: "Example: {{example}}",
-        enabled: true
+        enabled: true,
+        system_prompt: false
       },
       {
         identifier: "disabled-prompt",
         name: "Disabled Prompt",
         role: "system" as const,
         content: "This should not appear",
-        enabled: false
+        enabled: false,
+        system_prompt: true
       }
     ],
     prompt_order: [
@@ -115,13 +120,13 @@ describe("ST Preset Injection", () => {
       expect(result.temperature).toBe(0.8)
       expect(result.prompts).toHaveLength(5)
       expect(result.prompt_order).toHaveLength(2)
-      expect(result.prompts[0].identifier).toBe("sys-1")
+      expect(result.prompts[0]?.identifier).toBe("sys-1")
     })
 
     test("should reject invalid preset with validation error", () => {
       const invalidPreset = {
         prompts: [
-          { identifier: "valid-prompt", content: "test" }
+          { identifier: "valid-prompt", content: "test", enabled: true, system_prompt: true }
         ],
         prompt_order: "not an array" // should be array
       }
@@ -211,8 +216,8 @@ describe("ST Preset Injection", () => {
     test("should handle prompts with undefined role", () => {
       const presetWithUndefinedRole = {
         prompts: [
-          { identifier: "no-role", content: "No role specified" },
-          { identifier: "sys-role", role: "system" as const, content: "System role" }
+          { identifier: "no-role", content: "No role specified", enabled: true, system_prompt: true },
+          { identifier: "sys-role", role: "system" as const, content: "System role", enabled: true, system_prompt: true }
         ],
         prompt_order: []
       }
@@ -226,14 +231,14 @@ describe("ST Preset Injection", () => {
     test("should handle missing identifiers in order", () => {
       const presetWithMissingId = {
         prompts: [
-          { identifier: "existing", role: "system" as const, content: "Exists" }
+          { identifier: "existing", role: "system" as const, content: "Exists", enabled: true, system_prompt: true }
         ],
         prompt_order: [
           {
             character_id: 1,
             order: [
-              { identifier: "existing" },
-              { identifier: "missing" } // doesn't exist in prompts
+              { identifier: "existing", enabled: true },
+              { identifier: "missing", enabled: true } // doesn't exist in prompts
             ]
           }
         ]
@@ -268,10 +273,10 @@ describe("ST Preset Injection", () => {
       const compiled = compilePresetChannels(basePreset)
       const injected = injectCompiledPresetIntoRole(testRole, compiled)
 
-      expect(injected.extensions?.anh?.stPreset).toBeDefined()
-      expect(injected.extensions?.anh?.stPreset?.characterId).toBe(100001)
-      expect(injected.extensions?.anh?.stPreset?.sequence).toEqual(["sys-1", "user-1", "assistant-1", "sys-2"])
-      expect(injected.extensions?.anh?.stPreset?.compiled).toBeDefined()
+      expect((injected.extensions as any)?.anh?.stPreset).toBeDefined()
+      expect((injected.extensions as any)?.anh?.stPreset?.characterId).toBe(100001)
+      expect((injected.extensions as any)?.anh?.stPreset?.sequence).toEqual(["sys-1", "user-1", "assistant-1", "sys-2"])
+      expect((injected.extensions as any)?.anh?.stPreset?.compiled).toBeDefined()
     })
 
     test("should use custom injection mapping", () => {
@@ -330,9 +335,9 @@ describe("ST Preset Injection", () => {
 
       const injected = injectCompiledPresetIntoRole(testRole, compiled, noExtensionsMapping)
 
-      expect(injected.extensions?.anh?.stPreset?.characterId).toBeUndefined()
-      expect(injected.extensions?.anh?.stPreset?.sequence).toBeUndefined()
-      expect(injected.extensions?.anh?.stPreset?.compiled).toBeUndefined()
+      expect((injected.extensions as any)?.anh?.stPreset?.characterId).toBeUndefined()
+      expect((injected.extensions as any)?.anh?.stPreset?.sequence).toBeUndefined()
+      expect((injected.extensions as any)?.anh?.stPreset?.compiled).toBeUndefined()
     })
   })
 
@@ -349,7 +354,7 @@ describe("ST Preset Injection", () => {
       expect(injected.system_prompt).toContain("You are a helpful assistant")
       expect(injected.scenario).toContain("The user wants help with {{topic}}")
       expect(injected.mes_example).toContain("Example: {{example}}")
-      expect(injected.extensions?.anh?.stPreset?.characterId).toBe(100001)
+      expect((injected.extensions as any)?.anh?.stPreset?.characterId).toBe(100001)
     })
 
     test("should handle real-world complex preset", () => {
@@ -375,14 +380,16 @@ describe("ST Preset Injection", () => {
             name: "Scenario Context",
             role: "system" as const,
             content: "Current scenario: {{scenario}}. User request: {{user_request}}",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           },
           {
             identifier: "response-style",
             name: "Response Style",
             role: "assistant" as const,
             content: "Respond in a {{tone}} manner, keeping responses {{length}}.",
-            enabled: true
+            enabled: true,
+            system_prompt: false
           }
         ],
         prompt_order: [

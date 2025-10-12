@@ -38,6 +38,7 @@ import {
 	RolePromptData,
 	RolePersona,
 	type ChatMessage,
+	type MemoryTriggerResult,
 } from "@roo-code/types"
 import { TelemetryService } from "@roo-code/telemetry"
 import { CloudService, BridgeOrchestrator } from "@roo-code/cloud"
@@ -312,6 +313,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	// Token Usage Cache
 	private tokenUsageSnapshot?: TokenUsage
 	private tokenUsageSnapshotAt?: number
+
+	// Memory Triggers
+	private lastMemoryTriggerResult?: MemoryTriggerResult
 
 	constructor({
 		provider,
@@ -998,6 +1002,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			if (provider) {
 				// Process world book triggers before sending the message
 				await this.processWorldBookTriggers(text, this.clineMessages)
+
+				// Process memory triggers
+				await this.processMemoryTriggers(text, this.clineMessages)
 
 				if (mode) {
 					await provider.setMode(mode)
@@ -3157,6 +3164,148 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			}
 			console.error(`[ANH-Chat:Task#${this.taskId}] Error processing world book triggers:`, error)
 		}
+	}
+
+	/**
+	 * Process memory triggers for the current user message
+	 */
+	public async processMemoryTriggers(userMessage: string, conversationHistory: ClineMessage[]): Promise<void> {
+		try {
+			const provider = this.providerRef.deref()
+			if (!provider?.anhChatServices?.roleMemoryTriggerService) {
+				return
+			}
+
+			// Get current role UUID
+			const rolePromptData = await provider.getRolePromptData()
+			if (!rolePromptData?.role?.uuid) {
+				return
+			}
+
+			const memoryService = provider.anhChatServices.roleMemoryTriggerService
+			const roleUuid = rolePromptData.role.uuid
+
+			// Convert ClineMessage to ChatMessage format for the memory service
+			const chatHistory = conversationHistory.map(msg => ({
+				role: (msg.type === "say" && msg.say === "user_feedback" ? "user" : "assistant") as "user" | "assistant",
+				content: msg.text || "",
+				timestamp: msg.ts
+			})).filter(msg => msg.content) // Filter out empty messages
+
+			const currentMessage: ChatMessage = {
+				role: "user",
+				content: userMessage,
+				timestamp: Date.now()
+			}
+
+			// Extract emotional state and topic from the current message
+			const emotionalState = this.extractEmotionalState(userMessage)
+			const currentTopic = this.extractCurrentTopic(userMessage, conversationHistory)
+			const contextKeywords = this.extractContextKeywords(userMessage, conversationHistory)
+
+			// Process the message through the memory trigger service
+			const result = await memoryService.processMessageWithMemory(
+				roleUuid,
+				currentMessage,
+				chatHistory,
+				{
+					emotionalState,
+					currentTopic,
+					contextKeywords
+				}
+			)
+
+			if (result && result.injectedCount > 0) {
+				provider.log(`[ANH-Chat:Task#${this.taskId}] Memory triggers processed: ${result.injectedCount} entries injected, duration: ${result.duration}ms`)
+
+				// Store the result for later use in system prompt generation
+				this.lastMemoryTriggerResult = result
+
+				// Optionally log the content for debugging
+				if ((provider.contextProxy.getValue as any)("memoryTriggerDebugMode")) {
+					provider.log(`[ANH-Chat:Task#${this.taskId}] Memory content preview: ${result.fullContent.substring(0, 200)}...`)
+				}
+			}
+		} catch (error) {
+			const provider = this.providerRef.deref()
+			if (provider) {
+				provider.log(`[ANH-Chat:Task#${this.taskId}] Error processing memory triggers: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			console.error(`[ANH-Chat:Task#${this.taskId}] Error processing memory triggers:`, error)
+		}
+	}
+
+	/**
+	 * Extract emotional state from user message
+	 */
+	private extractEmotionalState(message: string): string | undefined {
+		const emotionalWords = {
+			happy: ['开心', '高兴', '快乐', '愉快', '欢乐', '喜悦', 'happy', 'joy', 'glad', 'pleased', 'excited'],
+			sad: ['难过', '伤心', '悲伤', '沮丧', '失落', '忧伤', 'sad', 'unhappy', 'sorrowful', 'depressed', 'gloomy'],
+			angry: ['生气', '愤怒', '恼火', '气愤', '怒火', 'angry', 'mad', 'furious', 'irritated', 'annoyed'],
+			fear: ['害怕', '恐惧', '担心', '忧虑', '焦虑', '不安', 'afraid', 'scared', 'fearful', 'anxious', 'worried'],
+			surprised: ['惊讶', '意外', '震惊', '吃惊', '惊奇', 'surprised', 'amazed', 'shocked', 'astonished']
+		}
+
+		const lowerMessage = message.toLowerCase()
+		for (const [emotion, keywords] of Object.entries(emotionalWords)) {
+			if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+				return emotion
+			}
+		}
+
+		return undefined
+	}
+
+	/**
+	 * Extract current topic from conversation
+	 */
+	private extractCurrentTopic(currentMessage: string, conversationHistory: ClineMessage[]): string | undefined {
+		// Simple topic extraction - can be enhanced with NLP
+		const recentMessages = [
+			...conversationHistory.slice(-3).map(msg => msg.text || ''),
+			currentMessage
+		].join(' ')
+
+		// Look for repeated keywords or patterns
+		const words = recentMessages.toLowerCase().split(/\s+/)
+		const wordFreq = new Map<string, number>()
+
+		words.forEach((word: string) => {
+			if (word.length > 2) { // Skip very short words
+				wordFreq.set(word, (wordFreq.get(word) || 0) + 1)
+			}
+		})
+
+		// Return the most frequent meaningful word as topic
+		const sortedWords = Array.from(wordFreq.entries())
+			.sort((a, b) => b[1] - a[1])
+			.filter(([word]) => !['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use'].includes(word))
+
+		return sortedWords.length > 0 ? sortedWords[0][0] : undefined
+	}
+
+	/**
+	 * Extract context keywords from conversation
+	 */
+	private extractContextKeywords(currentMessage: string, conversationHistory: ClineMessage[]): string[] {
+		const allText = [
+			...conversationHistory.slice(-2).map(msg => msg.text || ''),
+			currentMessage
+		].join(' ')
+
+		// Extract keywords (simple implementation)
+		const words = allText
+			.toLowerCase()
+			.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, ' ')
+			.split(/\s+/)
+			.filter(word => word.length > 1)
+
+		const stopWords = ['的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一', '一个', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']
+
+		return words
+			.filter(word => !stopWords.includes(word))
+			.slice(0, 20) // Limit to top 20 keywords
 	}
 
 	/**

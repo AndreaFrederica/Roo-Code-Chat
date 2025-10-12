@@ -12,6 +12,11 @@ export async function ensureDirectory(dirPath: string) {
 }
 
 export async function ensureAnhChatRoot(basePath: string): Promise<string> {
+	// 检查是否已经包含完整的路径
+	if (basePath.endsWith(ANH_CHAT_DIR)) {
+		await ensureDirectory(basePath)
+		return basePath
+	}
 	const root = getAnhChatRoot(basePath)
 	await ensureDirectory(root)
 	return root

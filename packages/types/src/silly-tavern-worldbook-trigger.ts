@@ -77,7 +77,7 @@ export interface ContextRequirement {
 }
 
 /** 触发匹配结果 */
-export interface TriggerMatch {
+export interface WorldbookTriggerMatch {
   /** 匹配的词条 */
   entry: WorldBookTriggerEntry;
   /** 匹配的关键词 */
@@ -135,7 +135,7 @@ export interface TriggerDebugInfo {
   /** 候选词条数量 */
   candidatesCount: number;
   /** 匹配的触发词 */
-  matchedTriggers: TriggerMatch[];
+  matchedTriggers: WorldbookTriggerMatch[];
   /** 跳过的原因 */
   skippedEntries: Array<{
     entryId: string;

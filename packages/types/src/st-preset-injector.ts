@@ -387,3 +387,6 @@ export function createRoleWithLiquidTemplates(
     ...role
   } as Role
 }
+
+// Re-export STPresetSelect for external use
+export type { STPresetSelect } from "./silly-tavern-preset.js"

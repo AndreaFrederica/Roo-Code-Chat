@@ -38,6 +38,7 @@ import {
 	AnhExtensionManager,
 	type AnhChatServices,
 } from "./services/anh-chat"
+import { MemoryServiceInitializer } from "./services/anh-chat/MemoryServiceInitializer"
 import { migrateSettings } from "./utils/migrateSettings"
 import { autoImportSettings } from "./utils/autoImportSettings"
 import { API } from "./extension/api"
@@ -112,14 +113,13 @@ export async function activate(context: vscode.ExtensionContext) {
 	try {
 		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
 		const anhChatBasePath = workspaceRoot ?? context.globalStorageUri.fsPath ?? context.extensionPath
-		const [roleRegistry, storylineRepository, roleMemoryService, conversationLogService] = await Promise.all([
-			RoleRegistry.create(anhChatBasePath),
-			StorylineRepository.create(anhChatBasePath),
-			RoleMemoryService.create(anhChatBasePath),
-			ConversationLogService.create(anhChatBasePath),
-		])
-
 		const resolvedBasePath = path.join(anhChatBasePath, "novel-helper", ".anh-chat")
+		const [roleRegistry, storylineRepository, roleMemoryService, conversationLogService] = await Promise.all([
+			RoleRegistry.create(resolvedBasePath),
+			StorylineRepository.create(resolvedBasePath),
+			RoleMemoryService.create(resolvedBasePath),
+			ConversationLogService.create(resolvedBasePath),
+		])
 		const extensionLogger = {
 			info: (message: string) => {
 				outputChannel.appendLine(message)
@@ -179,7 +179,17 @@ export async function activate(context: vscode.ExtensionContext) {
 			extensionManager,
 		}
 
-		outputChannel.appendLine(`[AnhChat] Services initialized at ${resolvedBasePath}`)
+		// 初始化记忆触发服务
+		try {
+			await MemoryServiceInitializer.initialize(anhChatServices)
+			outputChannel.appendLine(`[AnhChat] Memory trigger services initialized`)
+		} catch (error) {
+			outputChannel.appendLine(
+				`[AnhChat] Failed to initialize memory services: ${error instanceof Error ? error.message : String(error)}`,
+			)
+		}
+
+		outputChannel.appendLine(`[AnhChat] All services initialized at ${resolvedBasePath}`)
 	} catch (error) {
 		outputChannel.appendLine(
 			`[AnhChat] Failed to initialize services: ${error instanceof Error ? error.message : String(error)}`,

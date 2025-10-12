@@ -33,14 +33,16 @@ describe("ST Preset Usage Examples", () => {
             name: "Personality Traits",
             role: "system" as const,
             content: "You are exceptionally friendly, warm, and encouraging. Always use positive language and show enthusiasm for helping users.",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           },
           {
             identifier: "speaking-style",
             name: "Speaking Style",
             role: "assistant" as const,
             content: "Example responses:\nUser: I'm stuck\nAssistant: Oh no, let's figure this out together! I'm here to help you every step of the way! 🌟\n\nUser: I failed\nAssistant: That's okay! Every attempt is a learning opportunity. Let's try a different approach - you've got this! 💪",
-            enabled: true
+            enabled: true,
+            system_prompt: false
           }
         ],
         prompt_order: [
@@ -58,7 +60,7 @@ describe("ST Preset Usage Examples", () => {
 
       expect(enhancedRole.system_prompt).toContain("exceptionally friendly")
       expect(enhancedRole.mes_example).toContain("Oh no, let's figure this out together")
-      expect(enhancedRole.extensions?.anh?.stPreset?.sequence).toEqual(["personality", "speaking-style"])
+      expect((enhancedRole.extensions as any)?.anh?.stPreset?.sequence).toEqual(["personality", "speaking-style"])
     })
 
     test("example: domain-specific expertise", () => {

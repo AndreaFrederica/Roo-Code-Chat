@@ -198,6 +198,8 @@ export interface ExtensionStateContextType extends ExtensionState {
 	anhExtensionSettings?: Record<string, Record<string, unknown>>
 	setAnhExtensionSettings: (value: Record<string, Record<string, unknown>>) => void
 	updateAnhExtensionSetting: (id: string, key: string, value: unknown) => void
+	memorySystemEnabled?: boolean
+	memoryToolsEnabled?: boolean
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -418,6 +420,14 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update enableUserAvatar if present in state message
 					if ((newState as any).enableUserAvatar !== undefined) {
 						setState((prevState) => ({ ...prevState, enableUserAvatar: (newState as any).enableUserAvatar }))
+					}
+					// Update memorySystemEnabled if present in state message
+					if ((newState as any).memorySystemEnabled !== undefined) {
+						setState((prevState) => ({ ...prevState, memorySystemEnabled: (newState as any).memorySystemEnabled }))
+					}
+					// Update memoryToolsEnabled if present in state message
+					if ((newState as any).memoryToolsEnabled !== undefined) {
+						setState((prevState) => ({ ...prevState, memoryToolsEnabled: (newState as any).memoryToolsEnabled }))
 					}
 					// Update userAvatarRole if present in state message
 					if ((newState as any).userAvatarRole !== undefined) {
@@ -739,6 +749,8 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		}))
 		vscode.postMessage({ type: "toggleAnhExtension", text: id, bool: enabled })
 	},
+	memorySystemEnabled: state.memorySystemEnabled ?? true,
+	memoryToolsEnabled: state.memoryToolsEnabled ?? true,
 }
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>

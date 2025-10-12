@@ -27,6 +27,16 @@ import { getCodebaseSearchDescription } from "./codebase-search"
 import { getUpdateTodoListDescription } from "./update-todo-list"
 import { getRunSlashCommandDescription } from "./run-slash-command"
 import { getGenerateImageDescription } from "./generate-image"
+import {
+	getAddEpisodicMemoryDescription,
+	getAddSemanticMemoryDescription,
+	getUpdateTraitsDescription,
+	getUpdateGoalsDescription,
+	getSearchMemoriesDescription,
+	getMemoryStatsDescription,
+	getRecentMemoriesDescription,
+	getCleanupMemoriesDescription,
+} from "./memory-tools"
 import { CodeIndexManager } from "../../../services/code-index/manager"
 
 // Map of tool names to their description functions
@@ -60,6 +70,14 @@ const toolDescriptionMap: Record<string, (args: ToolArgs) => string | undefined>
 	update_todo_list: (args) => getUpdateTodoListDescription(args),
 	run_slash_command: () => getRunSlashCommandDescription(),
 	generate_image: (args) => getGenerateImageDescription(args),
+	add_episodic_memory: (args) => getAddEpisodicMemoryDescription(args),
+	add_semantic_memory: (args) => getAddSemanticMemoryDescription(args),
+	update_traits: (args) => getUpdateTraitsDescription(args),
+	update_goals: (args) => getUpdateGoalsDescription(args),
+	search_memories: (args) => getSearchMemoriesDescription(args),
+	get_memory_stats: (args) => getMemoryStatsDescription(args),
+	get_recent_memories: (args) => getRecentMemoriesDescription(args),
+	cleanup_memories: (args) => getCleanupMemoriesDescription(args),
 }
 
 export function getToolDescriptionsForMode(
@@ -122,6 +140,18 @@ export function getToolDescriptionsForMode(
 	// Add always available tools
 	ALWAYS_AVAILABLE_TOOLS.forEach((tool) => tools.add(tool))
 
+	// Add memory tools for all modes that can use them
+	// Memory tools are essential for AI to maintain context and learn from conversations
+	// Only add if memory trigger service is available and enabled
+	if (settings?.memoryToolsEnabled !== false) {
+		const memoryToolGroup = TOOL_GROUPS.memory
+		if (memoryToolGroup) {
+			memoryToolGroup.tools.forEach((tool) => {
+				tools.add(tool)
+			})
+		}
+	}
+
 	// Conditionally exclude ask_followup_question if disabled
 	if (disableAskFollowupQuestion) {
 		tools.delete("ask_followup_question")
@@ -172,6 +202,34 @@ export function getToolDescriptionsForMode(
 		}
 	}
 
+	// Add memory tools availability notice based on system status
+	if (settings?.memoryToolsEnabled !== false && settings?.memorySystemEnabled !== false) {
+		const memoryToolsNotice = `
+## 🧠 Memory Tools Available
+
+The memory system is currently **ENABLED**! You can use the following memory tools to maintain context and learn from conversations:
+
+- **add_episodic_memory**: Save specific events, conversations, or experiences
+- **add_semantic_memory**: Store general knowledge, facts, and concepts
+- **update_traits**: Modify personality traits and characteristics
+- **update_goals**: Update or add character goals and objectives
+- **search_memories**: Find relevant memories using keywords
+- **get_memory_stats**: View memory usage statistics
+- **get_recent_memories**: Retrieve recent memories
+- **cleanup_memories**: Manage and organize stored memories
+
+**✅ Memory Status**: ENABLED - Use these tools to create a more persistent and contextual conversation experience.`
+		descriptions.push(memoryToolsNotice.trim())
+	} else {
+		const memoryToolsDisabledNotice = `
+## 🧠 Memory Tools Unavailable
+
+The memory system is currently **DISABLED**. Memory tools are not available in this session.
+
+**❌ Memory Status**: DISABLED - You cannot use memory-related tools at this time.`
+		descriptions.push(memoryToolsDisabledNotice.trim())
+	}
+
 	return `# Tools\n\n${descriptions.filter(Boolean).join("\n\n")}`
 }
 
@@ -196,6 +254,14 @@ export {
 	getCodebaseSearchDescription,
 	getRunSlashCommandDescription,
 	getGenerateImageDescription,
+	getAddEpisodicMemoryDescription,
+	getAddSemanticMemoryDescription,
+	getUpdateTraitsDescription,
+	getUpdateGoalsDescription,
+	getSearchMemoriesDescription,
+	getMemoryStatsDescription,
+	getRecentMemoriesDescription,
+	getCleanupMemoriesDescription,
 }
 
 

@@ -100,13 +100,6 @@ async function generateCompleteRoleJSON() {
     console.log(`   用户提示词长度: ${compiled.user.length} 字符`)
     console.log(`   助手提示词长度: ${compiled.assistant.length} 字符`)
 
-    // 使用完整的LiquidJS模板系统
-    const liquidProcessor = new LiquidTemplateProcessor({
-      strict: false,
-      keepVariableDefinitions: true,
-      maxRecursionDepth: 10
-    })
-
     // 准备完整的变量数据
     const templateVariables = {
       user: '旅行者',
@@ -123,10 +116,18 @@ async function generateCompleteRoleJSON() {
 
     console.log(`🔧 使用完整LiquidJS模板系统处理...`)
 
+    // 使用完整的LiquidJS模板系统，传入变量
+    const liquidProcessor = new LiquidTemplateProcessor({
+      strict: false,
+      keepVariableDefinitions: true,
+      maxRecursionDepth: 10,
+      variables: templateVariables
+    })
+
     // 使用完整的LiquidJS处理模板变量
-    const systemResult = liquidProcessor.processTextSync(compiled.system, templateVariables)
-    const userResult = liquidProcessor.processTextSync(compiled.user, templateVariables)
-    const assistantResult = liquidProcessor.processTextSync(compiled.assistant, templateVariables)
+    const systemResult = liquidProcessor.processTextSync(compiled.system)
+    const userResult = liquidProcessor.processTextSync(compiled.user)
+    const assistantResult = liquidProcessor.processTextSync(compiled.assistant)
 
     console.log(`✅ LiquidJS模板处理完成`)
     console.log(`   处理后系统提示词长度: ${systemResult.processedText?.length || 0} 字符`)

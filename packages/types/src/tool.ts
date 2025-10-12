@@ -4,7 +4,7 @@ import { z } from "zod"
  * ToolGroup
  */
 
-export const toolGroups = ["read", "edit", "browser", "command", "mcp", "modes"] as const
+export const toolGroups = ["read", "edit", "browser", "command", "mcp", "modes", "memory"] as const
 
 export const toolGroupsSchema = z.enum(toolGroups)
 
@@ -36,6 +36,14 @@ export const toolNames = [
 	"update_todo_list",
 	"run_slash_command",
 	"generate_image",
+	"add_episodic_memory",
+	"add_semantic_memory",
+	"update_traits",
+	"update_goals",
+	"search_memories",
+	"get_memory_stats",
+	"get_recent_memories",
+	"cleanup_memories",
 ] as const
 
 export const toolNamesSchema = z.enum(toolNames)
@@ -67,4 +75,28 @@ export type ToolUsage = z.infer<typeof toolUsageSchema>
 
 export function isExtensionToolName(name: string): name is ExtensionToolName {
 	return extensionToolNameRegex.test(name)
+}
+
+/**
+ * Tool interface for defining tools with their metadata and execution logic
+ */
+export interface Tool {
+	name: string
+	displayName: string
+	description: string
+	parameters: {
+		properties: Record<string, {
+			type: string
+			description: string
+			optional?: boolean
+			items?: { type: string }
+		}>
+		required: string[]
+	}
+	execute: (args: any, context: any, provider: any) => Promise<{
+		success: boolean
+		message?: string
+		error?: string
+		[key: string]: any
+	}>
 }

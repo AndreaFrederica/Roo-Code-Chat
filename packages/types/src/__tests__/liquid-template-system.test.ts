@@ -5,7 +5,7 @@ import {
   processLiquidTemplateVariablesAsync,
   renderTemplate,
   LiquidTemplateProcessingResult
-} from '../liquid-template-system'
+} from '../liquid-template-system.js'
 
 describe('LiquidJS Template System', () => {
   describe('Basic Template Rendering', () => {

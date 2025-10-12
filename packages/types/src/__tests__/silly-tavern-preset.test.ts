@@ -86,7 +86,7 @@ describe("SillyTavern Preset Schema Validation", () => {
       expect(result.success).toBe(false)
 
       if (!result.success) {
-        expect(result.error.issues[0].path).toEqual(["identifier"])
+        expect(result.error.issues[0]?.path).toEqual(["identifier"])
       }
     })
 
@@ -106,8 +106,8 @@ describe("SillyTavern Preset Schema Validation", () => {
       const minimalOrder = {
         character_id: 100001,
         order: [
-          { identifier: "prompt1" },
-          { identifier: "prompt2" }
+          { identifier: "prompt1", enabled: true },
+          { identifier: "prompt2", enabled: true }
         ]
       }
 
@@ -117,7 +117,7 @@ describe("SillyTavern Preset Schema Validation", () => {
       if (result.success) {
         expect(result.data.character_id).toBe(100001)
         expect(result.data.order).toHaveLength(2)
-        expect(result.data.order[0].enabled).toBe(true) // default
+        expect(result.data.order[0]?.enabled).toBe(true) // default
       }
     })
 
@@ -127,7 +127,7 @@ describe("SillyTavern Preset Schema Validation", () => {
         order: [
           { identifier: "enabled-prompt", enabled: true },
           { identifier: "disabled-prompt", enabled: false },
-          { identifier: "default-prompt" } // should default to enabled: true
+          { identifier: "default-prompt", enabled: true } // should default to enabled: true
         ]
       }
 
@@ -135,9 +135,9 @@ describe("SillyTavern Preset Schema Validation", () => {
       expect(result.success).toBe(true)
 
       if (result.success) {
-        expect(result.data.order[0].enabled).toBe(true)
-        expect(result.data.order[1].enabled).toBe(false)
-        expect(result.data.order[2].enabled).toBe(true)
+        expect(result.data.order[0]?.enabled).toBe(true)
+        expect(result.data.order[1]?.enabled).toBe(false)
+        expect(result.data.order[2]?.enabled).toBe(true)
       }
     })
 
@@ -157,7 +157,7 @@ describe("SillyTavern Preset Schema Validation", () => {
         // Verify basic fields work correctly
         expect(result.data.character_id).toBe(100003)
         expect(result.data.order).toHaveLength(1)
-        expect(result.data.order[0].identifier).toBe("test")
+        expect(result.data.order[0]?.identifier).toBe("test")
         // Note: Zod catchall behavior may vary, so we focus on the core functionality
       }
     })
@@ -213,14 +213,16 @@ describe("SillyTavern Preset Schema Validation", () => {
             name: "System Prompt",
             role: "system",
             content: "You are a helpful assistant",
-            enabled: true
+            enabled: true,
+            system_prompt: true
           },
           {
             identifier: "user-prompt",
             name: "User Prompt",
             role: "user",
             content: "Please respond to user input",
-            enabled: true
+            enabled: true,
+            system_prompt: false
           }
         ],
 
@@ -293,8 +295,8 @@ describe("SillyTavern Preset Schema Validation", () => {
       expect(result.success).toBe(true)
 
       if (result.success) {
-        expect(result.data.prompts[0].content).toBe("")
-        expect(result.data.prompts[1].content).toBe("")
+        expect(result.data.prompts[0]?.content).toBe("")
+        expect(result.data.prompts[1]?.content).toBe("")
       }
     })
   })
@@ -336,7 +338,7 @@ describe("SillyTavern Preset Schema Validation", () => {
       expect(result.success).toBe(true)
 
       if (result.success) {
-        expect(result.data.prompts[0].content).toContain("{{placeholder}}")
+        expect(result.data.prompts[0]?.content).toContain("{{placeholder}}")
         expect(result.data.additional_metadata).toEqual({
           version: "1.0",
           author: "Test Author",

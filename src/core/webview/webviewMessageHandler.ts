@@ -64,6 +64,7 @@ const ALLOWED_VSCODE_SETTINGS = new Set(["terminal.integrated.inheritEnv"])
 
 import { MarketplaceManager, MarketplaceItemType } from "../../services/marketplace"
 import { setPendingTodoList } from "../tools/updateTodoListTool"
+import { MemoryManagementHandler } from "../../services/role-memory/MemoryManagementHandler"
 
 export const webviewMessageHandler = async (
 	provider: ClineProvider,
@@ -1188,6 +1189,14 @@ export const webviewMessageHandler = async (
 			break
 		case "enableMcpServerCreation":
 			await updateGlobalState("enableMcpServerCreation", message.bool ?? true)
+			await provider.postStateToWebview()
+			break
+		case "memorySystemEnabled":
+			await updateGlobalState("memorySystemEnabled", message.bool ?? true)
+			await provider.postStateToWebview()
+			break
+		case "memoryToolsEnabled":
+			await updateGlobalState("memoryToolsEnabled", message.bool ?? true)
 			await provider.postStateToWebview()
 			break
 		case "remoteControlEnabled":
@@ -4028,6 +4037,46 @@ export const webviewMessageHandler = async (
 					type: "STWordBookValidateResponse",
 					worldBookValid: false,
 					worldBookValidationError: error instanceof Error ? error.message : String(error)
+				})
+			}
+			break
+		}
+
+		case "memoryManagement": {
+			try {
+				// 使用现有的角色记忆触发服务，而不是创建新的实例
+				if (!provider?.anhChatServices?.roleMemoryTriggerService) {
+					await provider.postMessageToWebview({
+						type: "memoryManagementResponse",
+						payload: {
+							type: "memoryError",
+							error: "角色记忆服务未初始化",
+							operation: message.data?.type || "unknown"
+						}
+					})
+					break
+				}
+
+				const memoryHandler = new MemoryManagementHandler()
+
+				// 使用现有的服务实例初始化记忆管理器
+				await memoryHandler.initialize(undefined, provider.anhChatServices.roleMemoryTriggerService)
+
+				const response = await memoryHandler.handleMessage(message.data)
+
+				await provider.postMessageToWebview({
+					type: "memoryManagementResponse",
+					payload: response
+				})
+			} catch (error) {
+				provider.log(`Error handling memory management: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "memoryManagementResponse",
+					payload: {
+						type: "memoryError",
+						error: error instanceof Error ? error.message : "Unknown error occurred",
+						operation: message.data?.type || "unknown"
+					}
 				})
 			}
 			break

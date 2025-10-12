@@ -49,6 +49,7 @@ import {
 	compilePresetChannels,
 	injectCompiledPresetIntoRole,
 	LiquidTemplateProcessor,
+	ChatMessage,
 } from "@roo-code/types"
 import { loadTsProfiles, validateTsProfile } from "../../services/anh-chat/tsProfileService"
 import { TelemetryService } from "@roo-code/telemetry"
@@ -1901,19 +1902,74 @@ export class ClineProvider
 		basePrompt: string,
 		context: SystemPromptHookOptions,
 	): Promise<string> {
+		let enhancedPrompt = basePrompt
+
+		// Apply memory triggers if available and enabled
+		const providerState = await this.getState()
+		if (
+			this.anhChatServices?.roleMemoryTriggerService &&
+			context.rolePromptData?.role?.uuid &&
+			providerState.memorySystemEnabled !== false &&
+			providerState.memoryToolsEnabled !== false
+		) {
+			try {
+				const memoryService = this.anhChatServices.roleMemoryTriggerService
+				const roleUuid = context.rolePromptData.role.uuid
+
+				// Get conversation history from task if available
+				const task = this.getCurrentTask()
+				const conversationHistory = task?.clineMessages || []
+
+				// Convert to ChatMessage format
+				const chatHistory = conversationHistory.map(msg => ({
+					role: (msg.type === "say" && msg.say === "user_feedback" ? "user" : "assistant") as "user" | "assistant",
+					content: msg.text || "",
+					timestamp: msg.ts
+				})).filter(msg => msg.content)
+
+				// Create a mock current message for context (this is for system prompt generation)
+				const currentMessage: ChatMessage = {
+					role: "user",
+					content: "", // Empty since we're generating system prompt
+					timestamp: Date.now()
+				}
+
+				// Process memory triggers
+				const memoryResult = await memoryService.processMessageWithMemory(
+					roleUuid,
+					currentMessage,
+					chatHistory,
+					{
+						currentTopic: context.currentTopic,
+						contextKeywords: context.contextKeywords || []
+					}
+				)
+
+				// Append memory content to system prompt if available
+				if (memoryResult?.fullContent && memoryResult.injectedCount > 0) {
+					this.outputChannel.appendLine(`[RoleMemory] Injected ${memoryResult.injectedCount} memories into system prompt`)
+					enhancedPrompt = `${enhancedPrompt}\n\n${memoryResult.fullContent}`
+				}
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error)
+				this.outputChannel.appendLine(`[RoleMemory] Failed to process memory triggers: ${message}`)
+			}
+		}
+
+		// Apply extension hooks
 		const manager = this.anhChatServices?.extensionManager
 		if (!manager) {
-			return basePrompt
+			return enhancedPrompt
 		}
 
 		await this.ensureAnhExtensionsInitialized()
 
 		try {
-			return await manager.applySystemPromptHooks(basePrompt, context)
+			return await manager.applySystemPromptHooks(enhancedPrompt, context)
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
 			this.log(`[AnhExtensions] Failed to apply system prompt hooks: ${message}`)
-			return basePrompt
+			return enhancedPrompt
 		}
 	}
 
