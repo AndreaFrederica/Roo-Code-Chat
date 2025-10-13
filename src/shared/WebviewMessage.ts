@@ -272,9 +272,13 @@ export interface WebviewMessage {
 		| "STWordBookReload"
 		| "STWordBookBrowse"
 		| "STWordBookValidate"
-	| "memorySystemEnabled"
-	| "memoryToolsEnabled"
-	| "memoryManagement"
+		| "memorySystemEnabled"
+		| "memoryToolsEnabled"
+		| "memoryManagement"
+		| "loadTsProfileContent"
+		| "loadTsProfileMixin"
+		| "saveTsProfileMixin"
+		| "saveTsProfileSource"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -371,6 +375,10 @@ export interface WebviewMessage {
 	worldBookConfig?: any // For worldbook configuration (WorldBookConfig)
 	// Memory management-related properties
 	data?: any // For memory management messages
+	mixinData?: any // For saveTsProfileMixin
+	profileData?: any // For saveTsProfileSource
+	mixinPath?: string // For loadTsProfileMixin and saveTsProfileMixin
+	profilePath?: string // For saveTsProfileSource
 }
 
 export const checkoutDiffPayloadSchema = z.object({

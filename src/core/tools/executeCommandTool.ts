@@ -181,6 +181,9 @@ export async function executeCommand(
 	let shellIntegrationError: string | undefined
 
 	const terminalProvider = terminalShellIntegrationDisabled ? "execa" : "vscode"
+
+	// Log terminal provider choice
+	console.log(`[executeCommand] Using terminal provider: ${terminalProvider}`)
 	const provider = await task.providerRef.deref()
 
 	let accumulatedOutput = ""

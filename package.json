@@ -28,7 +28,10 @@
 		"publish": "node scripts/publish.js",
 		"publish:ps1": "powershell -ExecutionPolicy Bypass -File scripts/publish.ps1",
 		"publish:local": "node scripts/publish-local.js",
-		"publish:local:ps1": "powershell -ExecutionPolicy Bypass -File scripts/publish-local.ps1"
+		"publish:local:ps1": "powershell -ExecutionPolicy Bypass -File scripts/publish-local.ps1",
+		"test:system-prompt": "node test-complete-system-prompt.js",
+		"test:system-prompt:debug": "node test-system-prompt-simple.js",
+		"test:system-prompt:full": "node test-system-prompt-rendering.js"
 	},
 	"devDependencies": {
 		"@changesets/cli": "^2.27.10",

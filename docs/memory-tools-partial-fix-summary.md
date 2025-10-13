@@ -3,19 +3,22 @@
 ## 当前修复状态
 
 ### ✅ 已修复的工具
+
 1. **addSemanticMemoryTool** - 语义记忆工具
-   - ✅ 新增函数式实现 `addSemanticMemoryFunction`
-   - ✅ 更新调用方式为函数式
-   - ✅ 添加详细的调试信息
-   - ✅ 智能参数提取（支持包装格式）
+
+    - ✅ 新增函数式实现 `addSemanticMemoryFunction`
+    - ✅ 更新调用方式为函数式
+    - ✅ 添加详细的调试信息
+    - ✅ 智能参数提取（支持包装格式）
 
 2. **addEpisodicMemoryTool** - 情景记忆工具
-   - ✅ 新增函数式实现 `addEpisodicMemoryFunction`
-   - ✅ 更新调用方式为函数式
-   - ✅ 添加详细的调试信息
-   - ✅ 智能参数提取（支持包装格式）
+    - ✅ 新增函数式实现 `addEpisodicMemoryFunction`
+    - ✅ 更新调用方式为函数式
+    - ✅ 添加详细的调试信息
+    - ✅ 智能参数提取（支持包装格式）
 
 ### ❌ 仍需修复的工具
+
 3. **updateTraitsTool** - 更新角色特质工具
 4. **updateGoalsTool** - 更新角色目标工具
 5. **searchMemoriesTool** - 搜索记忆工具
@@ -26,7 +29,9 @@
 ## 修复原理
 
 ### 问题根源
+
 调试信息显示 `block.params.keys: args`，说明参数被包装在 `args` 属性中：
+
 ```javascript
 // 实际的 block.params 结构
 {
@@ -38,6 +43,7 @@
 ```
 
 ### 函数式解决方案
+
 ```typescript
 // 智能参数提取逻辑
 let xml_memory: string | undefined = (block.params as any).xml_memory
@@ -46,12 +52,13 @@ let user_message: string | undefined = (block.params as any).user_message
 // 如果直接访问失败，检查是否有参数包装
 const argsWrapper = (block.params as any).args
 if (!xml_memory && argsWrapper) {
-    xml_memory = argsWrapper.xml_memory
-    user_message = argsWrapper.user_message
+	xml_memory = argsWrapper.xml_memory
+	user_message = argsWrapper.user_message
 }
 ```
 
 ### 调用方式更新
+
 ```typescript
 // 修改前（类式调用）
 await addSemanticMemoryTool.execute(block.params, null, cline.providerRef.deref())
@@ -63,6 +70,7 @@ await addSemanticMemoryFunction(cline, block)
 ## 预期调试输出
 
 修复后的工具应该显示以下调试信息：
+
 ```
 [MemoryTool Debug] addSemanticMemoryFunction called
 [MemoryTool Debug] block.params keys: args
@@ -90,6 +98,7 @@ await addSemanticMemoryFunction(cline, block)
 ## 剩余工作
 
 需要为以下5个工具创建函数式实现：
+
 1. `updateTraitsFunction`
 2. `updateGoalsFunction`
 3. `searchMemoriesFunction`
@@ -98,6 +107,7 @@ await addSemanticMemoryFunction(cline, block)
 6. `cleanupMemoriesFunction`
 
 每个工具都需要：
+
 - 新增函数式实现
 - 更新调用方式
 - 添加智能参数提取

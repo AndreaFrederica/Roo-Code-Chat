@@ -119,7 +119,6 @@ import { getMessagesSinceLastSummary, summarizeConversation } from "../condense"
 import { Gpt5Metadata, ClineMessageWithMetadata } from "./types"
 import { MessageQueueService } from "../message-queue/MessageQueueService"
 
-
 import { AutoApprovalHandler } from "./AutoApprovalHandler"
 
 const MAX_EXPONENTIAL_BACKOFF_SECONDS = 600 // 10 minutes
@@ -149,6 +148,7 @@ export interface TaskOptions extends CreateTaskOptions {
 	workspacePath?: string
 	anhPersonaMode?: RolePersona
 	anhToneStrict?: boolean
+	anhUseAskTool?: boolean
 }
 
 export class Task extends EventEmitter<TaskEvents> implements TaskLike {
@@ -169,6 +169,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	private rolePromptData?: RolePromptData
 	private anhPersonaMode?: RolePersona
 	private anhToneStrict?: boolean
+	private anhUseAskTool?: boolean
 
 	/**
 	 * The mode associated with this task. Persisted across sessions
@@ -338,6 +339,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		rolePromptData,
 		anhPersonaMode,
 		anhToneStrict,
+		anhUseAskTool,
 	}: TaskOptions) {
 		super()
 
@@ -357,6 +359,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		this.rolePromptData = rolePromptData
 		this.anhPersonaMode = anhPersonaMode
 		this.anhToneStrict = anhToneStrict
+		this.anhUseAskTool = anhUseAskTool
 
 		// Normal use-case is usually retry similar history task with new workspace.
 		this.workspacePath = parentTask
@@ -1132,12 +1135,14 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 		const snapshot = {
 			enabled: true,
-			role: userAvatarRole.name ? {
-				name: userAvatarRole.name,
-				color: userAvatarRole.color
-			} : undefined
+			role: userAvatarRole.name
+				? {
+						name: userAvatarRole.name,
+						color: userAvatarRole.color,
+					}
+				: undefined,
 		}
-		
+
 		// console.log('[DEBUG] returning snapshot:', snapshot)
 		return snapshot
 	}
@@ -1198,7 +1203,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						partial,
 						contextCondense,
 						metadata: options.metadata,
-						...(userAvatarSnapshot && { userAvatarSnapshot })
+						...(userAvatarSnapshot && { userAvatarSnapshot }),
 					})
 				}
 			} else {
@@ -1248,7 +1253,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						images,
 						contextCondense,
 						metadata: options.metadata,
-						...(userAvatarSnapshot && { userAvatarSnapshot })
+						...(userAvatarSnapshot && { userAvatarSnapshot }),
 					})
 				}
 			}
@@ -1272,7 +1277,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				images,
 				checkpoint,
 				contextCondense,
-				...(userAvatarSnapshot && { userAvatarSnapshot })
+				...(userAvatarSnapshot && { userAvatarSnapshot }),
 			})
 		}
 	}
@@ -2519,6 +2524,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			enabledWorldsets,
 			userAvatarVisibility,
 			userAvatarHideFullData,
+			enabledTSProfiles,
+			anhTsProfileAutoInject,
+			anhTsProfileVariables,
 		} = state ?? {}
 
 		// Use the latest settings from global state, falling back to task's local settings
@@ -2586,12 +2594,16 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				freshRolePromptData, // Use fresh role data with latest TSProfile applied
 				currentPersonaMode,
 				currentToneStrict,
-				undefined, // anhUseAskTool - not needed here
+				this.anhUseAskTool, // Use the actual anhUseAskTool value from Task
 				userAvatarRole as any, // Type assertion to fix type error
 				enableUserAvatar,
 				enabledWorldsets, // 传递启用的世界观设定
 				resolvedUserAvatarVisibility,
 				extensionToolDescriptions,
+				undefined, // worldBookContent - not needed here
+				enabledTSProfiles || [], // 传递启用的 TSProfile 列表，确保是数组
+				anhTsProfileAutoInject, // 传递 TSProfile 自动注入设置
+				anhTsProfileVariables, // 传递 TSProfile 变量
 			)
 
 			const finalPrompt = await provider.applySystemPromptExtensions(prompt, {
@@ -2625,8 +2637,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 			const appliedRole = this.rolePromptData?.role?.name ?? "none"
 			const appliedPersona = currentPersonaMode ?? "default"
-			const toneSetting =
-				currentToneStrict === undefined ? "default" : currentToneStrict ? "strict" : "relaxed"
+			const toneSetting = currentToneStrict === undefined ? "default" : currentToneStrict ? "strict" : "relaxed"
 			provider.log(
 				`[ANH-Chat:Task#${this.taskId}] System prompt role context applied: role=${appliedRole}, persona=${appliedPersona}, toneStrict=${toneSetting}`,
 			)
@@ -3131,36 +3142,46 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			}
 
 			const triggerService = provider.anhChatServices.worldBookTriggerService
-			
+
 			// Convert ClineMessage to ChatMessage format for the trigger service
-			const chatHistory = conversationHistory.map(msg => ({
-				role: (msg.type === "say" && msg.say === "user_feedback" ? "user" : "assistant") as "user" | "assistant",
-				content: msg.text || "",
-				timestamp: msg.ts
-			})).filter(msg => msg.content) // Filter out empty messages
+			const chatHistory = conversationHistory
+				.map((msg) => ({
+					role: (msg.type === "say" && msg.say === "user_feedback" ? "user" : "assistant") as
+						| "user"
+						| "assistant",
+					content: msg.text || "",
+					timestamp: msg.ts,
+				}))
+				.filter((msg) => msg.content) // Filter out empty messages
 
 			const currentMessage: ChatMessage = {
 				role: "user",
 				content: userMessage,
-				timestamp: Date.now()
+				timestamp: Date.now(),
 			}
 
 			// Process the message through the trigger service
 			const result = await triggerService.processMessage(currentMessage, chatHistory)
-			
+
 			if (result && result.injectedCount > 0) {
-				provider.log(`[ANH-Chat:Task#${this.taskId}] World book triggers processed: ${result.injectedCount} entries injected, duration: ${result.duration}ms`)
-				
+				provider.log(
+					`[ANH-Chat:Task#${this.taskId}] World book triggers processed: ${result.injectedCount} entries injected, duration: ${result.duration}ms`,
+				)
+
 				// If triggers were found, we could optionally add a system message to indicate this
 				// For now, we'll just log it for debugging purposes
 				if (result.triggeredContent) {
-					provider.log(`[ANH-Chat:Task#${this.taskId}] Triggered content preview: ${result.triggeredContent.substring(0, 100)}...`)
+					provider.log(
+						`[ANH-Chat:Task#${this.taskId}] Triggered content preview: ${result.triggeredContent.substring(0, 100)}...`,
+					)
 				}
 			}
 		} catch (error) {
 			const provider = this.providerRef.deref()
 			if (provider) {
-				provider.log(`[ANH-Chat:Task#${this.taskId}] Error processing world book triggers: ${error instanceof Error ? error.message : String(error)}`)
+				provider.log(
+					`[ANH-Chat:Task#${this.taskId}] Error processing world book triggers: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			console.error(`[ANH-Chat:Task#${this.taskId}] Error processing world book triggers:`, error)
 		}
@@ -3186,16 +3207,20 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			const roleUuid = rolePromptData.role.uuid
 
 			// Convert ClineMessage to ChatMessage format for the memory service
-			const chatHistory = conversationHistory.map(msg => ({
-				role: (msg.type === "say" && msg.say === "user_feedback" ? "user" : "assistant") as "user" | "assistant",
-				content: msg.text || "",
-				timestamp: msg.ts
-			})).filter(msg => msg.content) // Filter out empty messages
+			const chatHistory = conversationHistory
+				.map((msg) => ({
+					role: (msg.type === "say" && msg.say === "user_feedback" ? "user" : "assistant") as
+						| "user"
+						| "assistant",
+					content: msg.text || "",
+					timestamp: msg.ts,
+				}))
+				.filter((msg) => msg.content) // Filter out empty messages
 
 			const currentMessage: ChatMessage = {
 				role: "user",
 				content: userMessage,
-				timestamp: Date.now()
+				timestamp: Date.now(),
 			}
 
 			// Extract emotional state and topic from the current message
@@ -3204,32 +3229,33 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			const contextKeywords = this.extractContextKeywords(userMessage, conversationHistory)
 
 			// Process the message through the memory trigger service
-			const result = await memoryService.processMessageWithMemory(
-				roleUuid,
-				currentMessage,
-				chatHistory,
-				{
-					emotionalState,
-					currentTopic,
-					contextKeywords
-				}
-			)
+			const result = await memoryService.processMessageWithMemory(roleUuid, currentMessage, chatHistory, {
+				emotionalState,
+				currentTopic,
+				contextKeywords,
+			})
 
 			if (result && result.injectedCount > 0) {
-				provider.log(`[ANH-Chat:Task#${this.taskId}] Memory triggers processed: ${result.injectedCount} entries injected, duration: ${result.duration}ms`)
+				provider.log(
+					`[ANH-Chat:Task#${this.taskId}] Memory triggers processed: ${result.injectedCount} entries injected, duration: ${result.duration}ms`,
+				)
 
 				// Store the result for later use in system prompt generation
 				this.lastMemoryTriggerResult = result
 
 				// Optionally log the content for debugging
 				if ((provider.contextProxy.getValue as any)("memoryTriggerDebugMode")) {
-					provider.log(`[ANH-Chat:Task#${this.taskId}] Memory content preview: ${result.fullContent.substring(0, 200)}...`)
+					provider.log(
+						`[ANH-Chat:Task#${this.taskId}] Memory content preview: ${result.fullContent.substring(0, 200)}...`,
+					)
 				}
 			}
 		} catch (error) {
 			const provider = this.providerRef.deref()
 			if (provider) {
-				provider.log(`[ANH-Chat:Task#${this.taskId}] Error processing memory triggers: ${error instanceof Error ? error.message : String(error)}`)
+				provider.log(
+					`[ANH-Chat:Task#${this.taskId}] Error processing memory triggers: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			console.error(`[ANH-Chat:Task#${this.taskId}] Error processing memory triggers:`, error)
 		}
@@ -3240,16 +3266,16 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	 */
 	private extractEmotionalState(message: string): string | undefined {
 		const emotionalWords = {
-			happy: ['开心', '高兴', '快乐', '愉快', '欢乐', '喜悦', 'happy', 'joy', 'glad', 'pleased', 'excited'],
-			sad: ['难过', '伤心', '悲伤', '沮丧', '失落', '忧伤', 'sad', 'unhappy', 'sorrowful', 'depressed', 'gloomy'],
-			angry: ['生气', '愤怒', '恼火', '气愤', '怒火', 'angry', 'mad', 'furious', 'irritated', 'annoyed'],
-			fear: ['害怕', '恐惧', '担心', '忧虑', '焦虑', '不安', 'afraid', 'scared', 'fearful', 'anxious', 'worried'],
-			surprised: ['惊讶', '意外', '震惊', '吃惊', '惊奇', 'surprised', 'amazed', 'shocked', 'astonished']
+			happy: ["开心", "高兴", "快乐", "愉快", "欢乐", "喜悦", "happy", "joy", "glad", "pleased", "excited"],
+			sad: ["难过", "伤心", "悲伤", "沮丧", "失落", "忧伤", "sad", "unhappy", "sorrowful", "depressed", "gloomy"],
+			angry: ["生气", "愤怒", "恼火", "气愤", "怒火", "angry", "mad", "furious", "irritated", "annoyed"],
+			fear: ["害怕", "恐惧", "担心", "忧虑", "焦虑", "不安", "afraid", "scared", "fearful", "anxious", "worried"],
+			surprised: ["惊讶", "意外", "震惊", "吃惊", "惊奇", "surprised", "amazed", "shocked", "astonished"],
 		}
 
 		const lowerMessage = message.toLowerCase()
 		for (const [emotion, keywords] of Object.entries(emotionalWords)) {
-			if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+			if (keywords.some((keyword) => lowerMessage.includes(keyword))) {
 				return emotion
 			}
 		}
@@ -3262,17 +3288,15 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	 */
 	private extractCurrentTopic(currentMessage: string, conversationHistory: ClineMessage[]): string | undefined {
 		// Simple topic extraction - can be enhanced with NLP
-		const recentMessages = [
-			...conversationHistory.slice(-3).map(msg => msg.text || ''),
-			currentMessage
-		].join(' ')
+		const recentMessages = [...conversationHistory.slice(-3).map((msg) => msg.text || ""), currentMessage].join(" ")
 
 		// Look for repeated keywords or patterns
 		const words = recentMessages.toLowerCase().split(/\s+/)
 		const wordFreq = new Map<string, number>()
 
 		words.forEach((word: string) => {
-			if (word.length > 2) { // Skip very short words
+			if (word.length > 2) {
+				// Skip very short words
 				wordFreq.set(word, (wordFreq.get(word) || 0) + 1)
 			}
 		})
@@ -3280,7 +3304,49 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		// Return the most frequent meaningful word as topic
 		const sortedWords = Array.from(wordFreq.entries())
 			.sort((a, b) => b[1] - a[1])
-			.filter(([word]) => !['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use'].includes(word))
+			.filter(
+				([word]) =>
+					![
+						"the",
+						"and",
+						"for",
+						"are",
+						"but",
+						"not",
+						"you",
+						"all",
+						"can",
+						"had",
+						"her",
+						"was",
+						"one",
+						"our",
+						"out",
+						"day",
+						"get",
+						"has",
+						"him",
+						"his",
+						"how",
+						"man",
+						"new",
+						"now",
+						"old",
+						"see",
+						"two",
+						"way",
+						"who",
+						"boy",
+						"did",
+						"its",
+						"let",
+						"put",
+						"say",
+						"she",
+						"too",
+						"use",
+					].includes(word),
+			)
 
 		return sortedWords.length > 0 ? sortedWords[0][0] : undefined
 	}
@@ -3289,23 +3355,46 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	 * Extract context keywords from conversation
 	 */
 	private extractContextKeywords(currentMessage: string, conversationHistory: ClineMessage[]): string[] {
-		const allText = [
-			...conversationHistory.slice(-2).map(msg => msg.text || ''),
-			currentMessage
-		].join(' ')
+		const allText = [...conversationHistory.slice(-2).map((msg) => msg.text || ""), currentMessage].join(" ")
 
 		// Extract keywords (simple implementation)
 		const words = allText
 			.toLowerCase()
-			.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, ' ')
+			.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, " ")
 			.split(/\s+/)
-			.filter(word => word.length > 1)
+			.filter((word) => word.length > 1)
 
-		const stopWords = ['的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一', '一个', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']
+		const stopWords = [
+			"的",
+			"了",
+			"在",
+			"是",
+			"我",
+			"有",
+			"和",
+			"就",
+			"不",
+			"人",
+			"都",
+			"一",
+			"一个",
+			"the",
+			"a",
+			"an",
+			"and",
+			"or",
+			"but",
+			"in",
+			"on",
+			"at",
+			"to",
+			"for",
+			"of",
+			"with",
+			"by",
+		]
 
-		return words
-			.filter(word => !stopWords.includes(word))
-			.slice(0, 20) // Limit to top 20 keywords
+		return words.filter((word) => !stopWords.includes(word)).slice(0, 20) // Limit to top 20 keywords
 	}
 
 	/**

@@ -158,6 +158,10 @@ export interface ExtensionMessage {
 		| "tsProfilesLoaded"
 		| "tsProfileValidated"
 		| "tsProfileSelected"
+		| "tsProfileContentLoaded"
+		| "tsProfileMixinLoaded"
+		| "tsProfileMixinSaved"
+		| "tsProfileSourceSaved"
 		| "STWordBookBrowseResponse"
 		| "STWordBookValidateResponse"
 		| "memoryManagementResponse"
@@ -254,6 +258,14 @@ export interface ExtensionMessage {
 	tsProfilePromptsCount?: number // For tsProfileValidated
 	tsProfileError?: string // For tsProfileValidated
 	tsProfilePath?: string // For tsProfileValidated and tsProfileSelected
+	tsProfileContent?: any // For tsProfileContentLoaded
+	tsProfileMixin?: any // For tsProfileMixinLoaded
+	tsProfileMixinSaved?: boolean // For tsProfileMixinSaved
+	tsProfileSourceSaved?: boolean // For tsProfileSourceSaved
+	profileData?: any // For tsProfileContentLoaded
+	mixinData?: any // For tsProfileContentLoaded and tsProfileMixinLoaded
+	mixinPath?: string // For tsProfileContentLoaded, tsProfileMixinLoaded and tsProfileMixinSaved
+	profilePath?: string // For tsProfileSourceSaved
 	// STWordBook-related properties
 	worldBookFilePath?: string // For STWordBookBrowseResponse
 	worldBookValid?: boolean // For STWordBookValidateResponse

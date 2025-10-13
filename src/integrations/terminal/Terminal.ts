@@ -16,8 +16,9 @@ export class Terminal extends BaseTerminal {
 		super("vscode", id, cwd)
 
 		const env = Terminal.getEnv()
-		const iconPath = new vscode.ThemeIcon("rocket")
-		this.terminal = terminal ?? vscode.window.createTerminal({ cwd, name: "ANH CHAT", iconPath, env })
+		const iconPath = new vscode.ThemeIcon("	comment-discussion")
+		this.terminal =
+			terminal ?? vscode.window.createTerminal({ cwd, name: "ANH CHAT (Novel Helper)", iconPath, env })
 
 		if (Terminal.getTerminalZdotdir()) {
 			ShellIntegrationManager.terminalTmpDirs.set(id, env.ZDOTDIR)
@@ -79,14 +80,16 @@ export class Terminal extends BaseTerminal {
 					process.run(command)
 				})
 				.catch(() => {
-					console.log(`[Terminal ${this.id}] Shell integration not available. Command execution aborted.`)
+					console.log(
+						`[ANH Chat Terminal ${this.id}] Shell integration not available. Using fallback execution.`,
+					)
 
 					// Clean up temporary directory if shell integration is not available
 					ShellIntegrationManager.zshCleanupTmpDir(this.id)
 
 					process.emit(
 						"no_shell_integration",
-						`Shell integration initialization sequence '\\x1b]633;A' was not received within ${Terminal.getShellIntegrationTimeout() / 1000}s. Shell integration has been disabled for this terminal instance. Increase the timeout in the settings if necessary.`,
+						`ANH Chat: Shell integration initialization sequence was not received within ${Terminal.getShellIntegrationTimeout() / 1000}s. This may be due to conflicts with other terminal integrations. Using fallback execution mode.`,
 					)
 				})
 		})

@@ -4,7 +4,7 @@ import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 import { useCopyToClipboard } from "@src/utils/clipboard"
 import { StandardTooltip } from "@src/components/ui"
 
-import MarkdownBlock from "../common/MarkdownBlock"
+import EnhancedMarkdownBlock from "../common/EnhancedMarkdownBlock"
 
 export const Markdown = memo(({ markdown, partial }: { markdown?: string; partial?: boolean }) => {
 	const [isHovering, setIsHovering] = useState(false)
@@ -22,7 +22,7 @@ export const Markdown = memo(({ markdown, partial }: { markdown?: string; partia
 			onMouseLeave={() => setIsHovering(false)}
 			style={{ position: "relative" }}>
 			<div style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
-				<MarkdownBlock markdown={markdown} />
+				<EnhancedMarkdownBlock markdown={markdown} />
 			</div>
 			{markdown && !partial && isHovering && (
 				<div

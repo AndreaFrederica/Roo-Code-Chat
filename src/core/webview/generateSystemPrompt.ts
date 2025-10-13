@@ -81,12 +81,12 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	if (provider.anhChatServices?.worldBookService) {
 		try {
 			worldBookContent = await provider.anhChatServices.worldBookService.getActiveWorldBooksMarkdown()
-			debugLog('generateSystemPrompt - WorldBook content loaded:', {
+			debugLog("generateSystemPrompt - WorldBook content loaded:", {
 				contentLength: worldBookContent.length,
-				hasContent: worldBookContent.length > 0
+				hasContent: worldBookContent.length > 0,
 			})
 		} catch (error) {
-			debugError('generateSystemPrompt - Error loading WorldBook content:', error)
+			debugError("generateSystemPrompt - Error loading WorldBook content:", error)
 		}
 	}
 
@@ -97,32 +97,32 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 			// For now, we'll get the constant content. In a real implementation,
 			// this would be called with actual message content and conversation history
 			triggeredWorldBookContent = await provider.anhChatServices.worldBookTriggerService.getConstantContent()
-			debugLog('generateSystemPrompt - Triggered WorldBook content loaded:', {
+			debugLog("generateSystemPrompt - Triggered WorldBook content loaded:", {
 				contentLength: triggeredWorldBookContent.length,
-				hasContent: triggeredWorldBookContent.length > 0
+				hasContent: triggeredWorldBookContent.length > 0,
 			})
 		} catch (error) {
-			debugError('generateSystemPrompt - Error loading triggered WorldBook content:', error)
+			debugError("generateSystemPrompt - Error loading triggered WorldBook content:", error)
 		}
 	}
 
 	// Combine both WorldBook contents
 	if (triggeredWorldBookContent) {
 		if (worldBookContent) {
-			worldBookContent += '\n\n---\n\n' + triggeredWorldBookContent
+			worldBookContent += "\n\n---\n\n" + triggeredWorldBookContent
 		} else {
 			worldBookContent = triggeredWorldBookContent
 		}
 	}
 
 	// Debug: Check if TSProfile data is present
-	debugLog('generateSystemPrompt - rolePromptData:', {
+	debugLog("generateSystemPrompt - rolePromptData:", {
 		roleName: rolePromptData?.role?.name,
 		hasSystemPrompt: !!rolePromptData?.role?.system_prompt,
 		hasExtensions: !!rolePromptData?.role?.extensions,
 		extensionsKeys: rolePromptData?.role?.extensions ? Object.keys(rolePromptData.role.extensions) : [],
 		enabledTSProfiles: (await provider.getState()).enabledTSProfiles,
-		worldBookContentLength: worldBookContent.length
+		worldBookContentLength: worldBookContent.length,
 	})
 
 	// Get current task's todo list and model ID
@@ -131,8 +131,8 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	const modelId = currentTask?.api?.getModel().id
 
 	// Get user avatar role if enabled - align with Task.getSystemPrompt() implementation
-	debugLog('generateSystemPrompt - enableUserAvatar:', enableUserAvatar, 'userAvatarRole:', userAvatarRole)
-	
+	debugLog("generateSystemPrompt - enableUserAvatar:", enableUserAvatar, "userAvatarRole:", userAvatarRole)
+
 	const resolvedUserAvatarVisibility =
 		userAvatarVisibility === "full" ||
 		userAvatarVisibility === "summary" ||
@@ -147,14 +147,15 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		maxConcurrentFileReads: maxConcurrentFileReads ?? 5,
 		todoListEnabled: apiConfiguration?.todoListEnabled ?? true,
 		useAgentRules: vscode.workspace.getConfiguration("anh-cline").get<boolean>("useAgentRules") ?? true,
-		newTaskRequireTodos: vscode.workspace
-			.getConfiguration("anh-cline")
-			.get<boolean>("newTaskRequireTodos", false),
+		newTaskRequireTodos: vscode.workspace.getConfiguration("anh-cline").get<boolean>("newTaskRequireTodos", false),
 	}
 	const providerStateSnapshot = providerState as unknown as Record<string, unknown>
 
 	const extensionTools = provider.getAnhExtensionToolsForMode(mode ?? defaultModeSlug)
 	const extensionToolDescriptions = extensionTools.map((tool) => tool.prompt)
+
+	// Get TSProfile settings from provider state
+	const { enabledTSProfiles = [], anhTsProfileAutoInject = true, anhTsProfileVariables = {} } = providerState
 
 	const systemPrompt = await SYSTEM_PROMPT(
 		provider.context,
@@ -186,6 +187,10 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		resolvedUserAvatarVisibility,
 		extensionToolDescriptions,
 		worldBookContent, // 传递世界书内容
+		// Pass TSProfile parameters
+		enabledTSProfiles,
+		anhTsProfileAutoInject,
+		anhTsProfileVariables,
 	)
 
 	const finalPrompt = await provider.applySystemPromptExtensions(systemPrompt, {

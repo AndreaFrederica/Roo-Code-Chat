@@ -51,6 +51,9 @@ import {
 	LiquidTemplateProcessor,
 	ChatMessage,
 } from "@roo-code/types"
+
+// STProfile processing is now handled in system.ts
+// No need to import STProfileProcessor here anymore
 import { loadTsProfiles, validateTsProfile } from "../../services/anh-chat/tsProfileService"
 import { TelemetryService } from "@roo-code/telemetry"
 import { CloudService, BridgeOrchestrator, getRooCodeApiUrl } from "@roo-code/cloud"
@@ -962,10 +965,12 @@ export class ClineProvider
 			try {
 				// Check if anhChatServices is available before trying to use it
 				if (!this.anhChatServices) {
-					this.log(`[AnhChat] Cannot load saved role '${historyItem.anhRoleName}' (${historyItem.anhRoleUuid}): AnhChatServices not available. Continuing with current role.`)
+					this.log(
+						`[AnhChat] Cannot load saved role '${historyItem.anhRoleName}' (${historyItem.anhRoleUuid}): AnhChatServices not available. Continuing with current role.`,
+					)
 					return
 				}
-				
+
 				// Try to load the saved role
 				const savedRole = await this.anhChatServices.roleRegistry.loadRole(historyItem.anhRoleUuid)
 
@@ -975,11 +980,15 @@ export class ClineProvider
 					this.log(`[AnhChat] Auto-switched to saved role: ${savedRole.name} (${historyItem.anhRoleUuid})`)
 				} else {
 					// Role not found or name mismatch, log but continue
-					this.log(`[AnhChat] Saved role '${historyItem.anhRoleName}' (${historyItem.anhRoleUuid}) not found or name mismatch. Continuing with current role.`)
+					this.log(
+						`[AnhChat] Saved role '${historyItem.anhRoleName}' (${historyItem.anhRoleUuid}) not found or name mismatch. Continuing with current role.`,
+					)
 				}
 			} catch (error) {
 				// Error loading role, log but continue
-				this.log(`[AnhChat] Error loading saved role '${historyItem.anhRoleName}' (${historyItem.anhRoleUuid}): ${error instanceof Error ? error.message : String(error)}. Continuing with current role.`)
+				this.log(
+					`[AnhChat] Error loading saved role '${historyItem.anhRoleName}' (${historyItem.anhRoleUuid}): ${error instanceof Error ? error.message : String(error)}. Continuing with current role.`,
+				)
 			}
 		}
 
@@ -993,6 +1002,7 @@ export class ClineProvider
 			taskSyncEnabled,
 			anhPersonaMode,
 			anhToneStrict,
+			anhUseAskTool,
 		} = await this.getState()
 
 		const rolePromptData = await this.getRolePromptData()
@@ -1008,6 +1018,7 @@ export class ClineProvider
 			rolePromptData,
 			anhPersonaMode,
 			anhToneStrict,
+			anhUseAskTool,
 			experiments,
 			rootTask: historyItem.rootTask,
 			parentTask: historyItem.parentTask,
@@ -1821,9 +1832,7 @@ export class ClineProvider
 	}
 
 	private getAnhExtensionSettingsFromState(): Record<string, Record<string, unknown>> {
-		return (
-			(this.getValue("anhExtensionSettings") as Record<string, Record<string, unknown>> | undefined) ?? {}
-		)
+		return (this.getValue("anhExtensionSettings") as Record<string, Record<string, unknown>> | undefined) ?? {}
 	}
 
 	private async ensureAnhExtensionsInitialized(): Promise<void> {
@@ -1840,8 +1849,7 @@ export class ClineProvider
 			return
 		}
 
-		const enabled =
-			(this.getValue("anhExtensionsEnabled") as Record<string, boolean> | undefined) ?? {}
+		const enabled = (this.getValue("anhExtensionsEnabled") as Record<string, boolean> | undefined) ?? {}
 		const settings =
 			(this.getValue("anhExtensionSettings") as Record<string, Record<string, unknown>> | undefined) ?? {}
 
@@ -1898,10 +1906,7 @@ export class ClineProvider
 		return manager.invokeExtensionTool(fullToolName, payload)
 	}
 
-	public async applySystemPromptExtensions(
-		basePrompt: string,
-		context: SystemPromptHookOptions,
-	): Promise<string> {
+	public async applySystemPromptExtensions(basePrompt: string, context: SystemPromptHookOptions): Promise<string> {
 		let enhancedPrompt = basePrompt
 
 		// Apply memory triggers if available and enabled
@@ -1921,17 +1926,21 @@ export class ClineProvider
 				const conversationHistory = task?.clineMessages || []
 
 				// Convert to ChatMessage format
-				const chatHistory = conversationHistory.map(msg => ({
-					role: (msg.type === "say" && msg.say === "user_feedback" ? "user" : "assistant") as "user" | "assistant",
-					content: msg.text || "",
-					timestamp: msg.ts
-				})).filter(msg => msg.content)
+				const chatHistory = conversationHistory
+					.map((msg) => ({
+						role: (msg.type === "say" && msg.say === "user_feedback" ? "user" : "assistant") as
+							| "user"
+							| "assistant",
+						content: msg.text || "",
+						timestamp: msg.ts,
+					}))
+					.filter((msg) => msg.content)
 
 				// Create a mock current message for context (this is for system prompt generation)
 				const currentMessage: ChatMessage = {
 					role: "user",
 					content: "", // Empty since we're generating system prompt
-					timestamp: Date.now()
+					timestamp: Date.now(),
 				}
 
 				// Process memory triggers
@@ -1941,13 +1950,15 @@ export class ClineProvider
 					chatHistory,
 					{
 						currentTopic: context.currentTopic,
-						contextKeywords: context.contextKeywords || []
-					}
+						contextKeywords: context.contextKeywords || [],
+					},
 				)
 
 				// Append memory content to system prompt if available
 				if (memoryResult?.fullContent && memoryResult.injectedCount > 0) {
-					this.outputChannel.appendLine(`[RoleMemory] Injected ${memoryResult.injectedCount} memories into system prompt`)
+					this.outputChannel.appendLine(
+						`[RoleMemory] Injected ${memoryResult.injectedCount} memories into system prompt`,
+					)
 					enhancedPrompt = `${enhancedPrompt}\n\n${memoryResult.fullContent}`
 				}
 			} catch (error) {
@@ -2069,20 +2080,21 @@ export class ClineProvider
 			featureRoomoteControlEnabled,
 			anhPersonaMode,
 			anhToneStrict,
-		anhShowRoleCardOnSwitch,
-		displayMode,
-		userAvatarRole,
-		enableUserAvatar,
-		userAvatarHideFullData,
-	userAvatarVisibility,
-	hideRoleDescription,
-	enabledWorldsets,
-	anhExtensionsEnabled,
-	anhExtensionSettings,
-	enabledTSProfiles,
-	anhTsProfileAutoInject,
-	anhTsProfileVariables,
-} = await this.getState()
+			anhUseAskTool,
+			anhShowRoleCardOnSwitch,
+			displayMode,
+			userAvatarRole,
+			enableUserAvatar,
+			userAvatarHideFullData,
+			userAvatarVisibility,
+			hideRoleDescription,
+			enabledWorldsets,
+			anhExtensionsEnabled,
+			anhExtensionSettings,
+			enabledTSProfiles,
+			anhTsProfileAutoInject,
+			anhTsProfileVariables,
+		} = await this.getState()
 
 		const resolvedUserAvatarVisibility =
 			userAvatarVisibility === "full" ||
@@ -2266,13 +2278,14 @@ export class ClineProvider
 			enabledTSProfiles: enabledTSProfiles ?? [],
 			anhTsProfileAutoInject: anhTsProfileAutoInject ?? true,
 			anhTsProfileVariables: anhTsProfileVariables ?? {},
-			sillyTavernWorldBookState: this.anhChatServices?.worldBookService ?
-				this.anhChatServices.worldBookService.getState() : {
-				loadedWorldBooks: [],
-				activeWorldBooks: [],
-				configs: {},
-				lastUpdated: 0
-			},
+			sillyTavernWorldBookState: this.anhChatServices?.worldBookService
+				? this.anhChatServices.worldBookService.getState()
+				: {
+						loadedWorldBooks: [],
+						activeWorldBooks: [],
+						configs: {},
+						lastUpdated: 0,
+					},
 		}
 	}
 
@@ -2506,6 +2519,7 @@ export class ClineProvider
 			})(),
 			anhPersonaMode: stateValues.anhPersonaMode,
 			anhToneStrict: stateValues.anhToneStrict,
+			anhUseAskTool: stateValues.anhUseAskTool,
 			anhShowRoleCardOnSwitch: stateValues.anhShowRoleCardOnSwitch,
 			displayMode: stateValues.displayMode,
 			userAvatarRole: stateValues.userAvatarRole,
@@ -2530,13 +2544,14 @@ export class ClineProvider
 			enabledTSProfiles: stateValues.enabledTSProfiles ?? [],
 			anhTsProfileAutoInject: stateValues.anhTsProfileAutoInject ?? true,
 			anhTsProfileVariables: stateValues.anhTsProfileVariables ?? {},
-			sillyTavernWorldBookState: this.anhChatServices?.worldBookService ?
-				this.anhChatServices.worldBookService.getState() : {
-				loadedWorldBooks: [],
-				activeWorldBooks: [],
-				configs: {},
-				lastUpdated: 0
-			},
+			sillyTavernWorldBookState: this.anhChatServices?.worldBookService
+				? this.anhChatServices.worldBookService.getState()
+				: {
+						loadedWorldBooks: [],
+						activeWorldBooks: [],
+						configs: {},
+						lastUpdated: 0,
+					},
 		}
 	}
 
@@ -2949,8 +2964,8 @@ export class ClineProvider
 				storyline = (role as any)?.timeline
 			}
 
-			// Apply TSProfile preprocessing if enabled
-			const processedRole = await this.applyTsProfilePreprocessing(role)
+			// TSProfile preprocessing is now handled in system.ts at the beginning of SYSTEM_PROMPT generation
+			const processedRole = role
 
 			const promptData: RolePromptData = {
 				role: { ...processedRole, uuid: processedRole.uuid ?? roleUuid },
@@ -2974,160 +2989,16 @@ export class ClineProvider
 	}
 
 	/**
-	 * Apply TSProfile preprocessing to a role if TSProfile is enabled and configured
+	 * TSProfile preprocessing is now handled in system.ts at the beginning of SYSTEM_PROMPT generation
+	 * This method is kept for backward compatibility but no longer used
+	 * @deprecated Use applyTsProfilePreprocessing in system.ts instead
 	 */
 	private async applyTsProfilePreprocessing(role: Role): Promise<Role> {
-		try {
-			const state = await this.getState()
-			const {
-				enabledTSProfiles = [],
-				anhTsProfileAutoInject = true,
-				anhTsProfileVariables = {},
-			} = state
-
-			// Debug: Log TSProfile state
-			debugLog('applyTsProfilePreprocessing - Start:', {
-				roleName: role.name,
-				enabledTSProfiles,
-				anhTsProfileAutoInject,
-				variablesCount: Object.keys(anhTsProfileVariables).length
-			})
-
-			// If no TSProfiles are enabled, return original role
-			if (enabledTSProfiles.length === 0) {
-				debugLog('applyTsProfilePreprocessing - No TSProfiles enabled, returning original role')
-				return role
-			}
-
-			this.outputChannel.appendLine(`[AnhChat] Applying TSProfile preprocessing for ${enabledTSProfiles.length} profiles`)
-
-			// Load all available profiles
-			const allProfiles = await loadTsProfiles()
-			let processedRole = { ...role }
-
-			// If role doesn't have system_prompt, generate basic "You are..." introduction first
-			if (!processedRole.system_prompt && processedRole.name) {
-				const name = processedRole.name || "Assistant"
-				const description = processedRole.description || ""
-				const personality = processedRole.personality || ""
-
-				processedRole.system_prompt = `You are ${name}${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.`
-
-				debugLog('applyTsProfilePreprocessing - Generated basic role definition:', {
-					roleName: processedRole.name,
-					generatedSystemPrompt: processedRole.system_prompt,
-					length: processedRole.system_prompt.length
-				})
-			}
-
-			// Process each enabled profile
-			for (const profileName of enabledTSProfiles) {
-				const profile = allProfiles.find(p => p.name === profileName)
-				if (!profile) {
-					this.outputChannel.appendLine(`[AnhChat] TSProfile not found: ${profileName}`)
-					continue
-				}
-
-				// Validate the profile
-				const validationResult = await validateTsProfile(profile.path)
-				if (!validationResult.success) {
-					this.outputChannel.appendLine(`[AnhChat] TSProfile validation failed for ${profileName}: ${validationResult.error}`)
-					continue
-				}
-
-				// Read and parse the profile file
-				const fs = await import("fs/promises")
-				const profileData = await fs.readFile(profile.path, 'utf-8')
-				const parsed = JSON.parse(profileData)
-
-			// Parse and compile the profile
-				const preset = parseTavernPresetStrict(parsed)
-				const compiled = compilePresetChannels(preset, {
-					onlyEnabled: true,
-					characterId: 100001
-				}, '\n\n')
-
-				// Get user avatar role if available
-				const userAvatarRole = (await this.getState()).userAvatarRole
-
-				// Prepare template variables
-				const templateVariables = {
-					user: userAvatarRole?.name || "用户",
-					char: role.name || "",
-					name: role.name || "",
-					description: role.description || "",
-					personality: role.personality || "",
-					scenario: role.scenario || "",
-					first_mes: role.first_mes || "",
-					mes_example: role.mes_example || "",
-					isodate: new Date().toISOString().split('T')[0],
-					isotime: new Date().toTimeString().split(' ')[0],
-					...anhTsProfileVariables,
-				}
-
-				// Process templates using LiquidJS
-				const liquidProcessor = new LiquidTemplateProcessor({
-					strict: false,
-					keepVariableDefinitions: true,
-					maxRecursionDepth: 10,
-					variables: templateVariables
-				})
-
-				// Use full result objects like in the test file
-				const systemResult = liquidProcessor.processTextSync(compiled.system)
-				const userResult = liquidProcessor.processTextSync(compiled.user)
-				const assistantResult = liquidProcessor.processTextSync(compiled.assistant)
-
-				// Debug: Log injection results
-				debugLog(`TSProfile injection for ${profileName}:`, {
-					anhTsProfileAutoInject,
-					hasSystemResult: !!systemResult,
-					systemLength: systemResult?.processedText?.length || 0,
-					userLength: userResult?.processedText?.length || 0,
-					assistantLength: assistantResult?.processedText?.length || 0,
-					systemUsedVars: systemResult?.usedVariables?.length || 0,
-					systemSetVars: Object.keys(systemResult?.setVariables || {}).length,
-					beforeInjection: {
-						hasSystemPrompt: !!processedRole.system_prompt,
-						hasExtensions: !!processedRole.extensions
-					}
-				})
-
-				// Inject compiled prompts into the role
-				if (anhTsProfileAutoInject && systemResult?.processedText) {
-					processedRole = injectCompiledPresetIntoRole(processedRole, {
-						system: systemResult.processedText,
-						user: userResult.processedText,
-						assistant: assistantResult.processedText,
-						characterId: compiled.characterId,
-						sequence: compiled.sequence
-					}, {
-						keepCompiledInExtensions: false,
-						keepRawInExtensions: false
-					})
-
-					debugLog(`TSProfile injection completed for ${profileName}:`, {
-						hasSystemPrompt: !!processedRole.system_prompt,
-						hasExtensions: !!processedRole.extensions,
-						extensionsKeys: processedRole.extensions ? Object.keys(processedRole.extensions) : []
-					})
-				} else {
-					debugLog(`TSProfile injection skipped for ${profileName}:`, {
-						anhTsProfileAutoInject,
-						hasSystemResult: !!systemResult
-					})
-				}
-
-				this.outputChannel.appendLine(`[AnhChat] TSProfile preprocessing applied for: ${profileName}`)
-				this.outputChannel.appendLine(`[AnhChat] - System prompt length: ${systemResult?.processedText?.length || 0} characters`)
-			}
-
-			this.outputChannel.appendLine(`[AnhChat] All TSProfile preprocessing applied successfully`)
-			return processedRole
-		} catch (error) {
-			this.outputChannel.appendLine(`[AnhChat] TSProfile preprocessing failed: ${error instanceof Error ? error.message : String(error)}`)
-			return role
-		}
+		// This method is deprecated - STProfile preprocessing is now handled in system.ts
+		console.warn(
+			"[ClineProvider] applyTsProfilePreprocessing is deprecated - processing is now handled in system.ts",
+		)
+		return role
 	}
 
 	// When initializing a new task, (not from history but from a tool command
@@ -3184,13 +3055,14 @@ export class ClineProvider
 			remoteControlEnabled,
 			anhPersonaMode,
 			anhToneStrict,
+			anhUseAskTool,
 		} = await this.getState()
 
 		// Ensure we get the latest role data for the new task
 		// Clear cache to force fresh data retrieval
 		this.cachedRoleUuid = undefined
 		this.cachedRolePromptData = undefined
-		
+
 		const rolePromptData = await this.getRolePromptData()
 
 		if (!ProfileValidator.isProfileAllowed(apiConfiguration, organizationAllowList)) {
@@ -3210,6 +3082,7 @@ export class ClineProvider
 			rolePromptData,
 			anhPersonaMode,
 			anhToneStrict,
+			anhUseAskTool,
 			rootTask: this.clineStack.length > 0 ? this.clineStack[0] : undefined,
 			parentTask,
 			taskNumber: this.clineStack.length + 1,
@@ -3480,4 +3353,3 @@ export class ClineProvider
 		}
 	}
 }
-

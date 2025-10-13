@@ -1643,23 +1643,23 @@ export const webviewMessageHandler = async (
 			await updateGlobalState("anhShowRoleCardOnSwitch", message.bool ?? false)
 			// No need to call postStateToWebview here as the UI already updated optimistically
 			break
-	case "hideRoleDescription":
-		await updateGlobalState("hideRoleDescription", message.bool ?? false)
-		// No need to call postStateToWebview here as the UI already updated optimistically
-		break
-	case "updateAnhExtensionSettings":
-		await updateGlobalState(
-			"anhExtensionSettings",
-			(message.values as Record<string, Record<string, unknown>>) ?? {},
-		)
-		await provider.refreshAnhExtensions()
-		await provider.postStateToWebview()
-		break
-	case "toggleAnhExtension":
-		if (typeof message.text === "string") {
-			const current = getGlobalState("anhExtensionsEnabled") ?? {}
-			const updated = { ...current, [message.text]: message.bool ?? false }
-			await updateGlobalState("anhExtensionsEnabled", updated)
+		case "hideRoleDescription":
+			await updateGlobalState("hideRoleDescription", message.bool ?? false)
+			// No need to call postStateToWebview here as the UI already updated optimistically
+			break
+		case "updateAnhExtensionSettings":
+			await updateGlobalState(
+				"anhExtensionSettings",
+				(message.values as Record<string, Record<string, unknown>>) ?? {},
+			)
+			await provider.refreshAnhExtensions()
+			await provider.postStateToWebview()
+			break
+		case "toggleAnhExtension":
+			if (typeof message.text === "string") {
+				const current = getGlobalState("anhExtensionsEnabled") ?? {}
+				const updated = { ...current, [message.text]: message.bool ?? false }
+				await updateGlobalState("anhExtensionsEnabled", updated)
 				await provider.refreshAnhExtensions()
 				await provider.postStateToWebview()
 			}
@@ -2732,7 +2732,7 @@ export const webviewMessageHandler = async (
 				provider.log(`[TSProfile] Loaded ${profiles.length} profiles`)
 				provider.postMessageToWebview({
 					type: "tsProfilesLoaded",
-					tsProfiles: profiles
+					tsProfiles: profiles,
 				})
 			} catch (error) {
 				provider.log(`Error loading TSProfiles: ${error}`)
@@ -2752,14 +2752,14 @@ export const webviewMessageHandler = async (
 					tsProfileName: result.profileName,
 					tsProfilePromptsCount: result.promptsCount,
 					tsProfileError: result.error,
-					tsProfilePath: result.path
+					tsProfilePath: result.path,
 				})
 			} catch (error) {
 				provider.log(`Error validating TSProfile: ${error}`)
 				provider.postMessageToWebview({
 					type: "tsProfileValidated",
 					success: false,
-					error: error instanceof Error ? error.message : String(error)
+					error: error instanceof Error ? error.message : String(error),
 				})
 			}
 			break
@@ -2770,7 +2770,7 @@ export const webviewMessageHandler = async (
 				if (filePath) {
 					provider.postMessageToWebview({
 						type: "tsProfileSelected",
-						tsProfilePath: filePath
+						tsProfilePath: filePath,
 					})
 				}
 			} catch (error) {
@@ -2781,18 +2781,20 @@ export const webviewMessageHandler = async (
 		}
 		case "enableTSProfile": {
 			if (message.tsProfileName) {
-				const currentProfiles = provider.contextProxy.getValue("enabledTSProfiles") as string[] || []
-				const newProfiles = [...currentProfiles, message.tsProfileName].filter((name, index, arr) => arr.indexOf(name) === index)
+				const currentProfiles = (provider.contextProxy.getValue("enabledTSProfiles") as string[]) || []
+				const newProfiles = [...currentProfiles, message.tsProfileName].filter(
+					(name, index, arr) => arr.indexOf(name) === index,
+				)
 				await updateGlobalState("enabledTSProfiles", newProfiles)
 				await provider.postStateToWebview()
 			}
 			break
 		}
 		case "disableTSProfile": {
-			const currentProfiles = provider.contextProxy.getValue("enabledTSProfiles") as string[] || []
+			const currentProfiles = (provider.contextProxy.getValue("enabledTSProfiles") as string[]) || []
 			if (message.tsProfileName) {
 				// 禁用特定的TSProfile
-				const newProfiles = currentProfiles.filter(name => name !== message.tsProfileName)
+				const newProfiles = currentProfiles.filter((name) => name !== message.tsProfileName)
 				await updateGlobalState("enabledTSProfiles", newProfiles)
 			} else {
 				// 禁用所有TSProfiles
@@ -3322,8 +3324,7 @@ export const webviewMessageHandler = async (
 		case "selectAnhRole": {
 			try {
 				const incomingRole = message.role as Role | undefined
-				const resolvedRole =
-					incomingRole ?? (JSON.parse(JSON.stringify(DEFAULT_ASSISTANT_ROLE)) as Role)
+				const resolvedRole = incomingRole ?? (JSON.parse(JSON.stringify(DEFAULT_ASSISTANT_ROLE)) as Role)
 
 				await provider.setCurrentAnhRole(resolvedRole)
 
@@ -3347,7 +3348,7 @@ export const webviewMessageHandler = async (
 					})
 					break
 				}
-				
+
 				const { RoleRegistry } = await import("../../services/anh-chat")
 				const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
 				if (!workspaceRoot) {
@@ -3370,7 +3371,9 @@ export const webviewMessageHandler = async (
 					})
 				}
 			} catch (error) {
-				provider.log(`Error loading User Avatar role: ${error instanceof Error ? error.message : String(error)}`)
+				provider.log(
+					`Error loading User Avatar role: ${error instanceof Error ? error.message : String(error)}`,
+				)
 				await provider.postMessageToWebview({
 					type: "userAvatarRoleLoaded",
 					role: undefined,
@@ -3392,13 +3395,17 @@ export const webviewMessageHandler = async (
 					if (currentTask) {
 						// 使用公共方法更新任务的设置
 						currentTask.updatePersonaMode(personaMode)
-						provider.log(`[ANH-Chat:Task#${currentTask.taskId}] Updated persona mode during conversation: ${personaMode}`)
+						provider.log(
+							`[ANH-Chat:Task#${currentTask.taskId}] Updated persona mode during conversation: ${personaMode}`,
+						)
 					}
 				} else {
 					provider.log(`[ANH-Chat:Webview] Invalid persona mode: ${personaMode}`)
 				}
 			} catch (error) {
-				provider.log(`Error setting ANH persona mode: ${error instanceof Error ? error.message : String(error)}`)
+				provider.log(
+					`Error setting ANH persona mode: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			break
 		}
@@ -3407,13 +3414,15 @@ export const webviewMessageHandler = async (
 				const toneStrict = message.bool ?? true
 				await provider.setAnhToneStrict(toneStrict)
 				provider.log(`ANH tone strict set to: ${toneStrict}`)
-				
+
 				// 立即更新当前任务的设置，使其在聊天中途也能生效
 				const currentTask = provider.getCurrentTask()
 				if (currentTask) {
 					// 使用公共方法更新任务的设置
 					currentTask.updateToneStrict(toneStrict)
-					provider.log(`[ANH-Chat:Task#${currentTask.taskId}] Updated tone strict during conversation: ${toneStrict}`)
+					provider.log(
+						`[ANH-Chat:Task#${currentTask.taskId}] Updated tone strict during conversation: ${toneStrict}`,
+					)
 				}
 			} catch (error) {
 				provider.log(`Error setting ANH tone strict: ${error instanceof Error ? error.message : String(error)}`)
@@ -3426,7 +3435,9 @@ export const webviewMessageHandler = async (
 				await provider.setAnhUseAskTool(useAskTool)
 				provider.log(`ANH use ask tool set to: ${useAskTool}`)
 			} catch (error) {
-				provider.log(`Error setting ANH use ask tool: ${error instanceof Error ? error.message : String(error)}`)
+				provider.log(
+					`Error setting ANH use ask tool: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			break
 		}
@@ -3451,7 +3462,9 @@ export const webviewMessageHandler = async (
 				await provider.postStateToWebview()
 				provider.log(`User avatar enabled set to: ${enableUserAvatar}`)
 			} catch (error) {
-				provider.log(`Error setting user avatar enabled: ${error instanceof Error ? error.message : String(error)}`)
+				provider.log(
+					`Error setting user avatar enabled: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			break
 		}
@@ -3521,11 +3534,7 @@ export const webviewMessageHandler = async (
 				}
 
 				// Treat empty uuid as a cleared selection
-				if (
-					userAvatarRole &&
-					typeof userAvatarRole.uuid === "string" &&
-					userAvatarRole.uuid.trim() === ""
-				) {
+				if (userAvatarRole && typeof userAvatarRole.uuid === "string" && userAvatarRole.uuid.trim() === "") {
 					userAvatarRole = undefined
 				}
 
@@ -3553,19 +3562,19 @@ export const webviewMessageHandler = async (
 				// Generate the system prompt for the current task
 				const systemPrompt = await generateSystemPrompt(provider, {
 					type: "getSystemPrompt",
-					mode: taskMode
+					mode: taskMode,
 				})
 
 				// Create a new document to show the system prompt
 				const document = await vscode.workspace.openTextDocument({
 					content: systemPrompt,
-					language: "markdown"
+					language: "markdown",
 				})
 
 				// Show the document in a new tab
 				await vscode.window.showTextDocument(document, {
 					preview: false,
-					viewColumn: vscode.ViewColumn.Beside
+					viewColumn: vscode.ViewColumn.Beside,
 				})
 
 				// Also show a notification
@@ -3588,13 +3597,18 @@ export const webviewMessageHandler = async (
 				}
 
 				const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
-				
+
 				// Create worldset directory if it doesn't exist
 				await fs.mkdir(worldsetDir, { recursive: true })
-				
+
 				// Create a default worldset if none exists
 				const defaultWorldsetPath = path.join(worldsetDir, "default_worldset.md")
-				if (!(await fs.access(defaultWorldsetPath).then(() => true).catch(() => false))) {
+				if (
+					!(await fs
+						.access(defaultWorldsetPath)
+						.then(() => true)
+						.catch(() => false))
+				) {
 					const defaultContent = `# 默认世界观设定
 
 ## 世界背景
@@ -3612,14 +3626,16 @@ export const webviewMessageHandler = async (
 				}
 
 				provider.log(`Created worldset folder: ${worldsetDir}`)
-				
+
 				// Send success response
 				await provider.postMessageToWebview({
 					type: "worldsetFolderCreated",
-					text: worldsetDir
+					text: worldsetDir,
 				})
 			} catch (error) {
-				provider.log(`Error creating worldset folder: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				provider.log(
+					`Error creating worldset folder: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
+				)
 				vscode.window.showErrorMessage("Failed to create worldset folder")
 			}
 			break
@@ -3630,42 +3646,49 @@ export const webviewMessageHandler = async (
 				const workspacePath = getWorkspacePath()
 				if (!workspacePath) {
 					provider.postMessageToWebview({
-					type: "worldsetList",
-					worldsetList: [],
-				})
+						type: "worldsetList",
+						worldsetList: [],
+					})
 					break
 				}
 
 				const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
-				
+
 				// Check if worldset directory exists
-				if (!(await fs.access(worldsetDir).then(() => true).catch(() => false))) {
+				if (
+					!(await fs
+						.access(worldsetDir)
+						.then(() => true)
+						.catch(() => false))
+				) {
 					await provider.postMessageToWebview({
 						type: "worldsetList",
-						worldsetFiles: []
+						worldsetFiles: [],
 					})
 					break
 				}
 
 				// Read all .md files in worldset directory
 				const files = await fs.readdir(worldsetDir)
-				const mdFiles = files.filter(file => file.endsWith('.md'))
+				const mdFiles = files.filter((file) => file.endsWith(".md"))
 
 				// Convert to WorldsetFile objects with name and path
-				const worldsetFiles = mdFiles.map(fileName => ({
+				const worldsetFiles = mdFiles.map((fileName) => ({
 					name: fileName,
-					path: `worldset/${fileName}`
+					path: `worldset/${fileName}`,
 				}))
 
 				await provider.postMessageToWebview({
 					type: "worldsetList",
-					worldsetFiles: worldsetFiles
+					worldsetFiles: worldsetFiles,
 				})
 			} catch (error) {
-				provider.log(`Error getting worldset list: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				provider.log(
+					`Error getting worldset list: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
+				)
 				await provider.postMessageToWebview({
 					type: "worldsetList",
-					worldsetFiles: []
+					worldsetFiles: [],
 				})
 			}
 			break
@@ -3683,7 +3706,7 @@ export const webviewMessageHandler = async (
 					await provider.postMessageToWebview({
 						type: "worldsetFiles",
 						worldsetName: worldsetName,
-						worldsetFiles: []
+						worldsetFiles: [],
 					})
 					break
 				}
@@ -3693,22 +3716,26 @@ export const webviewMessageHandler = async (
 
 				// For now, we just return the main worldset file
 				// In the future, this could be expanded to support multiple files per worldset
-				const files = [{
-					name: worldsetName,
-					path: worldsetPath
-				}]
+				const files = [
+					{
+						name: worldsetName,
+						path: worldsetPath,
+					},
+				]
 
 				await provider.postMessageToWebview({
 					type: "worldsetFiles",
 					worldsetName: worldsetName,
-					worldsetFiles: files
+					worldsetFiles: files,
 				})
 			} catch (error) {
-				provider.log(`Error getting worldset files: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				provider.log(
+					`Error getting worldset files: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
+				)
 				await provider.postMessageToWebview({
 					type: "worldsetFiles",
 					worldsetName: message.worldsetName || "",
-					worldsetFiles: []
+					worldsetFiles: [],
 				})
 			}
 			break
@@ -3726,7 +3753,7 @@ export const webviewMessageHandler = async (
 					await provider.postMessageToWebview({
 						type: "worldsetContent",
 						worldsetName: worldsetName,
-						worldsetContent: ""
+						worldsetContent: "",
 					})
 					break
 				}
@@ -3740,14 +3767,16 @@ export const webviewMessageHandler = async (
 				await provider.postMessageToWebview({
 					type: "worldsetContent",
 					worldsetName: worldsetName,
-					worldsetContent: content
+					worldsetContent: content,
 				})
 			} catch (error) {
-				provider.log(`Error reading worldset file: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				provider.log(
+					`Error reading worldset file: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
+				)
 				await provider.postMessageToWebview({
 					type: "worldsetContent",
 					worldsetName: message.worldsetName || "",
-					worldsetContent: ""
+					worldsetContent: "",
 				})
 			}
 			break
@@ -3762,12 +3791,12 @@ export const webviewMessageHandler = async (
 
 				// Get current enabled worldsets
 				const currentEnabledWorldsets = getGlobalState("enabledWorldsets") || []
-				
+
 				// Add the worldset if not already enabled
 				if (!currentEnabledWorldsets.includes(worldsetName)) {
 					const updatedWorldsets = [...currentEnabledWorldsets, worldsetName]
 					await updateGlobalState("enabledWorldsets", updatedWorldsets)
-					
+
 					provider.log(`Enabled worldset: ${worldsetName}`)
 				} else {
 					provider.log(`Worldset already enabled: ${worldsetName}`)
@@ -3779,8 +3808,8 @@ export const webviewMessageHandler = async (
 					type: "worldsetStatusUpdate",
 					worldsetStatus: {
 						enabled: enabledWorldsets.length > 0,
-						enabledWorldsets: enabledWorldsets
-					}
+						enabledWorldsets: enabledWorldsets,
+					},
 				})
 			} catch (error) {
 				provider.log(`Error enabling worldset: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
@@ -3797,11 +3826,11 @@ export const webviewMessageHandler = async (
 
 				// Get current enabled worldsets
 				const currentEnabledWorldsets = getGlobalState("enabledWorldsets") || []
-				
+
 				// Remove the worldset if currently enabled
-				const updatedWorldsets = currentEnabledWorldsets.filter(name => name !== worldsetName)
+				const updatedWorldsets = currentEnabledWorldsets.filter((name) => name !== worldsetName)
 				await updateGlobalState("enabledWorldsets", updatedWorldsets)
-				
+
 				provider.log(`Disabled worldset: ${worldsetName}`)
 
 				// Send status update
@@ -3809,8 +3838,8 @@ export const webviewMessageHandler = async (
 					type: "worldsetStatusUpdate",
 					worldsetStatus: {
 						enabled: updatedWorldsets.length > 0,
-						enabledWorldsets: updatedWorldsets
-					}
+						enabledWorldsets: updatedWorldsets,
+					},
 				})
 			} catch (error) {
 				provider.log(`Error disabling worldset: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
@@ -3821,22 +3850,24 @@ export const webviewMessageHandler = async (
 		case "getWorldsetStatus": {
 			try {
 				const enabledWorldsets = getGlobalState("enabledWorldsets") || []
-				
+
 				await provider.postMessageToWebview({
 					type: "worldsetStatusUpdate",
 					worldsetStatus: {
 						enabled: enabledWorldsets.length > 0,
-						enabledWorldsets: enabledWorldsets
-					}
+						enabledWorldsets: enabledWorldsets,
+					},
 				})
 			} catch (error) {
-				provider.log(`Error getting worldset status: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				provider.log(
+					`Error getting worldset status: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
+				)
 				await provider.postMessageToWebview({
 					type: "worldsetStatusUpdate",
 					worldsetStatus: {
 						enabled: false,
-						enabledWorldsets: []
-					}
+						enabledWorldsets: [],
+					},
 				})
 			}
 			break
@@ -3851,17 +3882,19 @@ export const webviewMessageHandler = async (
 				}
 
 				const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
-				
+
 				// Create worldset directory if it doesn't exist
 				await fs.mkdir(worldsetDir, { recursive: true })
-				
+
 				// Use VS Code's built-in command to reveal the folder in the system's file explorer
 				const worldsetUri = vscode.Uri.file(worldsetDir)
 				await vscode.commands.executeCommand("revealFileInOS", worldsetUri)
-				
+
 				provider.log(`Opened worldset folder: ${worldsetDir}`)
 			} catch (error) {
-				provider.log(`Error opening worldset folder: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+				provider.log(
+					`Error opening worldset folder: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
+				)
 				vscode.window.showErrorMessage("Failed to open worldset folder")
 			}
 			break
@@ -3881,9 +3914,9 @@ export const webviewMessageHandler = async (
 				const success = await provider.anhChatServices?.worldBookService.toggleWorldBook(filePath, enabled)
 				if (success) {
 					await provider.postStateToWebview()
-					provider.log(`WorldBook ${enabled ? 'enabled' : 'disabled'}: ${filePath}`)
+					provider.log(`WorldBook ${enabled ? "enabled" : "disabled"}: ${filePath}`)
 				} else {
-					vscode.window.showErrorMessage(`Failed to ${enabled ? 'enable' : 'disable'} worldbook`)
+					vscode.window.showErrorMessage(`Failed to ${enabled ? "enable" : "disable"} worldbook`)
 				}
 			} catch (error) {
 				provider.log(`Error toggling worldbook: ${error instanceof Error ? error.message : String(error)}`)
@@ -3991,17 +4024,17 @@ export const webviewMessageHandler = async (
 			try {
 				const options: vscode.OpenDialogOptions = {
 					canSelectMany: false,
-					openLabel: 'Select WorldBook File',
+					openLabel: "Select WorldBook File",
 					filters: {
-						'JSON Files': ['json']
-					}
+						"JSON Files": ["json"],
+					},
 				}
 
 				const fileUri = await vscode.window.showOpenDialog(options)
 				if (fileUri && fileUri[0]) {
 					await provider.postMessageToWebview({
 						type: "STWordBookBrowseResponse",
-						worldBookFilePath: fileUri[0].fsPath
+						worldBookFilePath: fileUri[0].fsPath,
 					})
 				}
 			} catch (error) {
@@ -4019,7 +4052,7 @@ export const webviewMessageHandler = async (
 					await provider.postMessageToWebview({
 						type: "STWordBookValidateResponse",
 						worldBookValid: false,
-						worldBookValidationError: "Invalid file path"
+						worldBookValidationError: "Invalid file path",
 					})
 					break
 				}
@@ -4029,14 +4062,14 @@ export const webviewMessageHandler = async (
 					type: "STWordBookValidateResponse",
 					worldBookValid: validation?.valid,
 					worldBookInfo: validation?.info,
-					worldBookValidationError: validation?.error
+					worldBookValidationError: validation?.error,
 				})
 			} catch (error) {
 				provider.log(`Error validating worldbook: ${error instanceof Error ? error.message : String(error)}`)
 				await provider.postMessageToWebview({
 					type: "STWordBookValidateResponse",
 					worldBookValid: false,
-					worldBookValidationError: error instanceof Error ? error.message : String(error)
+					worldBookValidationError: error instanceof Error ? error.message : String(error),
 				})
 			}
 			break
@@ -4051,8 +4084,8 @@ export const webviewMessageHandler = async (
 						payload: {
 							type: "memoryError",
 							error: "角色记忆服务未初始化",
-							operation: message.data?.type || "unknown"
-						}
+							operation: message.data?.type || "unknown",
+						},
 					})
 					break
 				}
@@ -4066,18 +4099,155 @@ export const webviewMessageHandler = async (
 
 				await provider.postMessageToWebview({
 					type: "memoryManagementResponse",
-					payload: response
+					payload: response,
 				})
 			} catch (error) {
-				provider.log(`Error handling memory management: ${error instanceof Error ? error.message : String(error)}`)
+				provider.log(
+					`Error handling memory management: ${error instanceof Error ? error.message : String(error)}`,
+				)
 				await provider.postMessageToWebview({
 					type: "memoryManagementResponse",
 					payload: {
 						type: "memoryError",
 						error: error instanceof Error ? error.message : "Unknown error occurred",
-						operation: message.data?.type || "unknown"
-					}
+						operation: message.data?.type || "unknown",
+					},
 				})
+			}
+			break
+		}
+
+		case "loadTsProfileContent": {
+			try {
+				if (!message.tsProfilePath) {
+					throw new Error("Profile path is required for loading profile content")
+				}
+
+				// Read the profile file content
+				const profileContent = await fs.readFile(message.tsProfilePath, "utf-8")
+				const profileData = JSON.parse(profileContent)
+
+				// Generate mixin file path (same directory with .mixin.json extension)
+				const profileDir = path.dirname(message.tsProfilePath)
+				const profileName = path.basename(message.tsProfilePath, ".json")
+				const mixinPath = path.join(profileDir, `${profileName}.mixin.json`)
+
+				// Check if mixin file exists and load it
+				let mixinData = null
+				try {
+					if (await fileExistsAtPath(mixinPath)) {
+						const mixinContent = await fs.readFile(mixinPath, "utf-8")
+						mixinData = JSON.parse(mixinContent)
+					}
+				} catch (error) {
+					provider.log(`Error loading mixin file: ${error}`)
+					// Continue without mixin data
+				}
+
+				provider.postMessageToWebview({
+					type: "tsProfileContentLoaded",
+					profileData: profileData,
+					mixinData: mixinData,
+					profilePath: message.tsProfilePath,
+					mixinPath: mixinPath,
+				})
+			} catch (error) {
+				provider.log(`Error loading TSProfile content: ${error}`)
+				await provider.postMessageToWebview({
+					type: "tsProfileContentLoaded",
+					error: error instanceof Error ? error.message : String(error),
+				})
+			}
+			break
+		}
+
+		case "loadTsProfileMixin": {
+			try {
+				if (!message.mixinPath) {
+					throw new Error("Mixin path is required for loading mixin")
+				}
+
+				let mixinData = null
+				if (await fileExistsAtPath(message.mixinPath)) {
+					const mixinContent = await fs.readFile(message.mixinPath, "utf-8")
+					mixinData = JSON.parse(mixinContent)
+				}
+
+				provider.postMessageToWebview({
+					type: "tsProfileMixinLoaded",
+					mixinData: mixinData,
+					mixinPath: message.mixinPath,
+				})
+			} catch (error) {
+				provider.log(`Error loading TSProfile mixin: ${error}`)
+				await provider.postMessageToWebview({
+					type: "tsProfileMixinLoaded",
+					error: error instanceof Error ? error.message : String(error),
+				})
+			}
+			break
+		}
+
+		case "saveTsProfileMixin": {
+			try {
+				if (!message.mixinPath || !message.mixinData) {
+					throw new Error("Mixin path and data are required for saving mixin")
+				}
+
+				// Ensure directory exists
+				const mixinDir = path.dirname(message.mixinPath)
+				await fs.mkdir(mixinDir, { recursive: true })
+
+				// Save mixin data using safeWriteJson
+				await safeWriteJson(message.mixinPath, message.mixinData)
+
+				provider.postMessageToWebview({
+					type: "tsProfileMixinSaved",
+					success: true,
+					mixinPath: message.mixinPath,
+				})
+
+				vscode.window.showInformationMessage("Profile mixin saved successfully")
+			} catch (error) {
+				provider.log(`Error saving TSProfile mixin: ${error}`)
+				await provider.postMessageToWebview({
+					type: "tsProfileMixinSaved",
+					success: false,
+					error: error instanceof Error ? error.message : String(error),
+				})
+				vscode.window.showErrorMessage(
+					`Failed to save profile mixin: ${error instanceof Error ? error.message : String(error)}`,
+				)
+			}
+			break
+		}
+
+		case "saveTsProfileSource": {
+			try {
+				if (!message.tsProfilePath || !message.profileData) {
+					throw new Error("Profile path and data are required for saving profile")
+				}
+
+				// Save profile data using safeWriteJson
+				await safeWriteJson(message.tsProfilePath, message.profileData)
+
+				provider.postMessageToWebview({
+					type: "tsProfileSourceSaved",
+					success: true,
+					profilePath: message.tsProfilePath,
+				})
+
+				vscode.window.showInformationMessage("Profile source saved successfully")
+			} catch (error) {
+				provider.log(`Error saving TSProfile source: ${error}`)
+				await provider.postMessageToWebview({
+					type: "tsProfileSourceSaved",
+					success: false,
+					error: error instanceof Error ? error.message : String(error),
+				})
+				vscode.window.showErrorMessage(
+					`Failed to save profile source: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			break
 		}

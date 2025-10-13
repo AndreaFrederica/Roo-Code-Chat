@@ -25,10 +25,12 @@ export class TerminalRegistry {
 
 	public static initialize() {
 		if (this.isInitialized) {
-			throw new Error("TerminalRegistry.initialize() should only be called once")
+			console.warn("[TerminalRegistry] Already initialized, skipping")
+			return
 		}
 
 		this.isInitialized = true
+		console.log("[TerminalRegistry] Initializing ANH Chat terminal registry")
 
 		// TODO: This initialization code is VSCode specific, and therefore
 		// should probably live elsewhere.
@@ -52,17 +54,23 @@ export class TerminalRegistry {
 					const stream = e.execution.read()
 					const terminal = this.getTerminalByVSCETerminal(e.terminal)
 
-					console.info("[onDidStartTerminalShellExecution]", {
+					// Only process events for terminals created by ANH Chat
+					if (!e.terminal.name.includes("ANH CHAT (Novel Helper)")) {
+						return
+					}
+
+					console.info("[ANH Chat onDidStartTerminalShellExecution]", {
 						command: e.execution?.commandLine?.value,
 						terminalId: terminal?.id,
+						terminalName: e.terminal.name,
 					})
 
 					if (terminal) {
 						terminal.setActiveStream(stream)
 						terminal.busy = true // Mark terminal as busy when shell execution starts
 					} else {
-						console.error(
-							"[onDidStartTerminalShellExecution] Shell execution started, but not from a Roo-registered terminal:",
+						console.warn(
+							"[ANH Chat onDidStartTerminalShellExecution] Shell execution started on unregistered ANH Chat terminal:",
 							e,
 						)
 					}
@@ -75,19 +83,25 @@ export class TerminalRegistry {
 
 			const endDisposable = vscode.window.onDidEndTerminalShellExecution?.(
 				async (e: vscode.TerminalShellExecutionEndEvent) => {
+					// Only process events for terminals created by ANH Chat
+					if (!e.terminal.name.includes("ANH CHAT (Novel Helper)")) {
+						return
+					}
+
 					const terminal = this.getTerminalByVSCETerminal(e.terminal)
 					const process = terminal?.process
 					const exitDetails = TerminalProcess.interpretExitCode(e.exitCode)
 
-					console.info("[onDidEndTerminalShellExecution]", {
+					console.info("[ANH Chat onDidEndTerminalShellExecution]", {
 						command: e.execution?.commandLine?.value,
 						terminalId: terminal?.id,
+						terminalName: e.terminal.name,
 						...exitDetails,
 					})
 
 					if (!terminal) {
-						console.error(
-							"[onDidEndTerminalShellExecution] Shell execution ended, but not from a Roo-registered terminal:",
+						console.warn(
+							"[ANH Chat onDidEndTerminalShellExecution] Shell execution ended on unregistered ANH Chat terminal:",
 							e,
 						)
 
