@@ -2,8 +2,12 @@
 
 ## Anh Chat Changelog
 
+### [3.29.6] - 2025-10-14
+- 改进了了对SillyTavern Profile的支持，现在允许使用Mixin
+- 增加了记忆服务和记忆工具
+
 ### [3.29.4] - 2025-10-11
-- 增加了对SillyTavern Profile 的部分支持
+- 增加了对SillyTavern Profile的部分支持
 
 ### [3.29.3] - 2025-10-09
 
