@@ -265,6 +265,200 @@ const getCommandsMap = ({
 			vscode.window.showErrorMessage(`Failed to reload extensions: ${message}`)
 		}
 	},
+	// 记忆相关指令
+	addTestMemory: async () => {
+		if (!anhChatServices?.roleMemoryTriggerService) {
+			vscode.window.showErrorMessage("Memory service is not initialized.")
+			return
+		}
+
+		try {
+			// 获取当前角色
+			const rolePromptData = await provider.getRolePromptData()
+			if (!rolePromptData?.role?.uuid) {
+				vscode.window.showErrorMessage("No active role found.")
+				return
+			}
+
+			const roleUuid = rolePromptData.role.uuid
+			const memoryService = anhChatServices.roleMemoryTriggerService
+
+			// 创建测试记忆
+			const testMemory = {
+				id: `test-${Date.now()}`,
+				type: 'episodic' as const,
+				content: '这是一个测试记忆，用于验证记忆系统功能。用户在测试时添加了这条记忆。',
+				keywords: ['测试', '验证', '记忆系统'],
+				triggerType: 'keyword' as const,
+				priority: 70,
+				isConstant: false,
+				roleUuid,
+				timestamp: Date.now(),
+				lastAccessed: Date.now(),
+				accessCount: 1,
+				relevanceWeight: 0.8,
+				emotionalWeight: 0.6,
+				timeDecayFactor: 0.1,
+				relatedTopics: ['测试', '系统验证'],
+				emotionalContext: ['中性'],
+				metadata: { source: 'vscode-command', test: true }
+			}
+
+			// 添加记忆到数据库
+			await memoryService.addEpisodicMemory(
+				roleUuid,
+				testMemory.content,
+				testMemory.keywords,
+				{
+					priority: testMemory.priority,
+					isConstant: false,
+					emotionalContext: testMemory.emotionalContext,
+					relatedTopics: testMemory.relatedTopics
+				}
+			)
+
+			vscode.window.showInformationMessage(`测试记忆已添加: ${testMemory.content}`)
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			vscode.window.showErrorMessage(`添加测试记忆失败: ${message}`)
+		}
+	},
+	viewMemories: async () => {
+		if (!anhChatServices?.roleMemoryTriggerService) {
+			vscode.window.showErrorMessage("Memory service is not initialized.")
+			return
+		}
+
+		try {
+			// 获取当前角色
+			const rolePromptData = await provider.getRolePromptData()
+			if (!rolePromptData?.role?.uuid) {
+				vscode.window.showErrorMessage("No active role found.")
+				return
+			}
+
+			const roleUuid = rolePromptData.role.uuid
+			const memoryService = anhChatServices.roleMemoryTriggerService
+
+			// 获取所有记忆
+			const memories = await memoryService.getRecentMemories(roleUuid, 20)
+
+			if (memories.length === 0) {
+				vscode.window.showInformationMessage("当前角色没有记忆数据。")
+				return
+			}
+
+			// 格式化记忆内容
+			const memoryList = memories.map((memory, index) => {
+				const lastAccessed = new Date(memory.lastAccessed).toLocaleString()
+				return `${index + 1}. [${memory.type}] ${memory.content}\n   关键词: ${memory.keywords.join(', ')}\n   优先级: ${memory.priority}\n   最后访问: ${lastAccessed}\n`
+			}).join('\n')
+
+			// 显示记忆内容
+			const document = await vscode.workspace.openTextDocument({
+				content: `角色记忆列表 (${new Date().toLocaleString()})\n\n${memoryList}`,
+				language: 'plaintext'
+			})
+			await vscode.window.showTextDocument(document)
+
+			vscode.window.showInformationMessage(`已显示 ${memories.length} 条记忆。`)
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			vscode.window.showErrorMessage(`查看记忆失败: ${message}`)
+		}
+	},
+	clearMemories: async () => {
+		const result = await vscode.window.showWarningMessage(
+			"确定要清空当前角色的所有记忆吗？此操作不可撤销。",
+			{ modal: true },
+			"确定",
+			"取消"
+		)
+
+		if (result !== "确定") {
+			return
+		}
+
+		if (!anhChatServices?.roleMemoryTriggerService) {
+			vscode.window.showErrorMessage("Memory service is not initialized.")
+			return
+		}
+
+		try {
+			// 获取当前角色
+			const rolePromptData = await provider.getRolePromptData()
+			if (!rolePromptData?.role?.uuid) {
+				vscode.window.showErrorMessage("No active role found.")
+				return
+			}
+
+			const roleUuid = rolePromptData.role.uuid
+			const memoryService = anhChatServices.roleMemoryTriggerService
+
+			// 清空记忆
+			await memoryService.clearRoleMemories(roleUuid)
+
+			vscode.window.showInformationMessage("角色记忆已清空。")
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			vscode.window.showErrorMessage(`清空记忆失败: ${message}`)
+		}
+	},
+	testMemoryRetrieval: async () => {
+		if (!anhChatServices?.roleMemoryTriggerService) {
+			vscode.window.showErrorMessage("Memory service is not initialized.")
+			return
+		}
+
+		try {
+			// 获取当前角色
+			const rolePromptData = await provider.getRolePromptData()
+			if (!rolePromptData?.role?.uuid) {
+				vscode.window.showErrorMessage("No active role found.")
+				return
+			}
+
+			const roleUuid = rolePromptData.role.uuid
+			const memoryService = anhChatServices.roleMemoryTriggerService
+
+			// 测试各种检索功能
+			const testResults = []
+
+			// 1. 测试最近记忆检索
+			const recentMemories = await memoryService.getRecentMemories(roleUuid, 5)
+			testResults.push(`最近记忆检索: ${recentMemories.length} 条`)
+
+			// 2. 测试记忆统计
+			const memoryStats = await memoryService.getMemoryStats(roleUuid)
+			testResults.push(`记忆统计: 总计 ${memoryStats.total} 条`)
+
+			// 3. 测试常驻记忆检索
+			const constantMemories = await memoryService.getConstantMemories(roleUuid)
+			testResults.push(`常驻记忆: ${constantMemories.length} 条`)
+
+			// 4. 测试高优先级记忆检索
+			const highPriorityMemories = await memoryService.getHighPriorityMemories(roleUuid, 70)
+			testResults.push(`高优先级记忆: ${highPriorityMemories.length} 条`)
+
+			// 5. 测试记忆搜索
+			const searchResults = await memoryService.searchMemories(roleUuid, '测试')
+			testResults.push(`搜索"测试": ${searchResults.length} 条`)
+
+			// 显示测试结果
+			const testOutput = `记忆检索测试结果 (${new Date().toLocaleString()})\n\n${testResults.join('\n')}`
+
+			const document = await vscode.workspace.openTextDocument({
+				content: testOutput,
+				language: 'plaintext'
+			})
+			await vscode.window.showTextDocument(document)
+
+			vscode.window.showInformationMessage("记忆检索测试完成。")
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			vscode.window.showErrorMessage(`记忆检索测试失败: ${message}`)
+		}
+	},
 })
 
 export const openClineInNewTab = async ({

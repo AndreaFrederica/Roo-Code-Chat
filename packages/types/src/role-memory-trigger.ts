@@ -411,7 +411,7 @@ export const DEFAULT_INJECTION_CONFIG: MemoryInjectionConfig = {
 {{/if}}`,
   separateByType: true,
   showTimestamps: false,
-  showSource: false
+  showSource: true
 };
 
 /**

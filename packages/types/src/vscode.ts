@@ -56,6 +56,12 @@ export const commandIds = [
 	"toggleAutoApprove",
 	"reloadRoleCards",
 	"reloadExtensions",
+
+	// 记忆相关指令
+	"addTestMemory",
+	"viewMemories",
+	"clearMemories",
+	"testMemoryRetrieval",
 ] as const
 
 export type CommandId = (typeof commandIds)[number]

@@ -189,6 +189,26 @@
 				"command": "anh-cline.reloadExtensions",
 				"title": "ANH Chat: Reload Extensions",
 				"category": "%configuration.title%"
+			},
+			{
+				"command": "anh-cline.addTestMemory",
+				"title": "ANH Chat: Add Test Memory",
+				"category": "%configuration.title%"
+			},
+			{
+				"command": "anh-cline.viewMemories",
+				"title": "ANH Chat: View Memories",
+				"category": "%configuration.title%"
+			},
+			{
+				"command": "anh-cline.clearMemories",
+				"title": "ANH Chat: Clear Memories",
+				"category": "%configuration.title%"
+			},
+			{
+				"command": "anh-cline.testMemoryRetrieval",
+				"title": "ANH Chat: Test Memory Retrieval",
+				"category": "%configuration.title%"
 			}
 		],
 		"menus": {

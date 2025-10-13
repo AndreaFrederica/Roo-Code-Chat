@@ -758,12 +758,26 @@ export async function presentAssistantMessage(cline: Task) {
 						const searchText = (block.params as any).search_text || "相关内容"
 						await cline.say("text", `让我在记忆中搜索关于"${searchText}"的内容...`)
 						const result = await searchMemoriesFunction(cline, block)
-						if (result?.message || result?.success) {
+						if (result?.success && result?.results && result.results.length > 0) {
 							await cline.say("text", "我想起了一些相关的事情...")
-							pushToolResult("记忆搜索完成")
+
+							// 格式化搜索结果
+							const memoryContent = result.results.map((memory: any) => {
+								const relevanceScore = memory.relevanceScore ? ` (相关性: ${Math.round(memory.relevanceScore * 100)}%)` : ''
+								const timestamp = memory.timestamp || '未知时间'
+								const type = memory.type || '未知类型'
+								const content = memory.content || '无内容'
+								return `[${type}] ${timestamp}${relevanceScore}: ${content}`
+							}).join('\n')
+
+							const summary = `找到了 ${result.results.length} 条相关记忆：\n\n${memoryContent}`
+							pushToolResult(summary)
+						} else if (result?.success && (!result.results || result.results.length === 0)) {
+							await cline.say("text", "我想不起来关于这个的内容...")
+							pushToolResult("没有找到相关记忆")
 						} else {
 							await cline.say("text", "抱歉，我在回忆相关内容时遇到了一些问题。")
-							pushToolResult("记忆搜索失败")
+							pushToolResult(result?.error || "记忆搜索失败")
 						}
 					} catch (error) {
 						await cline.say("text", "我在尝试回忆时感到了困惑，让我再想想...")
@@ -778,12 +792,27 @@ export async function presentAssistantMessage(cline: Task) {
 					try {
 						await cline.say("text", "让我整理一下我的记忆...")
 						const result = await getMemoryStatsFunction(cline, block)
-						if (result?.message || result?.success) {
+						if (result?.success && result?.stats) {
 							await cline.say("text", "我已经整理好了我的记忆，现在可以和你分享了。")
-							pushToolResult("记忆统计完成")
+
+							// 格式化统计信息
+							const stats = result.stats
+							const statsContent = `
+总计记忆: ${stats.total || 0} 条
+情景记忆: ${stats.episodic || 0} 条
+语义记忆: ${stats.semantic || 0} 条
+角色特质: ${stats.traits || 0} 条
+角色目标: ${stats.goals || 0} 条
+常驻记忆: ${stats.constant || 0} 条
+高优先级记忆: ${stats.highPriority || 0} 条
+平均访问次数: ${stats.avgAccessCount || 0}
+最后访问: ${stats.lastAccess || '从未'}
+`.trim()
+
+							pushToolResult(statsContent)
 						} else {
 							await cline.say("text", "抱歉，我在整理记忆时遇到了一些问题。")
-							pushToolResult("记忆统计失败")
+							pushToolResult(result?.error || "记忆统计失败")
 						}
 					} catch (error) {
 						await cline.say("text", "我在尝试整理记忆时感到了困惑，让我再想想...")
@@ -798,12 +827,25 @@ export async function presentAssistantMessage(cline: Task) {
 					try {
 						await cline.say("text", "让我回想一下最近发生的事情...")
 						const result = await getRecentMemoriesFunction(cline, block)
-						if (result?.message || result?.success) {
+						if (result?.success && result?.memories && result.memories.length > 0) {
 							await cline.say("text", "我想起了一些最近的经历...")
-							pushToolResult("最近记忆获取完成")
+
+							// 格式化记忆内容用于显示
+							const memoryContent = result.memories.map((memory: any) => {
+								const timestamp = memory.timestamp || '未知时间'
+								const type = memory.type || '未知类型'
+								const content = memory.content || '无内容'
+								return `[${type}] ${timestamp}: ${content}`
+							}).join('\n')
+
+							const summary = `找到了 ${result.memories.length} 条最近的记忆：\n\n${memoryContent}`
+							pushToolResult(summary)
+						} else if (result?.success && (!result.memories || result.memories.length === 0)) {
+							await cline.say("text", "我最近似乎没有特别的记忆...")
+							pushToolResult("没有找到最近的记忆")
 						} else {
 							await cline.say("text", "抱歉，我在回想最近的事情时遇到了一些问题。")
-							pushToolResult("最近记忆获取失败")
+							pushToolResult(result?.error || "最近记忆获取失败")
 						}
 					} catch (error) {
 						await cline.say("text", "我在尝试回想时感到了困惑，让我再想想...")

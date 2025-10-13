@@ -165,16 +165,25 @@ export async function getRecentMemoriesFunction(
 		// 获取最近记忆
 		const recentMemories = await memoryService.getRecentMemories(roleUuid, finalLimit * 2) // 获取更多以便过滤
 
+		// 调试信息
+		provider.log(`[MemoryTool] Debug: roleUuid = ${roleUuid}`)
+		provider.log(`[MemoryTool] Debug: recentMemories count = ${recentMemories.length}`)
+		if (recentMemories.length > 0) {
+			provider.log(`[MemoryTool] Debug: first memory = ${JSON.stringify(recentMemories[0], null, 2)}`)
+		}
+
 		// 按类型过滤
 		let filteredMemories = recentMemories
 		if (memory_types && !memory_types.includes("all")) {
 			filteredMemories = recentMemories.filter((memory: any) =>
 				memory_types!.includes(memory.type)
 			)
+			provider.log(`[MemoryTool] Debug: filtered by types ${JSON.stringify(memory_types)}, count = ${filteredMemories.length}`)
 		}
 
 		// 限制结果数量
 		const limitedMemories = filteredMemories.slice(0, finalLimit)
+		provider.log(`[MemoryTool] Debug: limited to ${finalLimit}, final count = ${limitedMemories.length}`)
 
 		// 格式化结果
 		const formattedMemories = limitedMemories.map((memory: any) => ({

@@ -7,6 +7,7 @@ import type { Role } from "@roo-code/types"
 
 /**
  * Common template placeholders supported by the system
+ * Supports both {{char}}/{{user}} and <char>/<user> formats
  */
 export interface TemplateVariables {
 	char: string
@@ -34,12 +35,12 @@ export function getUserName(userAvatarRole?: Role, enableUserAvatar?: boolean): 
 
 /**
  * Replace template variables in a string
- * Supports {{char}} and {{user}} placeholders
+ * Supports {{char}}, {{user}}, <char>, and <user> placeholders
  */
 export function replaceTemplateVariables(
-	text: string, 
-	charName: string, 
-	userAvatarRole?: Role, 
+	text: string,
+	charName: string,
+	userAvatarRole?: Role,
 	enableUserAvatar?: boolean
 ): string {
 	if (!hasTemplateVariables(text)) {
@@ -47,13 +48,19 @@ export function replaceTemplateVariables(
 	}
 
 	const userName = getUserName(userAvatarRole, enableUserAvatar)
-	
+
 	// Replace {{char}} with character name (case-insensitive)
 	let result = text.replace(/\{\{\s*char\s*\}\}/gi, charName)
-	
+
 	// Replace {{user}} with user name (case-insensitive)
 	result = result.replace(/\{\{\s*user\s*\}\}/gi, userName)
-	
+
+	// Replace <char> with character name (case-insensitive)
+	result = result.replace(/<\s*char\s*>/gi, charName)
+
+	// Replace <user> with user name (case-insensitive)
+	result = result.replace(/<\s*user\s*>/gi, userName)
+
 	return result
 }
 
@@ -143,12 +150,16 @@ export function applyTemplateVariablesToRole(
 /**
  * Check if a text contains template variables
  * @param text - The text to check
- * @returns True if the text contains {{char}} or {{user}} placeholders
+ * @returns True if the text contains {{char}}, {{user}}, <char>, or <user> placeholders
  */
 export function hasTemplateVariables(text: string): boolean {
 	if (!text || typeof text !== 'string') {
 		return false
 	}
-	
-	return /\{\{(char|user)\}\}/gi.test(text)
+
+	// Check for both {{char}}/{{user}} and <char>/<user> formats
+	const doubleBracePattern = /\{\{(char|user)\}\}/gi
+	const angleBracketPattern = /<(char|user)>/gi
+
+	return doubleBracePattern.test(text) || angleBracketPattern.test(text)
 }
