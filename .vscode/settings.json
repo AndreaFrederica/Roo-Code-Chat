@@ -29,6 +29,7 @@
 		"getvar",
 		"glama",
 		"huggingface",
+		"isodate",
 		"litellm",
 		"lmstudio",
 		"ollama",

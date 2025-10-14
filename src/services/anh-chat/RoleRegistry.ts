@@ -62,7 +62,14 @@ export class RoleRegistry {
 		if (await fileExistsAtPath(indexPath)) {
 			try {
 				const summaries: RoleSummary[] = JSON.parse(await fs.readFile(indexPath, "utf8"))
-				summaries.forEach((summary) => this.summaryCache.set(summary.uuid, summary))
+				summaries.forEach((summary) => {
+					// Ensure scope is set for existing roles
+					const summaryWithScope: RoleSummary = {
+						...summary,
+						scope: summary.scope || "workspace" as const
+					}
+					this.summaryCache.set(summary.uuid, summaryWithScope)
+				})
 			} catch (error) {
 				console.error("Failed to parse role index", error)
 			}
@@ -75,10 +82,13 @@ export class RoleRegistry {
 	}
 
 	listSummaries(): RoleSummary[] {
-		return [
-			...Array.from(this.builtinSummaries.values()).map(cloneSummary),
-			...Array.from(this.summaryCache.values()).map(cloneSummary),
-		]
+		const builtinSummaries = Array.from(this.builtinSummaries.values()).map(cloneSummary)
+		const workspaceSummaries = Array.from(this.summaryCache.values()).map(cloneSummary).map(summary => ({
+			...summary,
+			scope: summary.scope || "workspace" as const // Ensure scope is set, default to workspace
+		}))
+
+		return [...builtinSummaries, ...workspaceSummaries]
 	}
 
 	getRole(uuid: string): Role | undefined {
@@ -194,6 +204,7 @@ export class RoleRegistry {
 								uuid: anhRole.uuid,
 								name: anhRole.name,
 								type: "SillyTavernRole", // 标记为SillyTavern类型
+								scope: "workspace", // 工作区角色
 								packagePath: pngPath, // 使用PNG文件的完整路径作为packagePath
 								lastUpdatedAt: pngModifiedTime
 							}

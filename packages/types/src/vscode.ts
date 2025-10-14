@@ -48,6 +48,8 @@ export const commandIds = [
 	"newTask",
 
 	"setCustomStoragePath",
+	"setGlobalStoragePath",
+	"getGlobalStorageInfo",
 	"importSettings",
 
 	"focusInput",

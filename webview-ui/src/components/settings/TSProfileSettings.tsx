@@ -15,6 +15,10 @@ import {
 	FilePlus,
 	ToggleLeft,
 	ToggleRight,
+	Globe,
+	Folder,
+	Copy,
+	Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { vscode } from "@/utils/vscode"
@@ -87,6 +91,9 @@ interface ProfileInfo {
 	mixinPath?: string
 	isOrphanMixin?: boolean
 	expectedMainProfile?: string
+	// 全局/工作区标识
+	isGlobal?: boolean
+	type?: "global" | "workspace"
 }
 
 interface ValidationError {
@@ -139,6 +146,12 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	// 验证和错误处理相关状态
 	const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
 	const [showValidationDetails, setShowValidationDetails] = useState(false)
+
+	// 全局/工作区切换状态
+	const [profileScope, setProfileScope] = useState<"all" | "global" | "workspace">("all")
+	const [showCopyDialog, setShowCopyDialog] = useState(false)
+	const [copyTargetProfile, setCopyTargetProfile] = useState<ProfileInfo | null>(null)
+	const [copyTargetScope, setCopyTargetScope] = useState<"global" | "workspace">("workspace")
 
 	// 初始化：创建profile文件夹并加载列表
 	useEffect(() => {
@@ -658,10 +671,57 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 
 	// 浏览选择TSProfile文件
 	const handleBrowseProfile = () => {
+		const isGlobal = profileScope === "global"
 		vscode.postMessage({
 			type: "browseTsProfile",
+			isGlobal,
 		})
 	}
+
+	// 复制 profile 到全局或工作区
+	const handleCopyProfile = (profile: ProfileInfo, targetScope: "global" | "workspace") => {
+		setCopyTargetProfile(profile)
+		setCopyTargetScope(targetScope)
+		setShowCopyDialog(true)
+	}
+
+	// 确认复制 profile
+	const confirmCopyProfile = () => {
+		if (!copyTargetProfile) return
+
+		vscode.postMessage({
+			type: "copyTsProfile",
+			sourceProfile: copyTargetProfile,
+			targetScope: copyTargetScope,
+		})
+
+		setShowCopyDialog(false)
+		setCopyTargetProfile(null)
+	}
+
+	// 删除 profile
+	const handleDeleteProfile = (profile: ProfileInfo) => {
+		if (confirm(`确定要删除 profile "${profile.name}" 吗？此操作不可撤销。`)) {
+			vscode.postMessage({
+				type: "deleteTsProfile",
+				profile,
+			})
+		}
+	}
+
+	// 过滤显示的 profiles
+	const getFilteredProfiles = () => {
+		switch (profileScope) {
+			case "global":
+				return profiles.filter(p => p.isGlobal)
+			case "workspace":
+				return profiles.filter(p => !p.isGlobal)
+			default:
+				return profiles
+		}
+	}
+
+	const filteredProfiles = getFilteredProfiles()
 
 	// 处理自动注入开关变化
 	const handleAutoInjectChange = (value: boolean) => {
@@ -786,6 +846,44 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 								<h3 className="text-sm font-medium">TSProfile文件</h3>
 							</div>
 							<div className="flex gap-1">
+								{/* 全局/工作区切换 */}
+								<div className="flex items-center gap-1 bg-vscode-editor-background border border-vscode-widget-border rounded p-1 mr-2">
+									<button
+										className={cn(
+											"px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors",
+											profileScope === "all"
+												? "bg-vscode-button-background text-vscode-button-foreground"
+												: "text-vscode-descriptionForeground hover:bg-vscode-toolbar-hoverBackground",
+										)}
+										onClick={() => setProfileScope("all")}
+										title="显示所有文件">
+										全部
+									</button>
+									<button
+										className={cn(
+											"px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors",
+											profileScope === "workspace"
+												? "bg-vscode-button-background text-vscode-button-foreground"
+												: "text-vscode-descriptionForeground hover:bg-vscode-toolbar-hoverBackground",
+										)}
+										onClick={() => setProfileScope("workspace")}
+										title="显示工作区文件">
+										<Folder className="w-3 h-3" />
+										工作区
+									</button>
+									<button
+										className={cn(
+											"px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors",
+											profileScope === "global"
+												? "bg-vscode-button-background text-vscode-button-foreground"
+												: "text-vscode-descriptionForeground hover:bg-vscode-toolbar-hoverBackground",
+										)}
+										onClick={() => setProfileScope("global")}
+										title="显示全局文件">
+										<Globe className="w-3 h-3" />
+										全局
+									</button>
+								</div>
 								<button
 									className="p-1 text-xs hover:bg-vscode-toolbar-hoverBackground rounded"
 									onClick={handleRefresh}
@@ -802,12 +900,16 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 						</div>
 
 						<div className="space-y-2 max-h-80 overflow-y-auto">
-							{profiles.length === 0 ? (
+							{filteredProfiles.length === 0 ? (
 								<div className="text-sm text-vscode-descriptionForeground text-center py-4">
-									暂无TSProfile文件
+									{profileScope === "all"
+										? "暂无TSProfile文件"
+										: profileScope === "global"
+											? "暂无全局TSProfile文件"
+											: "暂无工作区TSProfile文件"}
 								</div>
 							) : (
-								profiles.map((profile) => (
+								filteredProfiles.map((profile) => (
 									<div
 										key={profile.name}
 										className={cn(
@@ -853,32 +955,62 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 														启用
 													</button>
 												)}
+												{/* 复制按钮 */}
+												<button
+													className="text-xs px-1.5 py-1 rounded bg-gray-500/20 text-gray-400 hover:bg-gray-500/30"
+													onClick={(e) => {
+														e.stopPropagation()
+														handleCopyProfile(profile, profile.isGlobal ? "workspace" : "global")
+													}}
+													title={`复制到${profile.isGlobal ? "工作区" : "全局"}`}>
+													<Copy className="w-3 h-3" />
+												</button>
+												{/* 删除按钮 */}
+												<button
+													className="text-xs px-1.5 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30"
+													onClick={(e) => {
+														e.stopPropagation()
+														handleDeleteProfile(profile)
+													}}
+													title="删除">
+													<Trash2 className="w-3 h-3" />
+												</button>
 											</div>
 										</div>
 										<p className="text-xs text-vscode-descriptionForeground mb-1">
 											{profile.description}
 										</p>
 										<div className="flex items-center justify-between text-xs text-vscode-descriptionForeground">
-											<span className="truncate flex-1 mr-2">{profile.path}</span>
-											<div className="flex items-center gap-2">
+											<div className="flex items-center gap-1 truncate flex-1 mr-2">
+												{/* 全局/工作区标识 */}
+												{profile.isGlobal ? (
+													<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局文件" />
+												) : (
+													<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区文件" />
+												)}
+												<span className="truncate">{profile.path}</span>
+											</div>
+											<div className="flex items-center gap-1">
 												{profile.isOrphanMixin ? (
 													<span
-														className="px-2 py-1 rounded bg-yellow-500/20 text-yellow-400"
+														className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-xs"
 														title="孤立的mixin文件">
 														孤立mixin
 													</span>
 												) : profile.hasMixin ? (
 													<span
-														className="px-2 py-1 rounded bg-purple-500/20 text-purple-400"
+														className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-xs"
 														title="有对应的mixin文件">
 														有mixin ({profile.mixinPromptsCount})
 													</span>
 												) : (
-													<span className="px-2 py-1 rounded bg-gray-500/20 text-gray-400">
+													<span className="px-1.5 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs">
 														无mixin
 													</span>
 												)}
-												{profile.promptsCount && <span>{profile.promptsCount} 个提示词</span>}
+												{profile.promptsCount && (
+													<span className="text-xs">{profile.promptsCount} 个</span>
+												)}
 											</div>
 										</div>
 									</div>
@@ -1600,6 +1732,30 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 					</div>
 				</div>
 			</Section>
+
+			{/* 复制确认对话框 */}
+			{showCopyDialog && copyTargetProfile && (
+				<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+					<div className="bg-vscode-editor-background border border-vscode-widget-border rounded p-4 max-w-md w-full">
+						<h3 className="text-sm font-medium mb-3">复制 Profile</h3>
+						<p className="text-xs text-vscode-descriptionForeground mb-4">
+							确定要将 profile "{copyTargetProfile.name}" 复制到{copyTargetScope === "global" ? "全局" : "工作区"}吗？
+						</p>
+						<div className="flex justify-end gap-2">
+							<button
+								className="px-3 py-1 text-xs bg-vscode-button-secondary-background hover:bg-vscode-button-secondary-hoverBackground text-vscode-button-secondary-foreground rounded"
+								onClick={() => setShowCopyDialog(false)}>
+								取消
+							</button>
+							<button
+								className="px-3 py-1 text-xs bg-vscode-button-background hover:bg-vscode-button-hoverBackground text-vscode-button-foreground rounded"
+								onClick={confirmCopyProfile}>
+								确认复制
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	)
 }

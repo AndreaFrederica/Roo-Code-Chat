@@ -6,7 +6,7 @@ import {
 	VSCodeDropdown,
 	VSCodeOption,
 } from "@vscode/webview-ui-toolkit/react"
-import { Puzzle } from "lucide-react"
+import { Puzzle, Globe, Folder } from "lucide-react"
 
 import {
 	type AnhExtensionCapability,
@@ -36,6 +36,15 @@ const badgeBaseClass =
 const settingsSectionClass = "mt-3 space-y-2 border-t border-vscode-panel-border/50 pt-3"
 
 const capabilityOrder: AnhExtensionCapability[] = ["systemPrompt", "tools"]
+
+// Helper function to determine if extension is global based on entryPath
+const isGlobalExtension = (entryPath: string): boolean => {
+	// Global extensions are typically in user home directory or .anh-chat global directory
+	// Workspace extensions are in the current workspace directory
+	return entryPath.includes('.anh-chat') &&
+		   (entryPath.includes('Users/') || entryPath.includes('home/') ||
+		    entryPath.includes('\\Users\\') || entryPath.includes('\\home\\'))
+}
 
 export const ExtensionsSettings = ({
 	extensions,
@@ -83,6 +92,17 @@ export const ExtensionsSettings = ({
 					<p className="text-sm text-vscode-descriptionForeground m-0">
 						{t("settings:extensions.description")}
 					</p>
+					<div style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: '6px',
+						fontSize: '12px',
+						color: 'var(--vscode-descriptionForeground)',
+						marginTop: '8px'
+					}}>
+						<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+						<span>全局扩展适用于所有工作区，工作区扩展仅适用于当前工作区</span>
+					</div>
 
 					{sortedExtensions.length === 0 ? (
 						<div className="text-sm text-vscode-descriptionForeground">
@@ -239,6 +259,11 @@ export const ExtensionsSettings = ({
 										<div className="flex items-start justify-between gap-4">
 											<div className="space-y-2">
 												<div className="flex items-center gap-2">
+													{isGlobalExtension(extension.entryPath) ? (
+														<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局扩展" />
+													) : (
+														<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区扩展" />
+													)}
 													<span className="font-medium text-sm text-vscode-foreground">
 														{extension.manifest.name}
 													</span>

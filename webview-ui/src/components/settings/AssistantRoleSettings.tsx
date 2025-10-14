@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Info, X } from "lucide-react"
+import { Info, X, Globe, Folder, Bot } from "lucide-react"
 import { Fzf } from "fzf"
 
 import {
@@ -47,6 +47,7 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 		[DEFAULT_ASSISTANT_ROLE_UUID]: DEFAULT_ASSISTANT_ROLE,
 	})
 	const [roles, setRoles] = useState<RoleSummary[]>([])
+	const [globalRoles, setGlobalRoles] = useState<RoleSummary[]>([])
 	const [hasLoaded, setHasLoaded] = useState(false)
 	const [loadError, setLoadError] = useState(false)
 	const [open, setOpen] = useState(false)
@@ -58,6 +59,7 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 
 	useEffect(() => {
 		vscode.postMessage({ type: "getAnhRoles" })
+		vscode.postMessage({ type: "getGlobalAnhRoles" })
 
 		const timeout = setTimeout(() => {
 			if (!hasLoaded) {
@@ -76,6 +78,10 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 				setHasLoaded(true)
 				setLoadError(false)
 				setRoles(message.roles || [])
+			} else if (message.type === "anhGlobalRolesLoaded") {
+				setHasLoaded(true)
+				setLoadError(false)
+				setGlobalRoles(message.globalRoles || [])
 			} else if (message.type === "anhRoleLoaded") {
 				const role = message.role as Role | undefined
 				const uuid = role?.uuid ?? DEFAULT_ASSISTANT_ROLE_UUID
@@ -117,18 +123,48 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 	)
 
 	const allRoles = useMemo(() => {
-		const roleList = roles.map(
-			(summary) =>
-				({
-					...summary,
-					description: summary.name,
-					createdAt: summary.lastUpdatedAt,
-					updatedAt: summary.lastUpdatedAt,
-				}) as Role,
-		)
+		// Process workspace roles
+		const workspaceRoleList = roles
+			.filter((summary) => summary.uuid !== DEFAULT_ASSISTANT_ROLE_UUID)
+			.map(
+				(summary) =>
+					({
+						...summary,
+						scope: "workspace" as const,
+						description: summary.name,
+						createdAt: summary.lastUpdatedAt,
+						updatedAt: summary.lastUpdatedAt,
+					}) as Role,
+			)
 
-		return [defaultDisplayRole, ...roleList]
-	}, [roles, defaultDisplayRole])
+		// Process global roles
+		const globalRoleList = globalRoles
+			.filter((summary) => summary.uuid !== DEFAULT_ASSISTANT_ROLE_UUID)
+			.map(
+				(summary) =>
+					({
+						...summary,
+						scope: "global" as const,
+						description: summary.name,
+						createdAt: summary.lastUpdatedAt,
+						updatedAt: summary.lastUpdatedAt,
+					}) as Role,
+			)
+
+		// Combine roles: default + workspace + global, and sort
+		const allRoleList = [defaultDisplayRole, ...workspaceRoleList, ...globalRoleList]
+
+		return allRoleList.sort((a, b) => {
+			const nameComparison = a.name.localeCompare(b.name)
+			if (nameComparison !== 0) return nameComparison
+
+			// If names are the same, put global version first
+			if (a.scope === 'global' && b.scope !== 'global') return -1
+			if (a.scope !== 'global' && b.scope === 'global') return 1
+
+			return 0
+		})
+	}, [roles, globalRoles, defaultDisplayRole])
 
 	const selectedRole = useMemo(() => {
 		const base = detailedRole ?? currentRole
@@ -291,6 +327,14 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 											style={{ backgroundColor: selectedRole.color }}
 										/>
 									)}
+									{/* Global/Workspace indicator */}
+									{!selectedRole || selectedRole.uuid === DEFAULT_ASSISTANT_ROLE_UUID ? (
+										<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" title="默认角色" />
+									) : selectedRole.scope === "global" ? (
+										<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局角色" />
+									) : (
+										<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区角色" />
+									)}
 									<span className="truncate">{selectedRole?.name || ""}</span>
 								</div>
 								<span className="codicon codicon-chevron-down text-xs opacity-70" />
@@ -361,7 +405,17 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 																/>
 															)}
 															<div className="flex-1 min-w-0">
-																<div className="font-bold truncate">{role.name}</div>
+																<div className="flex items-center gap-2">
+																	{/* Global/Workspace indicator */}
+																	{role.uuid === DEFAULT_ASSISTANT_ROLE_UUID ? (
+																		<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" title="默认角色" />
+																	) : role.scope === "global" ? (
+																		<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局角色" />
+																	) : (
+																		<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区角色" />
+																	)}
+																	<div className="font-bold truncate">{role.name}</div>
+																</div>
 																{role.description && (
 																	<div className="text-xs text-vscode-descriptionForeground truncate">
 																		{role.description}

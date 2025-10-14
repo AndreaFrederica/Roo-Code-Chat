@@ -193,6 +193,8 @@ export interface WorldBookInfo {
   loaded: boolean;
   /** 错误信息 */
   error?: string;
+  /** 是否为全局世界书 */
+  isGlobal?: boolean;
 }
 
 /** 转换结果 */
@@ -207,4 +209,76 @@ export interface WorldBookConversionResult {
   duration: number;
   /** 警告信息 */
   warnings: string[];
+}
+
+/** 世界书Mixin条目 - 允许动态修改世界书条目的设置 */
+export interface WorldBookEntryMixin {
+  /** 原始词条的UID */
+  uid: number | string;
+  /** 是否启用（覆盖原始设置） */
+  enabled?: boolean;
+  /** 是否禁用（覆盖原始设置） */
+  disabled?: boolean;
+  /** 修改后的关键词（覆盖原始设置） */
+  keys?: string[];
+  /** 修改后的次关键词（覆盖原始设置） */
+  secondaryKeys?: string[];
+  /** 修改后的内容（覆盖原始设置） */
+  content?: string;
+  /** 修改后的注释（覆盖原始设置） */
+  comment?: string;
+  /** 修改后的权重（覆盖原始设置） */
+  order?: number;
+  /** 是否常驻（覆盖原始设置） */
+  constant?: boolean;
+  /** 修改后的分组（覆盖原始设置） */
+  group?: string;
+  /** 修改后的概率（覆盖原始设置） */
+  probability?: number;
+  /** 自定义标签 */
+  tags?: string[];
+  /** 创建时间 */
+  createdAt: number;
+  /** 更新时间 */
+  updatedAt: number;
+}
+
+/** 世界书Mixin配置 */
+export interface WorldBookMixin {
+  /** 世界书文件路径 */
+  worldBookPath: string;
+  /** 世界书名称 */
+  worldBookName: string;
+  /** 是否为全局世界书 */
+  isGlobal: boolean;
+  /** 条目修改列表 */
+  entries: WorldBookEntryMixin[];
+  /** 创建时间 */
+  createdAt: number;
+  /** 更新时间 */
+  updatedAt: number;
+  /** 是否启用 */
+  enabled: boolean;
+}
+
+/** 世界书Mixin信息 */
+export interface WorldBookMixinInfo {
+  /** 世界书文件路径 */
+  worldBookPath: string;
+  /** 世界书名称 */
+  worldBookName: string;
+  /** 是否为全局世界书 */
+  isGlobal: boolean;
+  /** Mixin文件路径 */
+  mixinPath: string;
+  /** 修改的词条数量 */
+  modifiedEntryCount: number;
+  /** 启用的词条数量 */
+  enabledEntryCount: number;
+  /** 禁用的词条数量 */
+  disabledEntryCount: number;
+  /** 最后修改时间 */
+  lastModified: number;
+  /** 是否启用 */
+  enabled: boolean;
 }

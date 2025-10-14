@@ -160,6 +160,7 @@ export const roleMetadataSchema = z
 		uuid: z.string(),
 		name: z.string(),
 		type: roleTypeSchema,
+		scope: z.enum(["global", "workspace"]).optional().default("workspace"),
 		aliases: z.array(z.string()).optional(),
 		description: z.string().optional(),
 		affiliation: z.string().optional(),
@@ -224,6 +225,7 @@ export const roleSummarySchema = z.object({
 	uuid: z.string(),
 	name: z.string(),
 	type: roleTypeSchema,
+	scope: z.enum(["global", "workspace"]).optional().default("workspace"),
 	packagePath: z.string().optional(),
 	lastUpdatedAt: z.number(),
 })
@@ -439,6 +441,7 @@ export const createSillyTavernCompatibility = (): SillyTavernCompatibility => ({
 			uuid: generatedUuid,
 			name: card.data.name,
 			type: "SillyTavernRole" as RoleType, // 默认类型
+			scope: "workspace", // 默认为工作区角色
 			description: card.data.description,
 			personality: card.data.personality,
 			first_mes: card.data.first_mes,
@@ -508,6 +511,7 @@ export const DEFAULT_ASSISTANT_ROLE: Role = {
 	uuid: DEFAULT_ASSISTANT_ROLE_UUID,
 	name: DEFAULT_ASSISTANT_ROLE_NAME,
 	type: "主角",
+	scope: "workspace", // 默认为工作区角色
 	description: "ANH Chat 内置的默认助手角色，负责提供通用的创作、写作与问题解答支持。",
 	profile: {
 		identity: [
@@ -549,6 +553,7 @@ export const DEFAULT_ASSISTANT_ROLE_SUMMARY: RoleSummary = {
 	uuid: DEFAULT_ASSISTANT_ROLE_UUID,
 	name: DEFAULT_ASSISTANT_ROLE_NAME,
 	type: "主角",
+	scope: "workspace", // 默认为工作区角色
 	lastUpdatedAt: DEFAULT_ROLE_TIMESTAMP,
 }
 

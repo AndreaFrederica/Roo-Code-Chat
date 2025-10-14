@@ -232,6 +232,8 @@ export interface WebviewMessage {
 		| "getDismissedUpsells"
 		| "getAnhRoles"
 		| "anhRolesLoaded"
+		| "getGlobalAnhRoles"
+		| "anhGlobalRolesLoaded"
 		| "loadAnhRole"
 		| "anhRoleLoaded"
 		| "selectAnhRole"
@@ -272,6 +274,9 @@ export interface WebviewMessage {
 		| "STWordBookReload"
 		| "STWordBookBrowse"
 		| "STWordBookValidate"
+		| "STWordBookGetGlobal"
+		| "STWordBookCopyToGlobal"
+		| "STWordBookCopyFromGlobal"
 		| "memorySystemEnabled"
 		| "memoryToolsEnabled"
 		| "memoryManagement"
@@ -279,6 +284,38 @@ export interface WebviewMessage {
 		| "loadTsProfileMixin"
 		| "saveTsProfileMixin"
 		| "saveTsProfileSource"
+		| "loadGlobalHistory"
+		| "addGlobalHistoryItem"
+		| "deleteGlobalHistoryItem"
+		| "clearGlobalHistory"
+		| "loadAllWorldBooks"
+		| "browseWorldBookFile"
+		| "copyWorldBookToGlobal"
+		| "copyWorldBookFromGlobal"
+		| "copyWorldBook"
+		| "deleteWorldBook"
+		| "getGlobalExtensionsInfo"
+		| "getWorldBookMixin"
+		| "updateWorldBookEntryMixin"
+		| "removeWorldBookEntryMixin"
+		| "copyExtensionToGlobal"
+		| "deleteGlobalExtension"
+		| "copyTsProfile"
+		| "deleteTsProfile"
+		| "getGlobalMemory"
+		| "setGlobalMemory"
+		| "resetGlobalMemory"
+		| "getGlobalRoleMemory"
+		| "setGlobalRoleMemory"
+		| "resetGlobalRoleMemory"
+		| "appendGlobalEpisodicMemory"
+		| "upsertGlobalSemanticMemory"
+		| "updateGlobalRoleTraits"
+		| "updateGlobalRoleGoals"
+		| "deleteGlobalRoleMemory"
+		| "listGlobalRoleMemories"
+	| "loadGlobalRoleMemory"
+	| "saveGlobalRoleMemory"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -332,6 +369,7 @@ export interface WebviewMessage {
 	tsProfileName?: string // For enable/disable TSProfile operations
 	// ANH role-related properties
 	roles?: any[] // For anhRolesLoaded
+	globalRoles?: any[] // For anhGlobalRolesLoaded
 	roleUuid?: string // For loadAnhRole
 	role?: any // For anhRoleLoaded
 	codeIndexSettings?: {
@@ -373,12 +411,42 @@ export interface WebviewMessage {
 	worldBookFilePath?: string // For worldbook file path operations
 	worldBookEnabled?: boolean // For toggling worldbook enabled state
 	worldBookConfig?: any // For worldbook configuration (WorldBookConfig)
+	worldBookFileName?: string // For global worldbook file name operations
 	// Memory management-related properties
 	data?: any // For memory management messages
 	mixinData?: any // For saveTsProfileMixin
 	profileData?: any // For saveTsProfileSource
 	mixinPath?: string // For loadTsProfileMixin and saveTsProfileMixin
 	profilePath?: string // For saveTsProfileSource
+	// Global history-related properties
+	historyItem?: any // For addGlobalHistoryItem
+	historyItemId?: string // For deleteGlobalHistoryItem
+	// World book-related properties
+	worldBookPath?: string // For copyWorldBookToGlobal and copyWorldBookFromGlobal
+	// Global memory-related properties
+	memory?: any // For setGlobalMemory and setGlobalRoleMemory
+	record?: any // For appendGlobalEpisodicMemory and upsertGlobalSemanticMemory
+	traits?: any // For updateGlobalRoleTraits
+	goals?: any // For updateGlobalRoleGoals
+	// Global history-related properties
+	globalHistory?: any[] // For loadGlobalHistory
+	// World book-related properties
+	isGlobal?: boolean // For copyWorldBook operations
+	sourceWorldBook?: any // For copyWorldBook operations
+	targetScope?: "global" | "workspace" // For copyWorldBook operations
+	worldBook?: any // For deleteWorldBook operations
+	// Extension-related properties
+	sourceExtensionPath?: string // For copyExtensionToGlobal
+	extensionName?: string // For copyExtensionToGlobal
+	roleUuids?: string[] // For listGlobalRoleMemories
+	// Additional missing properties
+	tsProfileFilePath?: string // For tsProfile operations
+	sourceProfile?: any // For copyTsProfile operations
+	profile?: any // For deleteTsProfile operations
+	// World Book Mixin-related properties
+	worldBookMixin?: any // For getWorldBookMixin
+	entryUid?: number | string // For updateWorldBookEntryMixin and removeWorldBookEntryMixin
+	mixinUpdates?: any // For updateWorldBookEntryMixin
 }
 
 export const checkoutDiffPayloadSchema = z.object({

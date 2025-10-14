@@ -39,6 +39,7 @@ import {
 	type AnhChatServices,
 } from "./services/anh-chat"
 import { MemoryServiceInitializer } from "./services/anh-chat/MemoryServiceInitializer"
+import { getGlobalStorageService } from "./services/storage/GlobalStorageService"
 import { migrateSettings } from "./utils/migrateSettings"
 import { autoImportSettings } from "./utils/autoImportSettings"
 import { API } from "./extension/api"
@@ -186,6 +187,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		} catch (error) {
 			outputChannel.appendLine(
 				`[AnhChat] Failed to initialize memory services: ${error instanceof Error ? error.message : String(error)}`,
+			)
+		}
+
+		// 初始化全局存储服务
+		try {
+			const globalStorageService = await getGlobalStorageService(context)
+			outputChannel.appendLine(`[GlobalStorage] Global storage service initialized at: ${globalStorageService.getCurrentStoragePath()}`)
+		} catch (error) {
+			outputChannel.appendLine(
+				`[GlobalStorage] Failed to initialize global storage service: ${error instanceof Error ? error.message : String(error)}`,
 			)
 		}
 

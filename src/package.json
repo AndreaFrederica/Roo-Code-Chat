@@ -161,6 +161,16 @@
 				"category": "%configuration.title%"
 			},
 			{
+				"command": "anh-cline.setGlobalStoragePath",
+				"title": "设置全局存储路径",
+				"category": "%configuration.title%"
+			},
+			{
+				"command": "anh-cline.getGlobalStorageInfo",
+				"title": "查看全局存储信息",
+				"category": "%configuration.title%"
+			},
+			{
 				"command": "anh-cline.importSettings",
 				"title": "%command.importSettings.title%",
 				"category": "%configuration.title%"
@@ -425,6 +435,11 @@
 					"type": "string",
 					"default": "",
 					"description": "%settings.customStoragePath.description%"
+				},
+				"anh-cline.globalStoragePath": {
+					"type": "string",
+					"default": "",
+					"description": "全局数据存储路径（角色、历史记录等），留空则使用默认路径 ~/.anh-chat"
 				},
 				"anh-cline.enableCodeActions": {
 					"type": "boolean",

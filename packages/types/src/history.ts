@@ -25,6 +25,8 @@ export const historyItemSchema = z.object({
 	// Chat mode display optimization
 	anhFirstMessage: z.string().optional(),
 	anhLastMessage: z.string().optional(),
+	// Global conversation flag - indicates if this is a global conversation (not workspace-specific)
+	isGlobal: z.boolean().optional(),
 })
 
 export type HistoryItem = z.infer<typeof historyItemSchema>

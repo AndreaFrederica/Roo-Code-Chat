@@ -59,6 +59,9 @@ import { GetModelsOptions } from "../../shared/api"
 import { generateSystemPrompt } from "./generateSystemPrompt"
 import { getCommand } from "../../utils/commands"
 import { loadTsProfiles, validateTsProfile, browseTsProfile } from "../../services/anh-chat/tsProfileService"
+import { getExtendedTSProfileService } from "../../services/anh-chat/ExtendedTSProfileService"
+import { getExtendedWorldBookService } from "../../services/silly-tavern/ExtendedWorldBookService"
+import { getGlobalStorageService } from "../../services/storage/GlobalStorageService"
 
 const ALLOWED_VSCODE_SETTINGS = new Set(["terminal.integrated.inheritEnv"])
 
@@ -1635,6 +1638,241 @@ export const webviewMessageHandler = async (
 			await updateGlobalState("reasoningBlockCollapsed", message.bool ?? true)
 			// No need to call postStateToWebview here as the UI already updated optimistically
 			break
+		case "loadGlobalHistory": {
+			try {
+				provider.log("[GlobalHistory] Loading global history...")
+				const globalService = await getGlobalStorageService(provider.context)
+				const history = await globalService.getGlobalHistory()
+				provider.log(`[GlobalHistory] Loaded ${history.length} global history items`)
+				provider.postMessageToWebview({
+					type: "globalHistoryLoaded",
+					globalHistory: history,
+				})
+			} catch (error) {
+				provider.log(`Error loading global history: ${error}`)
+				vscode.window.showErrorMessage(`Failed to load global history: ${error}`)
+			}
+			break
+		}
+		case "addGlobalHistoryItem": {
+			try {
+				if (!message.historyItem) {
+					throw new Error("History item is required")
+				}
+
+				provider.log("[GlobalHistory] Adding global history item...")
+				const globalService = await getGlobalStorageService(provider.context)
+				const addedItem = await globalService.addGlobalHistoryItem(message.historyItem)
+
+				provider.log(`[GlobalHistory] Added global history item: ${addedItem.id}`)
+				provider.postMessageToWebview({
+					type: "globalHistoryItemAdded",
+					historyItem: addedItem,
+				})
+			} catch (error) {
+				provider.log(`Error adding global history item: ${error}`)
+				vscode.window.showErrorMessage(`Failed to add global history item: ${error}`)
+			}
+			break
+		}
+		case "deleteGlobalHistoryItem": {
+			try {
+				if (!message.historyItemId) {
+					throw new Error("History item ID is required")
+				}
+
+				provider.log(`[GlobalHistory] Deleting global history item: ${message.historyItemId}`)
+				const globalService = await getGlobalStorageService(provider.context)
+				const success = await globalService.deleteGlobalHistoryItem(message.historyItemId)
+
+				if (success) {
+					provider.log(`[GlobalHistory] Deleted global history item: ${message.historyItemId}`)
+					provider.postMessageToWebview({
+						type: "globalHistoryItemDeleted",
+						historyItemId: message.historyItemId,
+					})
+					vscode.window.showInformationMessage("全局历史记录已删除")
+				} else {
+					throw new Error("删除失败，项目不存在")
+				}
+			} catch (error) {
+				provider.log(`Error deleting global history item: ${error}`)
+				vscode.window.showErrorMessage(`删除全局历史记录失败: ${error}`)
+			}
+			break
+		}
+		case "clearGlobalHistory": {
+			try {
+				provider.log("[GlobalHistory] Clearing global history...")
+				const globalService = await getGlobalStorageService(provider.context)
+				await globalService.clearGlobalHistory()
+
+				provider.log("[GlobalHistory] Cleared global history")
+				provider.postMessageToWebview({
+					type: "globalHistoryCleared",
+				})
+				vscode.window.showInformationMessage("全局历史记录已清空")
+			} catch (error) {
+				provider.log(`Error clearing global history: ${error}`)
+				vscode.window.showErrorMessage(`清空全局历史记录失败: ${error}`)
+			}
+			break
+		}
+		case "loadAllWorldBooks": {
+			try {
+				provider.log("[WorldBook] Loading all world books...")
+				const extendedService = await getExtendedWorldBookService(provider.context)
+				const worldBooks = await extendedService.getAllWorldBooks()
+				provider.log(`[WorldBook] Loaded ${worldBooks.length} world books (global+workspace)`)
+				provider.postMessageToWebview({
+					type: "allWorldBooksLoaded",
+					worldBooks,
+				})
+			} catch (error) {
+				provider.log(`Error loading all world books: ${error}`)
+				vscode.window.showErrorMessage(`Failed to load world books: ${error}`)
+			}
+			break
+		}
+		case "browseWorldBookFile": {
+			try {
+				provider.log("[WorldBook] Browsing for world book file...")
+				const isGlobal = message.isGlobal || false
+				const extendedService = await getExtendedWorldBookService(provider.context)
+				const filePath = await extendedService.browseWorldBookFile(isGlobal)
+
+				if (filePath) {
+					provider.log(`[WorldBook] Selected file: ${filePath}`)
+					provider.postMessageToWebview({
+						type: "worldBookFileSelected",
+						worldBookFilePath: filePath,
+					})
+				}
+			} catch (error) {
+				provider.log(`Error browsing world book file: ${error}`)
+				vscode.window.showErrorMessage(`Failed to browse world book file: ${error}`)
+			}
+			break
+		}
+		case "copyWorldBook": {
+			try {
+				if (!message.sourceWorldBook || !message.targetScope) {
+					throw new Error("Source world book and target scope are required")
+				}
+
+				provider.log(`[WorldBook] Copying world book "${message.sourceWorldBook.name}" to ${message.targetScope}...`)
+				const extendedService = await getExtendedWorldBookService(provider.context)
+				const success = await extendedService.copyWorldBook(message.sourceWorldBook, message.targetScope === "global")
+
+				if (success) {
+					// 刷新列表
+					const worldBooks = await extendedService.getAllWorldBooks()
+					provider.postMessageToWebview({
+						type: "allWorldBooksLoaded",
+						worldBooks,
+					})
+
+					const location = message.targetScope === "global" ? "全局" : "工作区"
+					vscode.window.showInformationMessage(`世界书已成功复制到${location}`)
+				} else {
+					throw new Error("复制失败")
+				}
+			} catch (error) {
+				provider.log(`Error copying world book: ${error}`)
+				vscode.window.showErrorMessage(`复制世界书失败: ${error}`)
+			}
+			break
+		}
+		case "deleteWorldBook": {
+			try {
+				if (!message.worldBook) {
+					throw new Error("World book is required for deletion")
+				}
+
+				provider.log(`[WorldBook] Deleting world book "${message.worldBook.name}"...`)
+				const extendedService = await getExtendedWorldBookService(provider.context)
+				const success = await extendedService.deleteWorldBook(message.worldBook)
+
+				if (success) {
+					// 刷新列表
+					const worldBooks = await extendedService.getAllWorldBooks()
+					provider.postMessageToWebview({
+						type: "allWorldBooksLoaded",
+						worldBooks,
+					})
+
+					vscode.window.showInformationMessage(`世界书 "${message.worldBook.name}" 已删除`)
+				} else {
+					throw new Error("删除失败")
+				}
+			} catch (error) {
+				provider.log(`Error deleting world book: ${error}`)
+				vscode.window.showErrorMessage(`删除世界书失败: ${error}`)
+			}
+			break
+		}
+		case "getGlobalExtensionsInfo": {
+			try {
+				provider.log("[Extension] Getting global extensions info...")
+				const globalService = await getGlobalStorageService(provider.context)
+				const extensionsInfo = await globalService.getGlobalExtensionsInfo()
+
+				provider.log(`[Extension] Found ${extensionsInfo.extensions.length} global extensions`)
+				provider.postMessageToWebview({
+					type: "globalExtensionsInfoLoaded",
+					extensionsInfo: extensionsInfo.extensions,
+				})
+			} catch (error) {
+				provider.log(`Error getting global extensions info: ${error}`)
+				vscode.window.showErrorMessage(`获取全局扩展信息失败: ${error}`)
+			}
+			break
+		}
+		case "copyExtensionToGlobal": {
+			try {
+				if (!message.sourceExtensionPath || !message.extensionName) {
+					throw new Error("Source extension path and extension name are required")
+				}
+
+				provider.log(`[Extension] Copying extension "${message.extensionName}" to global...`)
+				const globalService = await getGlobalStorageService(provider.context)
+				const success = await globalService.copyExtensionToGlobal(
+					message.sourceExtensionPath,
+					message.extensionName
+				)
+
+				if (success) {
+					vscode.window.showInformationMessage(`扩展 "${message.extensionName}" 已复制到全局存储`)
+				} else {
+					throw new Error("复制失败")
+				}
+			} catch (error) {
+				provider.log(`Error copying extension to global: ${error}`)
+				vscode.window.showErrorMessage(`复制扩展到全局存储失败: ${error}`)
+			}
+			break
+		}
+		case "deleteGlobalExtension": {
+			try {
+				if (!message.extensionName) {
+					throw new Error("Extension name is required for deletion")
+				}
+
+				provider.log(`[Extension] Deleting global extension "${message.extensionName}"...`)
+				const globalService = await getGlobalStorageService(provider.context)
+				const success = await globalService.deleteGlobalExtension(message.extensionName)
+
+				if (success) {
+					vscode.window.showInformationMessage(`全局扩展 "${message.extensionName}" 已删除`)
+				} else {
+					throw new Error("删除失败，扩展不存在")
+				}
+			} catch (error) {
+				provider.log(`Error deleting global extension: ${error}`)
+				vscode.window.showErrorMessage(`删除全局扩展失败: ${error}`)
+			}
+			break
+		}
 		case "anhChatModeHideTaskCompletion":
 			await updateGlobalState("anhChatModeHideTaskCompletion", message.bool ?? true)
 			// No need to call postStateToWebview here as the UI already updated optimistically
@@ -2727,9 +2965,10 @@ export const webviewMessageHandler = async (
 		}
 		case "loadTsProfiles": {
 			try {
-				provider.log("[TSProfile] Loading TSProfiles...")
-				const profiles = await loadTsProfiles()
-				provider.log(`[TSProfile] Loaded ${profiles.length} profiles`)
+				provider.log("[TSProfile] Loading all TSProfiles...")
+				const extendedService = await getExtendedTSProfileService(provider.context)
+				const profiles = await extendedService.loadAllTsProfiles()
+				provider.log(`[TSProfile] Loaded ${profiles.length} profiles (global+workspace)`)
 				provider.postMessageToWebview({
 					type: "tsProfilesLoaded",
 					tsProfiles: profiles,
@@ -2737,6 +2976,83 @@ export const webviewMessageHandler = async (
 			} catch (error) {
 				provider.log(`Error loading TSProfiles: ${error}`)
 				vscode.window.showErrorMessage(`Failed to load TSProfiles: ${error}`)
+			}
+			break
+		}
+		case "browseTsProfile": {
+			try {
+				provider.log("[TSProfile] Browsing for TSProfile file...")
+				const isGlobal = message.isGlobal || false
+				const extendedService = await getExtendedTSProfileService(provider.context)
+				const filePath = await extendedService.browseTsProfile(isGlobal)
+
+				if (filePath) {
+					provider.log(`[TSProfile] Selected file: ${filePath}`)
+					provider.postMessageToWebview({
+						type: "tsProfileFileSelected",
+						tsProfileFilePath: filePath,
+					})
+				}
+			} catch (error) {
+				provider.log(`Error browsing TSProfile: ${error}`)
+				vscode.window.showErrorMessage(`Failed to browse TSProfile: ${error}`)
+			}
+			break
+		}
+		case "copyTsProfile": {
+			try {
+				if (!message.sourceProfile || !message.targetScope) {
+					throw new Error("Source profile and target scope are required")
+				}
+
+				provider.log(`[TSProfile] Copying profile "${message.sourceProfile.name}" to ${message.targetScope}...`)
+				const extendedService = await getExtendedTSProfileService(provider.context)
+				const success = await extendedService.copyProfile(message.sourceProfile, message.targetScope === "global")
+
+				if (success) {
+					// 刷新列表
+					const profiles = await extendedService.loadAllTsProfiles()
+					provider.postMessageToWebview({
+						type: "tsProfilesLoaded",
+						tsProfiles: profiles,
+					})
+
+					const location = message.targetScope === "global" ? "全局" : "工作区"
+					vscode.window.showInformationMessage(`Profile 已成功复制到${location}`)
+				} else {
+					throw new Error("复制失败")
+				}
+			} catch (error) {
+				provider.log(`Error copying TSProfile: ${error}`)
+				vscode.window.showErrorMessage(`复制 Profile 失败: ${error}`)
+			}
+			break
+		}
+		case "deleteTsProfile": {
+			try {
+				if (!message.profile) {
+					throw new Error("Profile is required for deletion")
+				}
+
+				provider.log(`[TSProfile] Deleting profile "${message.profile.name}"...`)
+				const extendedService = await getExtendedTSProfileService(provider.context)
+				const success = await extendedService.deleteProfile(message.profile)
+
+				if (success) {
+					// 刷新列表
+					const profiles = await extendedService.loadAllTsProfiles()
+					provider.postMessageToWebview({
+						type: "tsProfilesLoaded",
+						tsProfiles: profiles,
+					})
+
+					vscode.window.showInformationMessage(`Profile "${message.profile.name}" 已删除`)
+				} else {
+					throw new Error("删除失败")
+				}
+			} catch (error) {
+				provider.log(`Error deleting TSProfile: ${error}`)
+				vscode.window.showErrorMessage(`删除 Profile 失败: ${error}`)
 			}
 			break
 		}
@@ -3263,6 +3579,29 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
+
+		case "getGlobalAnhRoles": {
+			try {
+				const globalService = await getGlobalStorageService(provider.context)
+				const globalRoles = await globalService.getGlobalRoles()
+				// Add lastUpdatedAt property to match RoleSummary interface
+				const globalRolesWithTimestamp = globalRoles.map(role => ({
+					...role,
+					lastUpdatedAt: Date.now() // Use current time as fallback
+				}))
+				await provider.postMessageToWebview({
+					type: "anhGlobalRolesLoaded",
+					globalRoles: globalRolesWithTimestamp,
+				})
+			} catch (error) {
+				provider.log(`Error loading global ANH roles: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "anhGlobalRolesLoaded",
+					globalRoles: [],
+				})
+			}
+			break
+		}
 		case "loadAnhRole": {
 			try {
 				const targetUuid = message.roleUuid ?? DEFAULT_ASSISTANT_ROLE_UUID
@@ -3273,6 +3612,19 @@ export const webviewMessageHandler = async (
 				}
 				const registry = await RoleRegistry.create(workspaceRoot)
 				let role = await registry.loadRole(targetUuid)
+
+				// If not found in workspace, try to load from global storage
+				if (!role && targetUuid !== DEFAULT_ASSISTANT_ROLE_UUID) {
+					try {
+						const globalService = await getGlobalStorageService(provider.context)
+						role = await globalService.getGlobalRole(targetUuid)
+						if (role) {
+							provider.log(`Global ANH role loaded: ${role.name}`)
+						}
+					} catch (globalError) {
+						provider.log(`Error loading global role: ${globalError instanceof Error ? globalError.message : String(globalError)}`)
+					}
+				}
 
 				if (!role && targetUuid === DEFAULT_ASSISTANT_ROLE_UUID) {
 					role = JSON.parse(JSON.stringify(DEFAULT_ASSISTANT_ROLE)) as Role
@@ -4075,6 +4427,251 @@ export const webviewMessageHandler = async (
 			break
 		}
 
+		// Global STWordBook management cases
+		case "STWordBookGetGlobal": {
+			try {
+				const globalService = await getGlobalStorageService(provider.context)
+				const globalFiles = await globalService.getGlobalWorldBooks()
+
+				await provider.postMessageToWebview({
+					type: "STWordBookGetGlobalResponse",
+					globalWorldBooks: globalFiles,
+				})
+			} catch (error) {
+				provider.log(`Error getting global worldbooks: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "STWordBookGetGlobalResponse",
+					globalWorldBooks: [],
+					error: error instanceof Error ? error.message : String(error),
+				})
+			}
+			break
+		}
+
+		case "STWordBookCopyToGlobal": {
+			try {
+				const filePath = message.worldBookFilePath
+				if (!filePath) {
+					vscode.window.showErrorMessage("Invalid worldbook file path")
+					break
+				}
+
+				// 读取当前世界书文件
+				const worldBookData = await provider.anhChatServices?.worldBookService.loadWorldBookFile(filePath)
+				if (!worldBookData) {
+					vscode.window.showErrorMessage("Failed to load worldbook file")
+					break
+				}
+
+				// 保存到全局存储
+				const globalService = await getGlobalStorageService(provider.context)
+				const fileName = path.basename(filePath)
+				await globalService.saveGlobalWorldBook(fileName, worldBookData)
+
+				vscode.window.showInformationMessage(`世界书已复制到全局存储: ${fileName}`)
+				await provider.postStateToWebview()
+			} catch (error) {
+				provider.log(`Error copying worldbook to global: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("复制到全局存储失败")
+			}
+			break
+		}
+
+		case "STWordBookCopyFromGlobal": {
+			try {
+				const fileName = message.worldBookFileName
+				if (!fileName) {
+					vscode.window.showErrorMessage("Invalid worldbook file name")
+					break
+				}
+
+				// 从全局存储读取
+				const globalService = await getGlobalStorageService(provider.context)
+				const worldBookData = await globalService.loadGlobalWorldBook(fileName)
+				if (!worldBookData) {
+					vscode.window.showErrorMessage("Failed to load global worldbook file")
+					break
+				}
+
+				// 保存到工作区
+				const workspaceWorldBookPath = path.join(provider.anhChatServices?.worldBookService.getWorldBooksPath() || "", fileName)
+				await fs.writeFile(workspaceWorldBookPath, JSON.stringify(worldBookData, null, 2))
+
+				vscode.window.showInformationMessage(`世界书已从全局存储复制到工作区: ${fileName}`)
+				await provider.postStateToWebview()
+			} catch (error) {
+				provider.log(`Error copying worldbook from global: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("从全局存储复制失败")
+			}
+			break
+		}
+
+		// World Book Mixin management cases
+		case "getWorldBookMixin": {
+			try {
+				const { worldBookPath, isGlobal = false } = message
+
+				if (!worldBookPath) {
+					await provider.postMessageToWebview({
+						type: "worldBookMixinLoaded",
+						worldBookMixin: null,
+						error: "World book path is required"
+					})
+					break
+				}
+
+				provider.log(`[WorldBookMixin] Loading mixin for: ${worldBookPath} (global: ${isGlobal})`)
+
+				// Load the world book service
+				const { WorldBookConverter } = await import('../../../packages/types/src/silly-tavern-worldbook-converter')
+				const converter = new WorldBookConverter()
+
+				// Get the mixin service
+				const { WorldBookMixinService } = await import('../../services/silly-tavern/WorldBookMixinService')
+				const mixinService = new WorldBookMixinService(provider.context)
+
+				// Load original world book entries
+				const fs = await import('fs/promises')
+				const worldBookRawData = await fs.readFile(worldBookPath, 'utf8')
+				const worldBookData = JSON.parse(worldBookRawData)
+
+				// Extract entries from the world book data
+				let originalEntries: any[] = []
+				if (worldBookData.entries) {
+					if (Array.isArray(worldBookData.entries)) {
+						originalEntries = worldBookData.entries
+					} else if (typeof worldBookData.entries === 'object') {
+						originalEntries = Object.values(worldBookData.entries)
+					}
+				} else if (Array.isArray(worldBookData)) {
+					originalEntries = worldBookData
+				} else {
+					originalEntries = Object.values(worldBookData).filter((item: any) =>
+						item && typeof item === 'object' && (item.uid !== undefined || item.key !== undefined)
+					)
+				}
+
+				// Ensure all entries have a uid, generate one if missing
+				originalEntries = originalEntries.map((entry: any, index: number) => {
+					if (entry.uid === undefined || entry.uid === null) {
+						// Generate a uid based on content hash for consistency
+						const contentForHash = JSON.stringify({
+							key: entry.key || [],
+							content: entry.content || '',
+							comment: entry.comment || ''
+						})
+
+						// Simple hash function
+						let hash = 0
+						for (let i = 0; i < contentForHash.length; i++) {
+							const char = contentForHash.charCodeAt(i)
+							hash = ((hash << 5) - hash) + char
+							hash = hash & hash // Convert to 32-bit integer
+						}
+
+						// Create a unique but deterministic uid
+						entry.uid = `generated_${Math.abs(hash)}_${index}`
+						provider.log(`[WorldBookMixin] Generated uid for entry ${index}: ${entry.uid}`)
+					} else {
+						provider.log(`[WorldBookMixin] Keeping original uid for entry ${index}: ${entry.uid}`)
+					}
+					return entry
+				})
+
+				// Load existing mixin
+				const mixin = await mixinService.loadWorldBookMixin(worldBookPath, isGlobal)
+
+				await provider.postMessageToWebview({
+					type: "worldBookMixinLoaded",
+					worldBookMixin: {
+						entries: mixin?.entries || [],
+						originalEntries
+					}
+				})
+
+				provider.log(`[WorldBookMixin] Loaded mixin with ${mixin?.entries.length || 0} entries and ${originalEntries.length} original entries`)
+			} catch (error) {
+				provider.log(`Error loading world book mixin: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "worldBookMixinLoaded",
+					worldBookMixin: null,
+					error: error instanceof Error ? error.message : String(error)
+				})
+			}
+			break
+		}
+
+		case "updateWorldBookEntryMixin": {
+			try {
+				const { worldBookPath, entryUid, mixinUpdates, isGlobal = false } = message
+
+				if (!worldBookPath || entryUid === undefined || !mixinUpdates) {
+					vscode.window.showErrorMessage("Missing required parameters for updating entry mixin")
+					break
+				}
+
+				provider.log(`[WorldBookMixin] Updating entry ${entryUid} for: ${worldBookPath}`)
+
+				// Get the mixin service
+				const { WorldBookMixinService } = await import('../../services/silly-tavern/WorldBookMixinService')
+				const mixinService = new WorldBookMixinService(provider.context)
+
+				// Update the entry mixin
+				await mixinService.updateEntryMixin(worldBookPath, isGlobal, entryUid, {
+					...mixinUpdates,
+					updatedAt: Date.now()
+				})
+
+				// Load updated mixin
+				const updatedMixin = await mixinService.loadWorldBookMixin(worldBookPath, isGlobal)
+
+				await provider.postMessageToWebview({
+					type: "worldBookEntryMixinUpdated",
+					entryUid,
+					mixin: updatedMixin
+				})
+
+				vscode.window.showInformationMessage(`条目Mixin已更新`)
+				provider.log(`[WorldBookMixin] Successfully updated entry ${entryUid}`)
+			} catch (error) {
+				provider.log(`Error updating world book entry mixin: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("更新条目Mixin失败: " + (error instanceof Error ? error.message : String(error)))
+			}
+			break
+		}
+
+		case "removeWorldBookEntryMixin": {
+			try {
+				const { worldBookPath, entryUid, isGlobal = false } = message
+
+				if (!worldBookPath || entryUid === undefined) {
+					vscode.window.showErrorMessage("Missing required parameters for removing entry mixin")
+					break
+				}
+
+				provider.log(`[WorldBookMixin] Removing entry ${entryUid} for: ${worldBookPath}`)
+
+				// Get the mixin service
+				const { WorldBookMixinService } = await import('../../services/silly-tavern/WorldBookMixinService')
+				const mixinService = new WorldBookMixinService(provider.context)
+
+				// Remove the entry mixin
+				await mixinService.removeEntryMixin(worldBookPath, isGlobal, entryUid)
+
+				await provider.postMessageToWebview({
+					type: "worldBookEntryMixinRemoved",
+					entryUid
+				})
+
+				vscode.window.showInformationMessage(`条目Mixin已删除`)
+				provider.log(`[WorldBookMixin] Successfully removed entry ${entryUid}`)
+			} catch (error) {
+				provider.log(`Error removing world book entry mixin: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("删除条目Mixin失败: " + (error instanceof Error ? error.message : String(error)))
+			}
+			break
+		}
+
 		case "memoryManagement": {
 			try {
 				// 使用现有的角色记忆触发服务，而不是创建新的实例
@@ -4248,6 +4845,155 @@ export const webviewMessageHandler = async (
 				vscode.window.showErrorMessage(
 					`Failed to save profile source: ${error instanceof Error ? error.message : String(error)}`,
 				)
+			}
+			break
+		}
+		case "loadGlobalRoleMemory": {
+			try {
+				if (!message.roleUuid) {
+					throw new Error("Role UUID is required")
+				}
+
+				provider.log(`[GlobalMemory] Loading memory for role: ${message.roleUuid}`)
+				const globalService = await getGlobalStorageService(provider.context)
+				const memory = await globalService.loadGlobalRoleMemory(message.roleUuid)
+				const stats = await globalService.getGlobalRoleMemoryStats(message.roleUuid)
+
+				provider.log(`[GlobalMemory] Loaded memory for role ${message.roleUuid}`)
+				provider.postMessageToWebview({
+					type: "globalRoleMemoryLoaded",
+					roleUuid: message.roleUuid,
+					memory,
+					stats,
+				})
+			} catch (error) {
+				provider.log(`Error loading global role memory: ${error}`)
+				vscode.window.showErrorMessage(`加载全局角色记忆失败: ${error}`)
+			}
+			break
+		}
+		case "saveGlobalRoleMemory": {
+			try {
+				if (!message.roleUuid || !message.memory) {
+					throw new Error("Role UUID and memory data are required")
+				}
+
+				provider.log(`[GlobalMemory] Saving memory for role: ${message.roleUuid}`)
+				const globalService = await getGlobalStorageService(provider.context)
+				await globalService.saveGlobalRoleMemory(message.roleUuid, message.memory)
+
+				provider.log(`[GlobalMemory] Saved memory for role ${message.roleUuid}`)
+				vscode.window.showInformationMessage("全局角色记忆已保存")
+			} catch (error) {
+				provider.log(`Error saving global role memory: ${error}`)
+				vscode.window.showErrorMessage(`保存全局角色记忆失败: ${error}`)
+			}
+			break
+		}
+		case "appendGlobalEpisodicMemory": {
+			try {
+				if (!message.roleUuid || !message.record) {
+					throw new Error("Role UUID and episodic record are required")
+				}
+
+				provider.log(`[GlobalMemory] Adding episodic memory for role: ${message.roleUuid}`)
+				const globalService = await getGlobalStorageService(provider.context)
+				await globalService.appendGlobalEpisodicMemory(message.roleUuid, message.record)
+
+				provider.log(`[GlobalMemory] Added episodic memory for role ${message.roleUuid}`)
+			} catch (error) {
+				provider.log(`Error adding global episodic memory: ${error}`)
+				vscode.window.showErrorMessage(`添加全局情景记忆失败: ${error}`)
+			}
+			break
+		}
+		case "upsertGlobalSemanticMemory": {
+			try {
+				if (!message.roleUuid || !message.record) {
+					throw new Error("Role UUID and semantic record are required")
+				}
+
+				provider.log(`[GlobalMemory] Updating semantic memory for role: ${message.roleUuid}`)
+				const globalService = await getGlobalStorageService(provider.context)
+				await globalService.upsertGlobalSemanticMemory(message.roleUuid, message.record)
+
+				provider.log(`[GlobalMemory] Updated semantic memory for role ${message.roleUuid}`)
+			} catch (error) {
+				provider.log(`Error updating global semantic memory: ${error}`)
+				vscode.window.showErrorMessage(`更新全局语义记忆失败: ${error}`)
+			}
+			break
+		}
+		case "updateGlobalRoleTraits": {
+			try {
+				if (!message.roleUuid || !message.traits) {
+					throw new Error("Role UUID and traits are required")
+				}
+
+				provider.log(`[GlobalMemory] Updating traits for role: ${message.roleUuid}`)
+				const globalService = await getGlobalStorageService(provider.context)
+				await globalService.updateGlobalRoleTraits(message.roleUuid, message.traits)
+
+				provider.log(`[GlobalMemory] Updated traits for role ${message.roleUuid}`)
+			} catch (error) {
+				provider.log(`Error updating global role traits: ${error}`)
+				vscode.window.showErrorMessage(`更新全局角色特征失败: ${error}`)
+			}
+			break
+		}
+		case "updateGlobalRoleGoals": {
+			try {
+				if (!message.roleUuid || !message.goals) {
+					throw new Error("Role UUID and goals are required")
+				}
+
+				provider.log(`[GlobalMemory] Updating goals for role: ${message.roleUuid}`)
+				const globalService = await getGlobalStorageService(provider.context)
+				await globalService.updateGlobalRoleGoals(message.roleUuid, message.goals)
+
+				provider.log(`[GlobalMemory] Updated goals for role ${message.roleUuid}`)
+			} catch (error) {
+				provider.log(`Error updating global role goals: ${error}`)
+				vscode.window.showErrorMessage(`更新全局角色目标失败: ${error}`)
+			}
+			break
+		}
+		case "deleteGlobalRoleMemory": {
+			try {
+				if (!message.roleUuid) {
+					throw new Error("Role UUID is required")
+				}
+
+				provider.log(`[GlobalMemory] Deleting memory for role: ${message.roleUuid}`)
+				const globalService = await getGlobalStorageService(provider.context)
+				const success = await globalService.deleteGlobalRoleMemory(message.roleUuid)
+
+				if (success) {
+					provider.log(`[GlobalMemory] Deleted memory for role ${message.roleUuid}`)
+					vscode.window.showInformationMessage("全局角色记忆已删除")
+				} else {
+					throw new Error("删除失败，记忆不存在")
+				}
+			} catch (error) {
+				provider.log(`Error deleting global role memory: ${error}`)
+				vscode.window.showErrorMessage(`删除全局角色记忆失败: ${error}`)
+			}
+			break
+		}
+		case "listGlobalRoleMemories": {
+			try {
+				provider.log("[GlobalMemory] Listing all global role memories...")
+				const globalService = await getGlobalStorageService(provider.context)
+				const roleUuids = await globalService.listGlobalRoleMemories()
+
+				provider.log(`[GlobalMemory] Found ${roleUuids.length} global role memories`)
+				provider.postMessageToWebview({
+					type: "globalRoleMemoriesListed",
+					roleUuids,
+				})
+			} catch (error) {
+				provider.log(`Error listing global role memories: ${error}`)
+				vscode.window.showErrorMessage(`获取全局角色记忆列表失败: ${error}`)
 			}
 			break
 		}

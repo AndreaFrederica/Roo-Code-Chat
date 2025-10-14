@@ -394,6 +394,30 @@ export class WorldBookService {
   }
 
   /**
+   * 加载世界书文件数据
+   */
+  async loadWorldBookFile(filePath: string): Promise<any> {
+    try {
+      const result = await this.converter.loadFromFile(filePath);
+      return result;
+    } catch (error) {
+      this.outputChannel.appendLine(`[WorldBook] 加载世界书文件失败 ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取世界书目录路径
+   */
+  getWorldBooksPath(): string {
+    const workspacePath = this.getWorkspacePath();
+    if (workspacePath) {
+      return path.join(workspacePath, 'novel-helper', '.anh-chat', 'worldbook');
+    }
+    return '';
+  }
+
+  /**
    * 清理资源
    */
   dispose(): void {

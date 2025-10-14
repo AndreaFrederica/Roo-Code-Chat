@@ -140,6 +140,8 @@ export interface ExtensionMessage {
 		| "organizationSwitchResult"
 		| "getAnhRoles"
 		| "anhRolesLoaded"
+		| "getGlobalAnhRoles"
+		| "anhGlobalRolesLoaded"
 		| "loadAnhRole"
 		| "anhRoleLoaded"
 		| "selectAnhRole"
@@ -164,7 +166,30 @@ export interface ExtensionMessage {
 		| "tsProfileSourceSaved"
 		| "STWordBookBrowseResponse"
 		| "STWordBookValidateResponse"
+	| "globalHistoryLoaded"
+		| "globalHistoryItemAdded"
+		| "globalHistoryItemDeleted"
+		| "globalHistoryCleared"
+		| "allWorldBooksLoaded"
+		| "globalMemoryResponse"
+		| "globalRoleMemoryResponse"
+		| "globalRoleMemoriesListed"
 		| "memoryManagementResponse"
+		| "worldBookFileSelected"
+		| "worldBookCopied"
+		| "worldBookDeleted"
+		| "globalExtensionsInfoLoaded"
+		| "extensionCopiedToGlobal"
+		| "STWordBookGetGlobalResponse"
+		| "tsProfileFileSelected"
+		| "tsProfileCopied"
+		| "tsProfileDeleted"
+		| "globalExtensionDeleted"
+		| "globalRoleMemoryLoaded"
+	| "saveGlobalRoleMemory"
+		| "worldBookMixinLoaded"
+		| "worldBookEntryMixinUpdated"
+		| "worldBookEntryMixinRemoved"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -245,6 +270,7 @@ export interface ExtensionMessage {
 	list?: string[] // For dismissedUpsells
 	organizationId?: string | null // For organizationSwitchResult
 	roles?: RoleSummary[] // For anhRolesLoaded
+	globalRoles?: RoleSummary[] // For anhGlobalRolesLoaded
 	roleUuid?: string // For loadAnhRole
 	role?: Role // For anhRoleLoaded
 	worldsetList?: string[] // For worldsetList
@@ -271,6 +297,39 @@ export interface ExtensionMessage {
 	worldBookValid?: boolean // For STWordBookValidateResponse
 	worldBookValidationError?: string // For STWordBookValidateResponse
 	worldBookInfo?: any // For STWordBookValidateResponse (WorldBookInfo)
+	// Global history-related properties
+	globalHistoryItems?: any[] // For globalHistoryLoaded
+	globalHistoryError?: string // For globalHistoryLoaded
+	globalHistoryItemId?: string // For globalHistoryItemDeleted
+	// Global world books-related properties
+	allWorldBooks?: any[] // For allWorldBooksLoaded
+	// Global memory-related properties
+	globalMemoryData?: any // For globalMemoryResponse and globalRoleMemoryResponse
+	globalRoleMemories?: any[] // For globalRoleMemoriesListed
+	// World book-related properties
+	worldBooks?: any[] // For worldBook operations
+	worldBook?: any // For worldBook operations
+	// Extension-related properties
+	globalExtensions?: any[] // For globalExtensionsInfoLoaded
+	// Role UUID list property
+	roleUuids?: string[] // For globalRoleMemoriesListed
+	// Additional missing properties
+	globalHistory?: any[] // For globalHistoryLoaded
+	historyItem?: any // For globalHistoryItemAdded
+	historyItemId?: string // For globalHistoryItemDeleted
+	extensionsInfo?: any[] // For globalExtensionsInfoLoaded
+	sourceProfile?: any // For copyTsProfile operations
+	profile?: any // For deleteTsProfile operations
+	globalWorldBooks?: any[] // For STWordBookGetGlobalResponse
+	tsProfileFilePath?: string // For tsProfile operations
+	memory?: any // For globalRoleMemory operations
+	stats?: any // For globalRoleMemoryLoaded
+	// World Book Mixin-related properties
+	worldBookMixin?: any // For worldBookMixinLoaded
+	mixinUpdated?: boolean // For worldBookEntryMixinUpdated
+	mixinRemoved?: boolean // For worldBookEntryMixinRemoved
+	entryUid?: number | string // For worldBookEntryMixinUpdated and worldBookEntryMixinRemoved
+	mixin?: any // For worldBookEntryMixinUpdated
 }
 
 export type ExtensionState = Pick<

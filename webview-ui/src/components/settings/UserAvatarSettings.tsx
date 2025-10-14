@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react"
 import { Fzf } from "fzf"
-import { Check, X, User, UserX } from "lucide-react"
+import { Check, X, User, UserX, Globe, Folder, Bot } from "lucide-react"
 
 import {
 	type Role,
@@ -48,6 +48,9 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 		vscode.postMessage({
 			type: "getAnhRoles",
 		})
+		vscode.postMessage({
+			type: "getGlobalAnhRoles",
+		})
 
 		// Set timeout to detect loading failure
 		const timeout = setTimeout(() => {
@@ -69,7 +72,26 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 					console.log("=== UserAvatar: ANH Roles Loaded ===")
 					console.log("Received roles:", message.roles)
 					setHasLoaded(true)
-					setRoles(message.roles || [])
+					setRoles((prev) => {
+						const workspaceRoles = (message.roles || []).map((role: RoleSummary) => ({
+							...role,
+							scope: "workspace" as const
+						}))
+						const existingGlobalRoles = prev.filter((role) => role.scope === "global")
+						return [...existingGlobalRoles, ...workspaceRoles]
+					})
+					break
+				case "anhGlobalRolesLoaded":
+					console.log("=== UserAvatar: ANH Global Roles Loaded ===")
+					console.log("Received global roles:", message.globalRoles)
+					setRoles((prev) => {
+						const globalRoles = (message.globalRoles || []).map((role: RoleSummary) => ({
+							...role,
+							scope: "global" as const
+						}))
+						const existingWorkspaceRoles = prev.filter((role) => role.scope === "workspace")
+						return [...globalRoles, ...existingWorkspaceRoles]
+					})
 					break
 			}
 		}
@@ -328,6 +350,14 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 												style={{ backgroundColor: selectedRole.color }}
 											/>
 										)}
+										{/* Global/Workspace indicator */}
+										{!selectedRole || selectedRole.uuid === DEFAULT_ASSISTANT_ROLE_UUID ? (
+											<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" title="默认角色" />
+										) : selectedRole.scope === "global" ? (
+											<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局角色" />
+										) : (
+											<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区角色" />
+										)}
 										<span className="truncate">{selectedRole?.name || ""}</span>
 									</div>
 									<div className="flex items-center gap-1">
@@ -403,7 +433,17 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 																	/>
 																)}
 																<div className="flex-1 min-w-0">
-																	<div className="font-bold truncate">{role.name}</div>
+																	<div className="flex items-center gap-2">
+																		{/* Global/Workspace indicator */}
+																		{role.uuid === DEFAULT_ASSISTANT_ROLE_UUID ? (
+																			<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" title="默认角色" />
+																		) : role.scope === "global" ? (
+																			<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局角色" />
+																		) : (
+																			<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区角色" />
+																		)}
+																		<div className="font-bold truncate">{role.name}</div>
+																	</div>
 																	{role.description && (
 																		<div className="text-xs text-vscode-descriptionForeground truncate">
 																			{role.description}
@@ -431,6 +471,14 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 											className="w-4 h-4 rounded-full flex-shrink-0"
 											style={{ backgroundColor: selectedRole.color }}
 										/>
+									)}
+									{/* Global/Workspace indicator */}
+									{selectedRole.uuid === DEFAULT_ASSISTANT_ROLE_UUID ? (
+										<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" title="默认角色" />
+									) : selectedRole.scope === "global" ? (
+										<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局角色" />
+									) : (
+										<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区角色" />
 									)}
 									<div className="font-medium">{selectedRole.name}</div>
 									<div className="text-xs text-vscode-descriptionForeground">

@@ -37,6 +37,8 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 		setLastNonRelevantSort,
 		showAllWorkspaces,
 		setShowAllWorkspaces,
+		showGlobalOnly,
+		setShowGlobalOnly,
 	} = useTaskSearch()
 	const { t } = useAppTranslation()
 
@@ -129,12 +131,26 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 					</VSCodeTextField>
 					<div className="flex gap-2">
 						<Select
-							value={showAllWorkspaces ? "all" : "current"}
-							onValueChange={(value) => setShowAllWorkspaces(value === "all")}>
+							value={showGlobalOnly ? "global" : showAllWorkspaces ? "all" : "current"}
+							onValueChange={(value) => {
+								const isGlobal = value === "global"
+								const isAll = value === "all"
+								setShowGlobalOnly(isGlobal)
+								setShowAllWorkspaces(isAll)
+							}}>
 							<SelectTrigger className="flex-1">
 								<SelectValue>
-									{t("history:workspace.prefix")}{" "}
-									{t(`history:workspace.${showAllWorkspaces ? "all" : "current"}`)}
+									{showGlobalOnly ? (
+										<>
+											<span className="codicon codicon-globe mr-1" />
+											全局对话
+										</>
+									) : (
+										<>
+											{t("history:workspace.prefix")}{" "}
+											{t(`history:workspace.${showAllWorkspaces ? "all" : "current"}`)}
+										</>
+									)}
 								</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
@@ -148,6 +164,12 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 									<div className="flex items-center gap-2">
 										<span className="codicon codicon-folder-opened" />
 										{t("history:workspace.all")}
+									</div>
+								</SelectItem>
+								<SelectItem value="global">
+									<div className="flex items-center gap-2">
+										<span className="codicon codicon-globe" />
+										全局对话
 									</div>
 								</SelectItem>
 							</SelectContent>

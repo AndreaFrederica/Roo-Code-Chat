@@ -184,6 +184,14 @@ const getCommandsMap = ({
 		const { promptForCustomStoragePath } = await import("../utils/storage")
 		await promptForCustomStoragePath()
 	},
+	setGlobalStoragePath: async () => {
+		const { setGlobalStoragePath } = await import("../commands/setGlobalStoragePath")
+		await setGlobalStoragePath()
+	},
+	getGlobalStorageInfo: async () => {
+		const { getGlobalStorageInfo } = await import("../commands/setGlobalStoragePath")
+		await getGlobalStorageInfo()
+	},
 	importSettings: async (filePath?: string) => {
 		const visibleProvider = getVisibleProviderOrLog(outputChannel)
 		if (!visibleProvider) {

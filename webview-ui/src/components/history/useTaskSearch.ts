@@ -12,6 +12,7 @@ export const useTaskSearch = () => {
 	const [sortOption, setSortOption] = useState<SortOption>("newest")
 	const [lastNonRelevantSort, setLastNonRelevantSort] = useState<SortOption | null>("newest")
 	const [showAllWorkspaces, setShowAllWorkspaces] = useState(false)
+	const [showGlobalOnly, setShowGlobalOnly] = useState(false)
 
 	useEffect(() => {
 		if (searchQuery && sortOption !== "mostRelevant" && !lastNonRelevantSort) {
@@ -25,11 +26,19 @@ export const useTaskSearch = () => {
 
 	const presentableTasks = useMemo(() => {
 		let tasks = taskHistory.filter((item) => item.ts && item.task)
-		if (!showAllWorkspaces) {
-			tasks = tasks.filter((item) => item.workspace === cwd)
+
+		// 根据筛选条件过滤任务
+		if (showGlobalOnly) {
+			// 只显示全局对话
+			tasks = tasks.filter((item) => item.isGlobal === true)
+		} else if (!showAllWorkspaces) {
+			// 只显示当前工作区的对话（非全局）
+			tasks = tasks.filter((item) => item.workspace === cwd && item.isGlobal !== true)
 		}
+		// showAllWorkspaces 为 true 时显示所有对话（包括全局和工作区）
+
 		return tasks
-	}, [taskHistory, showAllWorkspaces, cwd])
+	}, [taskHistory, showAllWorkspaces, showGlobalOnly, cwd])
 
 	const fzf = useMemo(() => {
 		return new Fzf(presentableTasks, {
@@ -88,5 +97,7 @@ export const useTaskSearch = () => {
 		setLastNonRelevantSort,
 		showAllWorkspaces,
 		setShowAllWorkspaces,
+		showGlobalOnly,
+		setShowGlobalOnly,
 	}
 }

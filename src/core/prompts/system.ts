@@ -1555,12 +1555,34 @@ async function generatePrompt(
 			const fs = require("fs")
 			const worldsetContents: string[] = []
 
+			// Prepare template variables for worldset processing
+			const templateOptions: LiquidTemplateProcessingOptions = {
+				variables: {
+					user: userAvatarRole?.name || "用户",
+					char: rolePromptData?.role?.name || "",
+					name: rolePromptData?.role?.name || "",
+					description: rolePromptData?.role?.description || "",
+					personality: rolePromptData?.role?.personality || "",
+					scenario: rolePromptData?.role?.scenario || "",
+					first_mes: rolePromptData?.role?.first_mes || "",
+					mes_example: rolePromptData?.role?.mes_example || "",
+					isodate: new Date().toISOString().split("T")[0],
+					isotime: new Date().toTimeString().split(" ")[0],
+				},
+				strict: false,
+				keepVariableDefinitions: false,
+				removeUnprocessed: true,
+				maxRecursionDepth: 10,
+			}
+
 			for (const worldsetName of enabledWorldsets) {
 				const worldsetPath = path.join(cwd, "novel-helper", ".anh-chat", "worldset", worldsetName)
 
 				if (fs.existsSync(worldsetPath)) {
 					const worldsetContent = fs.readFileSync(worldsetPath, "utf-8")
-					worldsetContents.push(`## ${worldsetName}\n\n${worldsetContent}`)
+					// Process template variables in worldset content
+					const processedWorldsetContent = processLiquidTemplateVariables(worldsetContent, templateOptions)
+					worldsetContents.push(`## ${worldsetName}\n\n${processedWorldsetContent.processedText}`)
 				}
 			}
 
@@ -1587,6 +1609,27 @@ ${worldsetContents.join("\n\n---\n\n")}
 	// Add worldbook content if available
 	let worldBookSectionBlock = ""
 	if (worldBookContent && worldBookContent.trim()) {
+		// Process template variables in world book content
+		const templateOptions: LiquidTemplateProcessingOptions = {
+			variables: {
+				user: userAvatarRole?.name || "用户",
+				char: rolePromptData?.role?.name || "",
+				name: rolePromptData?.role?.name || "",
+				description: rolePromptData?.role?.description || "",
+				personality: rolePromptData?.role?.personality || "",
+				scenario: rolePromptData?.role?.scenario || "",
+				first_mes: rolePromptData?.role?.first_mes || "",
+				mes_example: rolePromptData?.role?.mes_example || "",
+				isodate: new Date().toISOString().split("T")[0],
+				isotime: new Date().toTimeString().split(" ")[0],
+			},
+			strict: false,
+			keepVariableDefinitions: false,
+			removeUnprocessed: true,
+			maxRecursionDepth: 10,
+		}
+		const processedWorldBookContent = processLiquidTemplateVariables(worldBookContent, templateOptions)
+
 		worldBookSectionBlock = `
 
 ====
@@ -1595,7 +1638,7 @@ SILLY TAVERN WORLD BOOK
 
 The following world book information is available and should be used to enhance responses with relevant context and details:
 
-${worldBookContent}
+${processedWorldBookContent.processedText}
 
 ====
 
