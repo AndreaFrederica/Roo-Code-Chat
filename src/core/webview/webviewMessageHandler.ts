@@ -82,6 +82,104 @@ export const webviewMessageHandler = async (
 	const getCurrentCwd = () => {
 		return provider.getCurrentTask()?.cwd || provider.cwd
 	}
+
+	const ensureScopedWorldsetKeys = async (): Promise<string[]> => {
+		const rawWorldsets = getGlobalState("enabledWorldsets")
+
+		if (!Array.isArray(rawWorldsets) || rawWorldsets.length === 0) {
+			return []
+		}
+
+		let changed = false
+		const normalized = new Set<string>()
+
+		const workspacePath = getWorkspacePath()
+		const workspaceWorldsetDir = workspacePath
+			? path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
+			: undefined
+
+		let globalWorldsetDir: string | undefined
+		let globalStorageService: Awaited<ReturnType<typeof getGlobalStorageService>> | undefined
+
+		for (const entry of rawWorldsets) {
+			if (typeof entry !== "string") {
+				changed = true
+				continue
+			}
+
+			const trimmed = entry.trim()
+			if (!trimmed) {
+				changed = true
+				continue
+			}
+
+			const lastDashIndex = trimmed.lastIndexOf("-")
+			if (lastDashIndex > 0) {
+				const suffix = trimmed.substring(lastDashIndex + 1)
+				if (suffix === "global" || suffix === "workspace") {
+					normalized.add(trimmed)
+					continue
+				}
+			}
+
+			changed = true
+			const fileName = trimmed
+			let scope: "global" | "workspace" = "workspace"
+
+			try {
+				const workspaceCandidate =
+					workspaceWorldsetDir !== undefined ? path.join(workspaceWorldsetDir, fileName) : undefined
+				const existsInWorkspace =
+					workspaceCandidate !== undefined ? await fileExistsAtPath(workspaceCandidate) : false
+
+				if (!existsInWorkspace) {
+					if (!globalWorldsetDir) {
+						try {
+							globalStorageService = globalStorageService ?? (await getGlobalStorageService(provider.context))
+							globalWorldsetDir = globalStorageService.getGlobalWorldsetsPath()
+						} catch (error) {
+							provider.log(
+								`[Worldset] Failed to resolve global worldset directory: ${
+									error instanceof Error ? error.message : String(error)
+								}`,
+							)
+						}
+					}
+
+					if (globalWorldsetDir) {
+						const globalCandidate = path.join(globalWorldsetDir, fileName)
+						if (await fileExistsAtPath(globalCandidate)) {
+							scope = "global"
+						}
+					}
+				}
+			} catch (error) {
+				provider.log(
+					`[Worldset] Failed to normalize legacy worldset key ${fileName}: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				)
+			}
+
+			normalized.add(`${fileName}-${scope}`)
+		}
+
+		const normalizedList = Array.from(normalized)
+
+		if (changed) {
+			try {
+				await updateGlobalState("enabledWorldsets", normalizedList)
+			} catch (error) {
+				provider.log(
+					`[Worldset] Failed to persist normalized worldset keys: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				)
+			}
+		}
+
+		return normalizedList
+	}
 	/**
 	 * Shared utility to find message indices based on timestamp
 	 */
@@ -737,6 +835,12 @@ export const webviewMessageHandler = async (
 		}
 		case "exportTaskWithId":
 			provider.exportTaskWithId(message.text!)
+			break
+		case "exportTaskBundleWithId":
+			provider.exportTaskBundleWithId(message.text!)
+			break
+		case "importTaskBundle":
+			await provider.importTaskBundle()
 			break
 		case "importSettings": {
 			await importSettingsWithFeedback({
@@ -4394,21 +4498,23 @@ export const webviewMessageHandler = async (
 				// Create scope-aware key
 				const worldsetKey = `${worldsetName}-${worldsetScope}`
 
-				// Get current enabled worldsets
-				const currentEnabledWorldsets = getGlobalState("enabledWorldsets") || []
+				const currentEnabledWorldsets = await ensureScopedWorldsetKeys()
+				const updatedWorldsetsSet = new Set(currentEnabledWorldsets)
 
-				// Add the worldset if not already enabled
-				if (!currentEnabledWorldsets.includes(worldsetKey)) {
-					const updatedWorldsets = [...currentEnabledWorldsets, worldsetKey]
-					await updateGlobalState("enabledWorldsets", updatedWorldsets)
+				// Remove possible legacy key without scope suffix to avoid duplicates
+				if (updatedWorldsetsSet.has(worldsetName)) {
+					updatedWorldsetsSet.delete(worldsetName)
+				}
 
+				if (!updatedWorldsetsSet.has(worldsetKey)) {
+					updatedWorldsetsSet.add(worldsetKey)
+					await updateGlobalState("enabledWorldsets", Array.from(updatedWorldsetsSet))
 					provider.log(`Enabled worldset: ${worldsetKey}`)
 				} else {
 					provider.log(`Worldset already enabled: ${worldsetKey}`)
 				}
 
-				// Send status update
-				const enabledWorldsets = getGlobalState("enabledWorldsets") || []
+				const enabledWorldsets = Array.from(updatedWorldsetsSet)
 				await provider.postMessageToWebview({
 					type: "worldsetStatusUpdate",
 					worldsetStatus: {
@@ -4433,11 +4539,10 @@ export const webviewMessageHandler = async (
 				// Create scope-aware key
 				const worldsetKey = `${worldsetName}-${worldsetScope}`
 
-				// Get current enabled worldsets
-				const currentEnabledWorldsets = getGlobalState("enabledWorldsets") || []
-
-				// Remove the worldset if currently enabled
-				const updatedWorldsets = currentEnabledWorldsets.filter((key) => key !== worldsetKey)
+				const currentEnabledWorldsets = await ensureScopedWorldsetKeys()
+				const updatedWorldsets = currentEnabledWorldsets.filter(
+					(key) => key !== worldsetKey && key !== worldsetName,
+				)
 				await updateGlobalState("enabledWorldsets", updatedWorldsets)
 
 				provider.log(`Disabled worldset: ${worldsetKey}`)
@@ -4458,6 +4563,7 @@ export const webviewMessageHandler = async (
 
 		case "disableAllWorldsets": {
 			try {
+				await ensureScopedWorldsetKeys()
 				// Clear all enabled worldsets
 				await updateGlobalState("enabledWorldsets", [])
 
@@ -4479,7 +4585,7 @@ export const webviewMessageHandler = async (
 
 		case "getWorldsetStatus": {
 			try {
-				const enabledWorldsets = getGlobalState("enabledWorldsets") || []
+				const enabledWorldsets = await ensureScopedWorldsetKeys()
 
 				await provider.postMessageToWebview({
 					type: "worldsetStatusUpdate",

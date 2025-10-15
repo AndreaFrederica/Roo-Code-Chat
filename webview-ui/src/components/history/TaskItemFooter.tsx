@@ -4,6 +4,7 @@ import { formatTimeAgo } from "@/utils/format"
 import { getChatModePreviewFromHistoryItem } from "@/utils/messageParser"
 import { CopyButton } from "./CopyButton"
 import { ExportButton } from "./ExportButton"
+import { ExportBundleButton } from "./ExportBundleButton"
 import { DeleteButton } from "./DeleteButton"
 import { StandardTooltip } from "../ui/standard-tooltip"
 
@@ -64,7 +65,12 @@ const TaskItemFooter: React.FC<TaskItemFooterProps> = ({
 			{!isSelectionMode && (
 				<div className="flex flex-row gap-0 items-center text-vscode-descriptionForeground/60 hover:text-vscode-descriptionForeground">
 					<CopyButton itemTask={item.task} />
-					{variant === "full" && <ExportButton itemId={item.id} />}
+					{variant === "full" && (
+						<>
+							<ExportButton itemId={item.id} />
+							<ExportBundleButton itemId={item.id} />
+						</>
+					)}
 					{onDelete && <DeleteButton itemId={item.id} onDelete={onDelete} />}
 				</div>
 			)}

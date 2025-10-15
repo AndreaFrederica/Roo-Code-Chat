@@ -213,13 +213,21 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 					// 处理加载的profile内容
 					if (message.profileData) {
 						setProfileData(message.profileData)
-						// 初始化编辑状态
-						const initialEditingState: Record<string, PromptConfig> = {}
-						message.profileData.prompts?.forEach((prompt: PromptConfig) => {
-							initialEditingState[prompt.identifier] = { ...prompt }
-						})
-						setEditingPrompts(initialEditingState)
-						setMixinData(message.mixinData)
+						// 初始化编辑状态 - 只有在没有现有编辑状态或者不在mixin模式时才重置
+						if (Object.keys(editingPrompts).length === 0 || editMode !== "mixin") {
+							const initialEditingState: Record<string, PromptConfig> = {}
+							message.profileData.prompts?.forEach((prompt: PromptConfig) => {
+								initialEditingState[prompt.identifier] = { ...prompt }
+							})
+							setEditingPrompts(initialEditingState)
+						}
+						// 如果已经有mixin数据且在mixin模式下，需要重新应用mixin
+						if (message.mixinData && editMode === "mixin") {
+							setMixinData(message.mixinData)
+							applyMixinToEditingState(message.profileData, message.mixinData)
+						} else {
+							setMixinData(message.mixinData)
+						}
 					} else if (message.error) {
 						setValidationError(message.error)
 					}
@@ -229,28 +237,9 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 					if (message.mixinData) {
 						setMixinData(message.mixinData)
 						setMixinExists(true)
-						// 如果mixin中有prompts，更新编辑状态
-						if (message.mixinData.prompts && profileData) {
-							const updatedEditingState = { ...editingPrompts }
-							message.mixinData.prompts.forEach((mixinPrompt: any) => {
-								const originalPrompt = profileData.prompts.find(
-									(p) => p.identifier === mixinPrompt.identifier,
-								)
-								if (originalPrompt) {
-									updatedEditingState[mixinPrompt.identifier] = {
-										...originalPrompt,
-										enabled:
-											mixinPrompt.enabled !== undefined
-												? mixinPrompt.enabled
-												: originalPrompt.enabled,
-										content:
-											mixinPrompt.content !== undefined
-												? mixinPrompt.content
-												: originalPrompt.content,
-									}
-								}
-							})
-							setEditingPrompts(updatedEditingState)
+						// 如果有profile数据，应用mixin到编辑状态
+						if (profileData) {
+							applyMixinToEditingState(profileData, message.mixinData)
 						}
 					} else {
 						setMixinExists(false)
@@ -511,6 +500,41 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 			loadProfileMixin(fileName)
 		}
 		setLoading(false)
+	}
+
+	// 应用mixin到编辑状态的辅助函数
+	const applyMixinToEditingState = (profileData: ProfileData, mixinData: ProfileMixin) => {
+		if (mixinData.prompts && profileData.prompts) {
+			const updatedEditingState = { ...editingPrompts }
+			
+			// 首先初始化所有原始prompts
+			profileData.prompts.forEach((prompt: PromptConfig) => {
+				if (!updatedEditingState[prompt.identifier]) {
+					updatedEditingState[prompt.identifier] = { ...prompt }
+				}
+			})
+			
+			// 然后应用mixin修改
+			mixinData.prompts.forEach((mixinPrompt: any) => {
+				const originalPrompt = profileData.prompts.find(
+					(p) => p.identifier === mixinPrompt.identifier,
+				)
+				if (originalPrompt) {
+					updatedEditingState[mixinPrompt.identifier] = {
+						...originalPrompt,
+						enabled:
+							mixinPrompt.enabled !== undefined
+								? mixinPrompt.enabled
+								: originalPrompt.enabled,
+						content:
+							mixinPrompt.content !== undefined
+								? mixinPrompt.content
+								: originalPrompt.content,
+					}
+				}
+			})
+			setEditingPrompts(updatedEditingState)
+		}
 	}
 
 	// 加载profile内容的函数

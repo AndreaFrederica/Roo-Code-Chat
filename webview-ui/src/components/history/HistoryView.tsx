@@ -20,6 +20,7 @@ import { useAppTranslation } from "@/i18n/TranslationContext"
 import { Tab, TabContent, TabHeader } from "../common/Tab"
 import { useTaskSearch } from "./useTaskSearch"
 import TaskItem from "./TaskItem"
+import { ImportTaskButton } from "./ImportTaskButton"
 
 type HistoryViewProps = {
 	onDone: () => void
@@ -86,6 +87,7 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 				<div className="flex justify-between items-center">
 					<h3 className="text-vscode-foreground m-0">{t("history:history")}</h3>
 					<div className="flex gap-2">
+						<ImportTaskButton />
 						<StandardTooltip
 							content={
 								isSelectionMode

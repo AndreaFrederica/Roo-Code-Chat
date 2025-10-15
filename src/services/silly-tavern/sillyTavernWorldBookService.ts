@@ -200,6 +200,12 @@ export class WorldBookService {
       // 使用传入的 scope-aware key 来查找配置
       delete this.state.configs[worldBookKey];
 
+      // 清理可能存在的旧key（无scope后缀）
+      const legacyKey = absolutePath;
+      if (legacyKey !== worldBookKey && this.state.configs[legacyKey]) {
+        delete this.state.configs[legacyKey];
+      }
+
       // 刷新激活列表，确保与configs.enabled状态同步
       this.refreshActiveWorldBooks();
 
@@ -239,6 +245,13 @@ export class WorldBookService {
 
       // 更新配置
       this.state.configs[worldBookKey] = { ...newConfig, filePath: absolutePath };
+
+      // 清理可能存在的旧key（无scope后缀）
+      const legacyKey = absolutePath;
+      if (legacyKey !== worldBookKey && this.state.configs[legacyKey]) {
+        delete this.state.configs[legacyKey];
+      }
+
       this.state.lastUpdated = Date.now();
 
       // 刷新激活列表，确保与configs.enabled状态同步
@@ -271,7 +284,19 @@ export class WorldBookService {
       const { filePath, scope } = this.parseWorldBookKey(worldBookKey);
       const absolutePath = path.resolve(filePath);
 
-      const config = this.state.configs[worldBookKey];
+      let config = this.state.configs[worldBookKey];
+
+      if (!config) {
+        // Fallback to legacy key without scope suffix and migrate if found
+        const legacyKey = absolutePath;
+        const legacyConfig = this.state.configs[legacyKey];
+        if (legacyConfig) {
+          this.state.configs[worldBookKey] = { ...legacyConfig, filePath: absolutePath };
+          delete this.state.configs[legacyKey];
+          config = this.state.configs[worldBookKey];
+          this.outputChannel.appendLine(`[WorldBook] Migrated legacy config key to scope-aware format: ${absolutePath} -> ${worldBookKey}`);
+        }
+      }
 
       if (!config) {
         this.outputChannel.appendLine(`[WorldBook] 世界书配置不存在: ${worldBookKey} (${absolutePath})`);
@@ -312,15 +337,19 @@ export class WorldBookService {
   async getActiveWorldBooksMarkdown(): Promise<string> {
     const markdownParts: string[] = [];
 
-    for (const filePath of this.state.activeWorldBooks) {
-      const config = this.state.configs[filePath];
+    for (const worldBookKey of this.state.activeWorldBooks) {
+      const { filePath } = this.parseWorldBookKey(worldBookKey);
+      const absolutePath = path.resolve(filePath);
+      const config =
+        this.state.configs[worldBookKey] ??
+        this.state.configs[absolutePath];
       if (!config || !config.enabled) continue;
 
       try {
-        const result = await this.converter.loadFromFile(filePath, config.markdownOptions);
+        const result = await this.converter.loadFromFile(absolutePath, config.markdownOptions);
 
         if (result.entryCount > 0) {
-          const fileName = path.basename(filePath, path.extname(filePath));
+          const fileName = path.basename(absolutePath, path.extname(absolutePath));
           markdownParts.push(`## ${fileName}`);
           markdownParts.push('');
           markdownParts.push(result.markdown);
@@ -333,7 +362,7 @@ export class WorldBookService {
         }
 
       } catch (error) {
-        this.outputChannel.appendLine(`[WorldBook] 加载失败 ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+        this.outputChannel.appendLine(`[WorldBook] 加载失败 ${absolutePath}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -541,10 +570,11 @@ export class WorldBookService {
 
       for (const worldBook of this.state.loadedWorldBooks) {
         const absolutePath = path.resolve(worldBook.path);
+        const workspaceKey = this.createWorldBookKey(absolutePath, 'workspace');
 
         // 如果配置不存在，创建默认配置
-        if (!this.state.configs[absolutePath]) {
-          this.state.configs[absolutePath] = {
+        if (!this.state.configs[workspaceKey] && !this.state.configs[absolutePath]) {
+          this.state.configs[workspaceKey] = {
             filePath: absolutePath,
             enabled: false, // 默认禁用，需要用户手动启用
             markdownOptions: {
@@ -554,19 +584,35 @@ export class WorldBookService {
               sortBy: 'order',
               includeFrontMatter: true,
               frontMatterStyle: 'table',
-              includeKeys: true
-            },
-            autoReload: false // 默认不自动重载
-          };
+            includeKeys: true
+          },
+          autoReload: false // 默认不自动重载
+        };
           newConfigsCreated++;
+        } else if (this.state.configs[absolutePath] && !this.state.configs[workspaceKey]) {
+          // Legacy 配置迁移到带有 scope 的 key
+          this.state.configs[workspaceKey] = {
+            ...this.state.configs[absolutePath],
+            filePath: absolutePath
+          };
+          delete this.state.configs[absolutePath];
         }
       }
 
       // 清理不存在文件的配置
       const configsToRemove: string[] = [];
       for (const configPath of Object.keys(this.state.configs)) {
+        const { filePath, scope } = this.parseWorldBookKey(configPath);
+
+        // 全局配置由全局存储目录管理，不在此处清理
+        if (scope === 'global') {
+          continue;
+        }
+
+        const absoluteConfigPath = path.resolve(filePath);
+
         const exists = this.state.loadedWorldBooks.some(wb =>
-          path.resolve(wb.path) === configPath
+          path.resolve(wb.path) === absoluteConfigPath
         );
         if (!exists) {
           configsToRemove.push(configPath);
@@ -575,11 +621,13 @@ export class WorldBookService {
 
       // 删除无效配置
       for (const configPath of configsToRemove) {
+        const { filePath } = this.parseWorldBookKey(configPath);
+        const absoluteConfigPath = path.resolve(filePath);
         delete this.state.configs[configPath];
 
         // 清理监听器和定时器
-        this.cleanupFileWatcher(configPath);
-        this.cleanupReloadTimer(configPath);
+        this.cleanupFileWatcher(absoluteConfigPath);
+        this.cleanupReloadTimer(absoluteConfigPath);
       }
 
       // 刷新激活列表，确保与configs.enabled状态同步
@@ -679,9 +727,10 @@ export class WorldBookService {
 
   private startAutoReload(): void {
     // 为所有启用的世界书设置自动重载
-    for (const [filePath, config] of Object.entries(this.state.configs)) {
+    for (const [configKey, config] of Object.entries(this.state.configs)) {
       if (config.enabled && config.autoReload) {
-        this.setupFileWatcher(filePath);
+        const { filePath } = this.parseWorldBookKey(configKey);
+        this.setupFileWatcher(path.resolve(filePath));
       }
     }
   }

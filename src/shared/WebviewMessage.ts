@@ -61,6 +61,8 @@ export interface WebviewMessage {
 		| "showTaskWithId"
 		| "deleteTaskWithId"
 		| "exportTaskWithId"
+		| "exportTaskBundleWithId"
+		| "importTaskBundle"
 		| "importSettings"
 		| "exportSettings"
 		| "resetState"

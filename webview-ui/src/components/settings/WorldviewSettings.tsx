@@ -132,7 +132,8 @@ export const WorldviewSettings = forwardRef<
 	const handleEnableWorldset = (fileName: string, scope: "global" | "workspace" = "workspace") => {
 		const worldsetKey = `${fileName}-${scope}`
 		setCachedWorldsetStatus(prev => {
-			const newEnabledWorldsets = [...prev.enabledWorldsets, worldsetKey].filter((key, index, arr) => arr.indexOf(key) === index)
+			const deduped = prev.enabledWorldsets.filter(key => key !== worldsetKey && key !== fileName)
+			const newEnabledWorldsets = [...deduped, worldsetKey]
 			// 同步更新显示状态
 			setWorldsetStatus(() => ({
 				enabled: true,
@@ -150,7 +151,7 @@ export const WorldviewSettings = forwardRef<
 			// 禁用特定的worldset
 			const worldsetKey = `${fileName}-${scope}`
 			setCachedWorldsetStatus(prev => {
-				const newEnabledWorldsets = prev.enabledWorldsets.filter(key => key !== worldsetKey)
+				const newEnabledWorldsets = prev.enabledWorldsets.filter(key => key !== worldsetKey && key !== fileName)
 				// 同步更新显示状态
 				setWorldsetStatus(() => ({
 					enabled: newEnabledWorldsets.length > 0,
@@ -170,6 +171,26 @@ export const WorldviewSettings = forwardRef<
 		}
 	}
 
+	const parseWorldsetKey = (key: string): { name: string; scope: "global" | "workspace" } => {
+		const trimmedKey = key.trim()
+		const lastDash = trimmedKey.lastIndexOf('-')
+
+		if (lastDash > 0) {
+			const possibleScope = trimmedKey.substring(lastDash + 1)
+			if (possibleScope === "global" || possibleScope === "workspace") {
+				return {
+					name: trimmedKey.substring(0, lastDash),
+					scope: possibleScope
+				}
+			}
+		}
+
+		return {
+			name: trimmedKey,
+			scope: "workspace"
+		}
+	}
+
 	// 保存更改到后端
 	const handleSaveChanges = async () => {
 		if (!hasChanges) return
@@ -185,7 +206,7 @@ export const WorldviewSettings = forwardRef<
 
 			// 批量发送更改
 			toEnable.forEach(worldsetKey => {
-				const [worldsetName, scope] = worldsetKey.split('-')
+				const { name: worldsetName, scope } = parseWorldsetKey(worldsetKey)
 				vscode.postMessage({
 					type: "enableWorldset",
 					worldsetName,
@@ -194,7 +215,7 @@ export const WorldviewSettings = forwardRef<
 			})
 
 			toDisable.forEach(worldsetKey => {
-				const [worldsetName, scope] = worldsetKey.split('-')
+				const { name: worldsetName, scope } = parseWorldsetKey(worldsetKey)
 				vscode.postMessage({
 					type: "disableWorldset",
 					worldsetName,

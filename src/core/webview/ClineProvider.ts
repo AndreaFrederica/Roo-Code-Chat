@@ -72,6 +72,7 @@ import { ProfileValidator } from "../../shared/ProfileValidator"
 
 import { Terminal } from "../../integrations/terminal/Terminal"
 import { downloadTask } from "../../integrations/misc/export-markdown"
+import { saveTaskBundleFile } from "../../integrations/misc/task-bundle"
 import { getTheme } from "../../integrations/theme/getTheme"
 import WorkspaceTracker from "../../integrations/workspace/WorkspaceTracker"
 
@@ -84,6 +85,7 @@ import type { IndexProgressUpdate } from "../../services/code-index/interfaces/m
 import { MdmService } from "../../services/mdm/MdmService"
 import type { AnhChatServices } from "../../services/anh-chat"
 import type { AnhExtensionManager } from "../../services/anh-chat/ExtensionManager"
+import { getGlobalStorageService } from "../../services/storage/GlobalStorageService"
 
 import { fileExistsAtPath } from "../../utils/fs"
 import { setTtsEnabled, setTtsSpeed } from "../../utils/tts"
@@ -115,6 +117,7 @@ import type {
 	RolePromptData,
 } from "@roo-code/types"
 import { readApiMessages, saveApiMessages, saveTaskMessages } from "../task-persistence"
+import { createTaskBundle, parseTaskBundle, writeTaskBundleToDirectory } from "../task-persistence/taskBundle"
 import { getNonce } from "./getNonce"
 import { getUri } from "./getUri"
 
@@ -1634,6 +1637,75 @@ export class ClineProvider
 		await downloadTask(historyItem.ts, apiConversationHistory)
 	}
 
+	async exportTaskBundleWithId(id: string) {
+		try {
+			const { historyItem, taskDirPath } = await this.getTaskWithId(id)
+			const extensionVersion = this.context.extension?.packageJSON?.version
+			const bundle = await createTaskBundle(taskDirPath, historyItem, extensionVersion)
+			await saveTaskBundleFile(historyItem.ts, bundle)
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			vscode.window.showErrorMessage(`导出任务失败：${message}`)
+		}
+	}
+
+	async importTaskBundle() {
+		try {
+			const pick = await vscode.window.showOpenDialog({
+				canSelectMany: false,
+				filters: {
+					"Roo Task Bundle": ["roo-task.json", "json"],
+					All: ["*"],
+				},
+			})
+
+			if (!pick || pick.length === 0) {
+				return
+			}
+
+			const fileUri = pick[0]
+			const rawContent = await vscode.workspace.fs.readFile(fileUri)
+			const bundle = parseTaskBundle(Buffer.from(rawContent).toString("utf8"))
+
+			if (!bundle.historyItem?.id) {
+				throw new Error("任务数据缺少有效的 ID")
+			}
+
+			const existingHistory = (this.getGlobalState("taskHistory") as HistoryItem[] | undefined) ?? []
+			const existingTask = existingHistory.find((item) => item.id === bundle.historyItem.id)
+
+			if (existingTask) {
+				const overwriteOption = "Overwrite"
+				const cancelOption = "Cancel"
+				const choice = await vscode.window.showWarningMessage(
+					`任务 ${bundle.historyItem.id} 已存在，是否覆盖原有数据？`,
+					{ modal: true },
+					overwriteOption,
+					cancelOption,
+				)
+
+				if (choice !== overwriteOption) {
+					vscode.window.showInformationMessage("任务导入已取消")
+					return
+				}
+			}
+
+			const { getTaskDirectoryPath } = await import("../../utils/storage")
+			const globalStoragePath = this.contextProxy.globalStorageUri.fsPath
+			const taskDirPath = await getTaskDirectoryPath(globalStoragePath, bundle.historyItem.id)
+
+			await writeTaskBundleToDirectory(taskDirPath, bundle)
+
+			await this.updateTaskHistory(bundle.historyItem)
+			await this.postStateToWebview()
+
+			vscode.window.showInformationMessage("任务导入成功")
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			vscode.window.showErrorMessage(`导入任务失败：${message}`)
+		}
+	}
+
 	/* Condenses a task's message history to use fewer tokens. */
 	async condenseTaskContext(taskId: string) {
 		let task: Task | undefined
@@ -2309,6 +2381,8 @@ export class ClineProvider
 		>
 	> {
 		const stateValues = this.contextProxy.getValues()
+		const normalizedWorldsets = await this.normalizeWorldsetKeys(stateValues.enabledWorldsets)
+		stateValues.enabledWorldsets = normalizedWorldsets
 		const customModes = await this.customModesManager.getCustomModes()
 
 		// Determine apiProvider with the same logic as before.
@@ -3266,6 +3340,101 @@ export class ClineProvider
 		return {
 			cloudIsAuthenticated,
 		}
+	}
+
+	private async normalizeWorldsetKeys(raw: unknown): Promise<string[]> {
+		if (!Array.isArray(raw) || raw.length === 0) {
+			return []
+		}
+
+		let changed = false
+		const normalized = new Set<string>()
+		const workspacePath = this.currentWorkspacePath
+		const workspaceWorldsetDir = workspacePath
+			? path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
+			: undefined
+
+		let globalWorldsetDir: string | undefined
+		let globalStorageService: Awaited<ReturnType<typeof getGlobalStorageService>> | undefined
+
+		for (const entry of raw) {
+			if (typeof entry !== "string") {
+				changed = true
+				continue
+			}
+
+			const trimmed = entry.trim()
+			if (!trimmed) {
+				changed = true
+				continue
+			}
+
+			const lastDashIndex = trimmed.lastIndexOf("-")
+			if (lastDashIndex > 0) {
+				const suffix = trimmed.substring(lastDashIndex + 1)
+				if (suffix === "global" || suffix === "workspace") {
+					normalized.add(trimmed)
+					continue
+				}
+			}
+
+			changed = true
+			const fileName = trimmed
+			let scope: "global" | "workspace" = "workspace"
+
+			try {
+				const workspaceCandidate =
+					workspaceWorldsetDir !== undefined ? path.join(workspaceWorldsetDir, fileName) : undefined
+				const existsInWorkspace =
+					workspaceCandidate !== undefined ? await fileExistsAtPath(workspaceCandidate) : false
+
+				if (!existsInWorkspace) {
+					if (!globalWorldsetDir) {
+						try {
+							globalStorageService = globalStorageService ?? (await getGlobalStorageService(this.context))
+							globalWorldsetDir = globalStorageService.getGlobalWorldsetsPath()
+						} catch (error) {
+							this.log(
+								`[Worldset] Failed to resolve global worldset directory for normalization: ${
+									error instanceof Error ? error.message : String(error)
+								}`,
+							)
+						}
+					}
+
+					if (globalWorldsetDir) {
+						const globalCandidate = path.join(globalWorldsetDir, fileName)
+						if (await fileExistsAtPath(globalCandidate)) {
+							scope = "global"
+						}
+					}
+				}
+			} catch (error) {
+				this.log(
+					`[Worldset] Failed to normalize legacy worldset key ${fileName}: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				)
+			}
+
+			normalized.add(`${fileName}-${scope}`)
+		}
+
+		const normalizedList = Array.from(normalized)
+
+		if (changed) {
+			try {
+				await this.contextProxy.setValue("enabledWorldsets", normalizedList)
+			} catch (error) {
+				this.log(
+					`[Worldset] Failed to persist normalized worldset keys: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				)
+			}
+		}
+
+		return normalizedList
 	}
 
 	private async getTaskProperties(): Promise<DynamicAppProperties & TaskProperties> {
