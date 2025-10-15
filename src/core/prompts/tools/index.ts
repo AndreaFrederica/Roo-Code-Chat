@@ -143,7 +143,7 @@ export function getToolDescriptionsForMode(
 	// Add memory tools for all modes that can use them
 	// Memory tools are essential for AI to maintain context and learn from conversations
 	// Only add if memory trigger service is available and enabled
-	if (settings?.memoryToolsEnabled !== false) {
+	if (settings?.memoryToolsEnabled === true) {
 		const memoryToolGroup = TOOL_GROUPS.memory
 		if (memoryToolGroup) {
 			memoryToolGroup.tools.forEach((tool) => {
@@ -203,7 +203,7 @@ export function getToolDescriptionsForMode(
 	}
 
 	// Add memory tools availability notice based on system status
-	if (settings?.memoryToolsEnabled !== false && settings?.memorySystemEnabled !== false) {
+	if (settings?.memoryToolsEnabled === true && settings?.memorySystemEnabled === true) {
 		const memoryToolsNotice = `
 ## 🧠 Memory Tools Available
 

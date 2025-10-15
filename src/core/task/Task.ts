@@ -898,6 +898,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 			if (message) {
 				// Check if this is a tool approval ask that needs to be handled
+				// Check if this is a tool approval ask that needs to be handled
 				if (
 					type === "tool" ||
 					type === "command" ||
@@ -2425,14 +2426,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 					await pWaitFor(() => this.userMessageContentReady)
 
-					// If the model did not tool use, then we need to tell it to
-					// either use a tool or attempt_completion.
-					const didToolUse = this.assistantMessageContent.some((block) => block.type === "tool_use")
-
-					if (!didToolUse) {
-						this.userMessageContent.push({ type: "text", text: formatResponse.noToolsUsed() })
-						this.consecutiveMistakeCount++
-					}
+					// NOTE: Do not auto-enqueue a follow-up request when the assistant
+					// chooses not to call a tool. Forcing another turn here caused the UI
+					// to appear "stuck" even after the model finished responding.
 
 					if (this.userMessageContent.length > 0) {
 						stack.push({

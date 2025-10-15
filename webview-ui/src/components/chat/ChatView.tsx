@@ -127,7 +127,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 
 	const messagesRef = useRef(messages)
 
-	useEffect(() => {
+	useDeepCompareEffect(() => {
 		messagesRef.current = messages
 	}, [messages])
 
@@ -450,7 +450,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					break
 			}
 		}
-	}, [lastMessage?.ts, secondLastMessage?.ts])
+	}, [lastMessage, secondLastMessage])
 
 	useEffect(() => {
 		if (messages.length === 0) {

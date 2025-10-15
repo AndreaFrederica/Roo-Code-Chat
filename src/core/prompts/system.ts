@@ -1789,8 +1789,11 @@ ${processedWorldBookContent.processedText}
 `
 	}
 
-	// Determine if we're in pure chat mode
-	const isPureChatMode = anhPersonaMode === "chat"
+	// Determine if we're in pure chat mode (persona or mode explicitly chat)
+	let isPureChatMode = false
+	if(anhPersonaMode === "chat"){
+		isPureChatMode = true
+	}
 
 	// Debug logging
 	console.log("[ANH-Chat:SystemPrompt] Persona mode:", anhPersonaMode, "Is pure chat:", isPureChatMode)
@@ -1836,6 +1839,7 @@ RULES
 - Feel free to use friendly greetings and expressions like "好的", "当然", "很高兴" etc.
 - You can ask questions to better understand the user or to continue the conversation
 - Focus on building a good conversational experience
+- Do not call the attempt_completion tool to end casual conversations. Only use it when executing a clearly defined task or subtask.
 - If the user requests programming help, you can switch to a more technical mode${conversationGuidance}`
 
 		promptSections = promptSections.concat([

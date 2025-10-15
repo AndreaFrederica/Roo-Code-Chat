@@ -148,6 +148,8 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		todoListEnabled: apiConfiguration?.todoListEnabled ?? true,
 		useAgentRules: vscode.workspace.getConfiguration("anh-cline").get<boolean>("useAgentRules") ?? true,
 		newTaskRequireTodos: vscode.workspace.getConfiguration("anh-cline").get<boolean>("newTaskRequireTodos", false),
+		memoryToolsEnabled: providerState.memoryToolsEnabled,
+		memorySystemEnabled: providerState.memorySystemEnabled,
 	}
 	const providerStateSnapshot = providerState as unknown as Record<string, unknown>
 

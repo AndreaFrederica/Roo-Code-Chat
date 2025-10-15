@@ -13,7 +13,10 @@ export type AskApproval = (
 
 export type HandleError = (action: string, error: Error) => Promise<void>
 
-export type PushToolResult = (content: ToolResponse) => void
+export type PushToolResult = (
+	content: ToolResponse,
+	options?: { skipLabel?: boolean; consumeToolSlot?: boolean }
+) => void
 
 export type RemoveClosingTag = (tag: ToolParamName, content?: string) => string
 
