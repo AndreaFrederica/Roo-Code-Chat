@@ -8,6 +8,7 @@ import {
 	type MarketplaceItem,
 	type ShareVisibility,
 	type QueuedMessage,
+	type WorkspaceContextSettingKey,
 	marketplaceItemSchema,
 } from "@roo-code/types"
 
@@ -190,6 +191,8 @@ export interface WebviewMessage {
 		| "switchOrganization"
 		| "condenseTaskContextRequest"
 		| "requestIndexingStatus"
+		| "setWorkspaceContextSetting"
+		| "setWorkspaceContextSettings"
 		| "startIndexing"
 		| "clearIndexData"
 		| "indexingStatusUpdate"
@@ -383,6 +386,7 @@ export interface WebviewMessage {
 	roles?: any[] // For anhRolesLoaded
 	globalRoles?: any[] // For anhGlobalRolesLoaded
 	roleUuid?: string // For loadAnhRole
+	scope?: "global" | "workspace" // For role scope specification
 	role?: any // For anhRoleLoaded
 	codeIndexSettings?: {
 		// Global state settings
@@ -469,6 +473,8 @@ export interface WebviewMessage {
 	enabledProfiles?: string[] // For saveTSProfileChanges
 	autoInject?: boolean // For saveTSProfileChanges
 	variables?: Record<string, string> // For saveTSProfileChanges
+	workspaceContextKey?: WorkspaceContextSettingKey
+	workspaceContextSettings?: Partial<Record<WorkspaceContextSettingKey, boolean>>
 }
 
 export const checkoutDiffPayloadSchema = z.object({

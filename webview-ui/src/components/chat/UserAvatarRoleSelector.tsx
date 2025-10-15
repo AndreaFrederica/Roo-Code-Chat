@@ -297,6 +297,7 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 				vscode.postMessage({
 					type: "loadUserAvatarRole",
 					roleUuid: targetUuid,
+					scope: role.scope,
 				})
 			} else {
 				// 选择默认角色时：关闭UA

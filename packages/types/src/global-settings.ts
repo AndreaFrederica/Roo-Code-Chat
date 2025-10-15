@@ -19,6 +19,46 @@ import { languagesSchema } from "./vscode.js"
 export const userAvatarVisibilitySchema = z.enum(["full", "summary", "name", "hidden"])
 export type UserAvatarVisibility = z.infer<typeof userAvatarVisibilitySchema>
 
+export const workspaceContextSettingsSchema = z.object({
+	visibleFiles: z.boolean().optional(),
+	openTabs: z.boolean().optional(),
+	terminals: z.boolean().optional(),
+	recentFiles: z.boolean().optional(),
+	currentTime: z.boolean().optional(),
+	currentCost: z.boolean().optional(),
+	currentMode: z.boolean().optional(),
+	workspaceFiles: z.boolean().optional(),
+	todo: z.boolean().optional(),
+})
+
+export type WorkspaceContextSettings = z.infer<typeof workspaceContextSettingsSchema>
+
+export const WORKSPACE_CONTEXT_SETTING_KEYS = [
+	"visibleFiles",
+	"openTabs",
+	"terminals",
+	"recentFiles",
+	"currentTime",
+	"currentCost",
+	"currentMode",
+	"workspaceFiles",
+	"todo",
+] as const
+
+export type WorkspaceContextSettingKey = (typeof WORKSPACE_CONTEXT_SETTING_KEYS)[number]
+
+export const DEFAULT_WORKSPACE_CONTEXT_SETTINGS: Record<WorkspaceContextSettingKey, boolean> = {
+	visibleFiles: true,
+	openTabs: true,
+	terminals: true,
+	recentFiles: true,
+	currentTime: true,
+	currentCost: true,
+	currentMode: true,
+	workspaceFiles: true,
+	todo: true,
+}
+
 /**
  * Default delay in milliseconds after writes to allow diagnostics to detect potential problems.
  * This delay is particularly important for Go and other languages where tools like goimports
@@ -113,6 +153,8 @@ export const globalSettingsSchema = z.object({
 	maxReadFileLine: z.number().optional(),
 	maxImageFileSize: z.number().optional(),
 	maxTotalImageSize: z.number().optional(),
+
+	workspaceContextSettings: workspaceContextSettingsSchema.optional(),
 
 	terminalOutputLineLimit: z.number().optional(),
 	terminalOutputCharacterLimit: z.number().optional(),
@@ -354,6 +396,8 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 	terminalShellIntegrationDisabled: true,
 
 	diagnosticsEnabled: true,
+
+	workspaceContextSettings: { ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS },
 
 	diffEnabled: true,
 	fuzzyMatchThreshold: 1,

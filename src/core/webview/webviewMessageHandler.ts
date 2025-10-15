@@ -11,6 +11,7 @@ import {
 	type ClineMessage,
 	type TelemetrySetting,
 	type Role,
+	type WorkspaceContextSettingKey,
 	TelemetryEventName,
 	UserSettingsConfig,
 	DEFAULT_ASSISTANT_ROLE,
@@ -1734,10 +1735,38 @@ export const webviewMessageHandler = async (
 			await updateGlobalState("maxDiagnosticMessages", message.value ?? 50)
 			await provider.postStateToWebview()
 			break
-		case "setHistoryPreviewCollapsed": // Add the new case handler
-			await updateGlobalState("historyPreviewCollapsed", message.bool ?? false)
-			// No need to call postStateToWebview here as the UI already updated optimistically
+	case "setHistoryPreviewCollapsed": // Add the new case handler
+		await updateGlobalState("historyPreviewCollapsed", message.bool ?? false)
+		// No need to call postStateToWebview here as the UI already updated optimistically
+		break
+	case "setWorkspaceContextSetting": {
+		const key = message.workspaceContextKey as WorkspaceContextSettingKey | undefined
+		if (!key) {
 			break
+		}
+
+		const currentSettings =
+			(getGlobalState("workspaceContextSettings") as Record<WorkspaceContextSettingKey, boolean> | undefined) ?? {}
+
+		const updatedSettings = {
+			...currentSettings,
+			[key]: message.bool ?? false,
+		}
+
+		await updateGlobalState("workspaceContextSettings", updatedSettings)
+		await provider.postStateToWebview()
+		break
+	}
+	case "setWorkspaceContextSettings": {
+		const settings = message.workspaceContextSettings
+		if (!settings) {
+			break
+		}
+
+		await updateGlobalState("workspaceContextSettings", settings as Record<WorkspaceContextSettingKey, boolean>)
+		await provider.postStateToWebview()
+		break
+	}
 		case "setReasoningBlockCollapsed":
 			await updateGlobalState("reasoningBlockCollapsed", message.bool ?? true)
 			// No need to call postStateToWebview here as the UI already updated optimistically
@@ -3909,16 +3938,18 @@ export const webviewMessageHandler = async (
 		case "loadAnhRole": {
 			try {
 				const targetUuid = message.roleUuid ?? DEFAULT_ASSISTANT_ROLE_UUID
+				const targetScope = message.scope // 获取scope参数
 				const { RoleRegistry } = await import("../../services/anh-chat")
 				const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
 				if (!workspaceRoot) {
 					throw new Error("No workspace folder found")
 				}
-				const registry = await RoleRegistry.create(workspaceRoot)
-				let role = await registry.loadRole(targetUuid)
+				
+				let role: Role | undefined
 
-				// If not found in workspace, try to load from global storage
-				if (!role && targetUuid !== DEFAULT_ASSISTANT_ROLE_UUID) {
+				// 根据scope参数决定加载策略
+				if (targetScope === "global") {
+					// 只从全局存储加载
 					try {
 						const globalService = await getGlobalStorageService(provider.context)
 						role = await globalService.getGlobalRole(targetUuid)
@@ -3927,6 +3958,27 @@ export const webviewMessageHandler = async (
 						}
 					} catch (globalError) {
 						provider.log(`Error loading global role: ${globalError instanceof Error ? globalError.message : String(globalError)}`)
+					}
+				} else if (targetScope === "workspace") {
+					// 只从工作区加载
+					const registry = await RoleRegistry.create(workspaceRoot)
+					role = await registry.loadRole(targetUuid)
+				} else {
+					// 默认行为：先尝试工作区，再尝试全局
+					const registry = await RoleRegistry.create(workspaceRoot)
+					role = await registry.loadRole(targetUuid)
+
+					// If not found in workspace, try to load from global storage
+					if (!role && targetUuid !== DEFAULT_ASSISTANT_ROLE_UUID) {
+						try {
+							const globalService = await getGlobalStorageService(provider.context)
+							role = await globalService.getGlobalRole(targetUuid)
+							if (role) {
+								provider.log(`Global ANH role loaded: ${role.name}`)
+							}
+						} catch (globalError) {
+							provider.log(`Error loading global role: ${globalError instanceof Error ? globalError.message : String(globalError)}`)
+						}
 					}
 				}
 
@@ -3997,6 +4049,8 @@ export const webviewMessageHandler = async (
 		case "loadUserAvatarRole": {
 			try {
 				const targetUuid = message.roleUuid ?? DEFAULT_ASSISTANT_ROLE_UUID
+				const targetScope = message.scope // 获取scope参数
+				
 				if (targetUuid === DEFAULT_ASSISTANT_ROLE_UUID) {
 					await provider.postMessageToWebview({
 						type: "userAvatarRoleLoaded",
@@ -4007,23 +4061,24 @@ export const webviewMessageHandler = async (
 
 				let role: Role | undefined
 
-				// First try to load from workspace
-				try {
-					const { RoleRegistry } = await import("../../services/anh-chat")
-					const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-					if (workspaceRoot) {
-						const registry = await RoleRegistry.create(workspaceRoot)
-						role = await registry.loadRole(targetUuid)
-						if (role) {
-							provider.log(`User Avatar role loaded from workspace: ${role.name}`)
+				// 根据scope参数决定从哪里加载角色
+				if (targetScope === "workspace") {
+					// 只从workspace加载
+					try {
+						const { RoleRegistry } = await import("../../services/anh-chat")
+						const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+						if (workspaceRoot) {
+							const registry = await RoleRegistry.create(workspaceRoot)
+							role = await registry.loadRole(targetUuid)
+							if (role) {
+								provider.log(`User Avatar role loaded from workspace: ${role.name}`)
+							}
 						}
+					} catch (error) {
+						provider.log(`Error loading User Avatar role from workspace: ${error instanceof Error ? error.message : String(error)}`)
 					}
-				} catch (error) {
-					provider.log(`Error loading User Avatar role from workspace: ${error instanceof Error ? error.message : String(error)}`)
-				}
-
-				// If not found in workspace, try to load from global storage
-				if (!role) {
+				} else if (targetScope === "global") {
+					// 只从global storage加载
 					try {
 						const globalService = await getGlobalStorageService(provider.context)
 						role = await globalService.getGlobalRole(targetUuid)
@@ -4033,6 +4088,35 @@ export const webviewMessageHandler = async (
 					} catch (error) {
 						provider.log(`Error loading User Avatar role from global storage: ${error instanceof Error ? error.message : String(error)}`)
 					}
+				} else {
+					// 如果没有指定scope，按原来的逻辑：先workspace后global
+					// First try to load from workspace
+					try {
+						const { RoleRegistry } = await import("../../services/anh-chat")
+						const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+						if (workspaceRoot) {
+							const registry = await RoleRegistry.create(workspaceRoot)
+							role = await registry.loadRole(targetUuid)
+							if (role) {
+								provider.log(`User Avatar role loaded from workspace: ${role.name}`)
+							}
+						}
+					} catch (error) {
+						provider.log(`Error loading User Avatar role from workspace: ${error instanceof Error ? error.message : String(error)}`)
+					}
+
+					// If not found in workspace, try to load from global storage
+					if (!role) {
+						try {
+							const globalService = await getGlobalStorageService(provider.context)
+							role = await globalService.getGlobalRole(targetUuid)
+							if (role) {
+								provider.log(`User Avatar role loaded from global storage: ${role.name}`)
+							}
+						} catch (error) {
+							provider.log(`Error loading User Avatar role from global storage: ${error instanceof Error ? error.message : String(error)}`)
+						}
+					}
 				}
 
 				if (role) {
@@ -4041,7 +4125,7 @@ export const webviewMessageHandler = async (
 						role,
 					})
 				} else {
-					provider.log(`User Avatar role not found in workspace or global storage: ${targetUuid}`)
+					provider.log(`User Avatar role not found in ${targetScope || 'workspace or global storage'}: ${targetUuid}`)
 					await provider.postMessageToWebview({
 						type: "userAvatarRoleLoaded",
 						role: undefined,

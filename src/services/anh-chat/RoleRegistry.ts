@@ -115,8 +115,15 @@ export class RoleRegistry {
 
 		const raw = await fs.readFile(rolePath, "utf8")
 		const parsed: Role = JSON.parse(raw)
-		this.roleCache.set(uuid, parsed)
-		return parsed
+		
+		// 确保加载的工作区角色具有正确的scope字段
+		const roleWithScope: Role = {
+			...parsed,
+			scope: parsed.scope || "workspace" as const
+		}
+		
+		this.roleCache.set(uuid, roleWithScope)
+		return roleWithScope
 	}
 
 	async saveRole(uuid: string, role: Role, summary: RoleSummary) {
@@ -124,11 +131,24 @@ export class RoleRegistry {
 			throw new Error("Built-in roles cannot be overwritten")
 		}
 
+		// 确保工作区角色具有正确的scope字段
+		const workspaceRole = {
+			...role,
+			scope: "workspace" as const,
+			updatedAt: Date.now()
+		}
+
+		const workspaceSummary = {
+			...summary,
+			scope: "workspace" as const,
+			lastUpdatedAt: Date.now()
+		}
+
 		await fs.mkdir(this.rolesDir, { recursive: true })
 		const rolePath = path.join(this.rolesDir, `${uuid}.json`)
-		await safeWriteJson(rolePath, role)
-		this.roleCache.set(uuid, role)
-		this.summaryCache.set(uuid, summary)
+		await safeWriteJson(rolePath, workspaceRole)
+		this.roleCache.set(uuid, workspaceRole)
+		this.summaryCache.set(uuid, workspaceSummary)
 		await this.persistIndex()
 	}
 

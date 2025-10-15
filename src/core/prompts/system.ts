@@ -226,8 +226,13 @@ async function loadProfilesFromDirectory(profileDir: string, scope: "workspace" 
 				const promptsCount = validation.prompts?.length || 0
 				const enabledCount = validation.prompts?.filter((p: any) => p.enabled !== false).length || 0
 
+				// 为了避免不同scope中的重复名称冲突，在profile名称中包含scope信息
+				const profileName = parsed.name || fileName
+				const uniqueName = scope === "global" ? `[Global] ${profileName}` : profileName
+
 				profiles.push({
-					name: parsed.name || fileName,
+					name: uniqueName,
+					originalName: profileName, // 保留原始名称
 					path: filePath,
 					description: parsed.description || "",
 					promptsCount,
@@ -258,8 +263,12 @@ async function loadProfilesFromDirectory(profileDir: string, scope: "workspace" 
 
 					debugLog(`TSProfile: ${scope} - Found orphan mixin file: ${mixinFileName}`)
 
+					const mixinName = `${mixinFileName} (孤立mixin)`
+					const uniqueMixinName = scope === "global" ? `[Global] ${mixinName}` : mixinName
+
 					profiles.push({
-						name: `${mixinFileName} (孤立mixin)`,
+						name: uniqueMixinName,
+						originalName: mixinName, // 保留原始名称
 						path: filePath,
 						description: `Mixin文件，缺少对应的主profile: ${mainProfileName}`,
 						promptsCount: parsed.prompts?.length || 0,
@@ -377,10 +386,51 @@ async function applyTsProfilePreprocessing(
 		}
 
 		// Process each enabled profile
-		for (const profileName of enabledTSProfiles) {
-			const profile = allProfiles.find((p) => p.name === profileName)
+		for (const profileKey of enabledTSProfiles) {
+			// Parse profile key format: "name-scope" (e.g., "myProfile-workspace", "myProfile-global")
+			let profileName: string
+			let targetScope: string | undefined
+			
+			if (profileKey.includes('-')) {
+				const parts = profileKey.split('-')
+				// Handle cases where profile name itself contains hyphens
+				// The last part is always the scope (workspace/global)
+				if (parts.length >= 2 && (parts[parts.length - 1] === 'workspace' || parts[parts.length - 1] === 'global')) {
+					targetScope = parts[parts.length - 1]
+					profileName = parts.slice(0, -1).join('-')
+				} else {
+					// Fallback: treat entire key as profile name
+					profileName = profileKey
+					targetScope = undefined
+				}
+			} else {
+				profileName = profileKey
+				targetScope = undefined
+			}
+			
+			debugLog(`TSProfile lookup for key: ${profileKey}`, {
+				parsedName: profileName,
+				parsedScope: targetScope,
+				availableProfiles: allProfiles.map(p => ({ name: p.name, originalName: p.originalName, scope: p.scope }))
+			})
+			
+			// Find profile with scope consideration
+			let profile = allProfiles.find((p) => {
+				// If target scope is specified, match both name and scope
+				if (targetScope) {
+					return (p.originalName === profileName || p.name === profileName) && p.scope === targetScope
+				}
+				// Otherwise, match by name only (backward compatibility)
+				return p.originalName === profileName || p.name === profileName
+			})
+			
 			if (!profile) {
-				console.log(`[SystemPrompt] TSProfile not found: ${profileName}`)
+				console.log(`[SystemPrompt] TSProfile not found: ${profileKey} (parsed: name="${profileName}", scope="${targetScope}")`)
+				debugLog(`TSProfile search failed for: ${profileKey}`, {
+					parsedName: profileName,
+					parsedScope: targetScope,
+					availableProfiles: allProfiles.map(p => ({ name: p.name, originalName: p.originalName, scope: p.scope }))
+				})
 				continue
 			}
 
@@ -1848,7 +1898,45 @@ CONVERSATION GUIDANCE
 - 保持对话的流畅性和自然感，减少机械化的交互
 - 像真人一样交流，而不是像机器人一样按流程操作
 `
-				: "",
+				: `
+====
+
+ASK TOOL USAGE GUIDANCE
+
+当你需要澄清用户需求或者获取更多特定细节来完成任务时，请积极使用提问工具。以下是完整的工具描述：
+
+## ask_followup_question
+Description: Ask the user a question to gather additional information needed to complete the task. Use when you need clarification or more details to proceed effectively.
+
+Parameters:
+- question: (required) A clear, specific question addressing the information needed
+- follow_up: (required) A list of 2-4 suggested answers, each in its own <suggest> tag. Suggestions must be complete, actionable answers without placeholders. Optionally include mode attribute to switch modes (code/architect/etc.)
+
+Usage:
+<ask_followup_question>
+<question>Your question here</question>
+<follow_up>
+<suggest>First suggestion</suggest>
+<suggest mode="code">Action with mode switch</suggest>
+</follow_up>
+</ask_followup_question>
+
+Example:
+<ask_followup_question>
+<question>What is the path to the frontend-config.json file?</question>
+<follow_up>
+<suggest>./src/frontend-config.json</suggest>
+<suggest>./config/frontend-config.json</suggest>
+<suggest>./frontend-config.json</suggest>
+</follow_up>
+</ask_followup_question>
+
+使用建议：
+- 当需要澄清用户需求时，主动使用此工具
+- 提供2-4个具体的建议选项，让用户快速选择
+- 建议选项应该是完整的、可操作的答案
+- 优先使用此工具而不是在对话中模糊询问
+`,
 			getSystemInfoSection(cwd),
 			"",
 			getObjectiveSection(codeIndexManager, experiments),

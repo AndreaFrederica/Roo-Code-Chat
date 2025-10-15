@@ -34,6 +34,8 @@ import {
 	type CloudOrganizationMembership,
 	type CreateTaskOptions,
 	type TokenUsage,
+	type WorkspaceContextSettings,
+	type WorkspaceContextSettingKey,
 	RooCodeEventName,
 	requestyDefaultModelId,
 	openRouterDefaultModelId,
@@ -50,6 +52,8 @@ import {
 	injectCompiledPresetIntoRole,
 	LiquidTemplateProcessor,
 	ChatMessage,
+	DEFAULT_WORKSPACE_CONTEXT_SETTINGS,
+	WORKSPACE_CONTEXT_SETTING_KEYS,
 } from "@roo-code/types"
 
 // STProfile processing is now handled in system.ts
@@ -2161,6 +2165,7 @@ export class ClineProvider
 			userAvatarVisibility,
 			hideRoleDescription,
 			enabledWorldsets,
+			workspaceContextSettings,
 			anhExtensionsEnabled,
 			anhExtensionSettings,
 			enabledTSProfiles,
@@ -2344,6 +2349,7 @@ export class ClineProvider
 			userAvatarVisibility: resolvedUserAvatarVisibility,
 			hideRoleDescription: hideRoleDescription ?? false,
 			enabledWorldsets: enabledWorldsets ?? [],
+			workspaceContextSettings,
 			anhExtensionsEnabled: anhExtensionsEnabled ?? {},
 			anhExtensionsRuntime: anhExtensions,
 			anhExtensionCapabilityRegistry,
@@ -2383,6 +2389,19 @@ export class ClineProvider
 		const stateValues = this.contextProxy.getValues()
 		const normalizedWorldsets = await this.normalizeWorldsetKeys(stateValues.enabledWorldsets)
 		stateValues.enabledWorldsets = normalizedWorldsets
+		const rawWorkspaceContextSettings = stateValues.workspaceContextSettings as WorkspaceContextSettings | undefined
+		const workspaceContextSettings = this.normalizeWorkspaceContextSettings(rawWorkspaceContextSettings)
+		const shouldPersistWorkspaceContextSettings =
+			!rawWorkspaceContextSettings ||
+			WORKSPACE_CONTEXT_SETTING_KEYS.some(
+				(key) => rawWorkspaceContextSettings?.[key] !== workspaceContextSettings[key],
+			)
+
+		if (shouldPersistWorkspaceContextSettings) {
+			await this.contextProxy.setValue("workspaceContextSettings", workspaceContextSettings)
+		}
+
+		stateValues.workspaceContextSettings = workspaceContextSettings
 		const customModes = await this.customModesManager.getCustomModes()
 
 		// Determine apiProvider with the same logic as before.
@@ -2724,6 +2743,13 @@ export class ClineProvider
 
 	public async setAnhUseAskTool(value: boolean) {
 		await this.setValue("anhUseAskTool", value)
+		
+		// Update the current task's use ask tool setting if there is an active task
+		const currentTask = this.getCurrentTask()
+		if (currentTask) {
+			currentTask.updateUseAskTool(value)
+		}
+		
 		await this.postStateToWebview()
 		debugLog("Set ANH use ask tool:", value)
 	}
@@ -3019,7 +3045,7 @@ export class ClineProvider
 		}
 
 		try {
-			let role = storedRole && storedRole.uuid === roleUuid ? storedRole : undefined
+			let role = storedRole && storedRole.uuid === roleUuid && storedRole.scope === storedRole.scope ? storedRole : undefined
 
 			if (!role && this.anhChatServices) {
 				role = await this.anhChatServices.roleRegistry.loadRole(roleUuid)
@@ -3340,6 +3366,23 @@ export class ClineProvider
 		return {
 			cloudIsAuthenticated,
 		}
+	}
+
+	private normalizeWorkspaceContextSettings(
+		raw: WorkspaceContextSettings | undefined,
+	): Record<WorkspaceContextSettingKey, boolean> {
+		const resolved = { ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS }
+
+		if (raw) {
+			for (const key of WORKSPACE_CONTEXT_SETTING_KEYS) {
+				const value = raw[key]
+				if (typeof value === "boolean") {
+					resolved[key] = value
+				}
+			}
+		}
+
+		return resolved
 	}
 
 	private async normalizeWorldsetKeys(raw: unknown): Promise<string[]> {

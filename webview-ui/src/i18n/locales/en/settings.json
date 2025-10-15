@@ -28,6 +28,7 @@
 		"checkpoints": "Checkpoints",
 		"notifications": "Notifications",
 		"contextManagement": "Context",
+		"workspaceContext": "Workspace Context",
 		"terminal": "Terminal",
 		"assistantRole": "Assistant Role",
 		"tsProfile": "SillyTavern Profile",
@@ -1007,5 +1008,55 @@
 		"searchPlaceholder": "Search roles...",
 		"description": "Configure user avatar role to let you chat with AI using a specific role",
 		"noResults": "No matching roles found"
+	},
+	"workspaceContext": {
+		"title": "Workspace Context Settings",
+		"description": "Configure which workspace information is automatically included in conversations with the AI assistant.",
+		"enableAll": "Enable All Context",
+		"disableAll": "Disable All Context",
+		"visibleFiles": {
+			"label": "Visible Files",
+			"description": "Include currently visible editor files in context"
+		},
+		"openTabs": {
+			"label": "Open Tabs",
+			"description": "Share information about open editor tabs"
+		},
+		"terminals": {
+			"label": "Terminal Output",
+			"description": "Include recent terminal output in context"
+		},
+		"recentFiles": {
+			"label": "Recent Files",
+			"description": "Include recently modified files in context"
+		},
+		"currentTime": {
+			"label": "Current Time",
+			"description": "Provide current timestamp to the AI"
+		},
+		"currentCost": {
+			"label": "Current Cost",
+			"description": "Include API usage cost information"
+		},
+		"currentMode": {
+			"label": "Current Mode",
+			"description": "Share current application mode information"
+		},
+		"workspaceFiles": {
+			"label": "Workspace Files",
+			"description": "Include workspace file tree structure"
+		},
+		"todo": {
+			"label": "Todo Items",
+			"description": "Share current task and todo information"
+		},
+		"maxOpenTabsContext": {
+			"label": "Max Open Tabs Context",
+			"description": "Maximum number of open tabs to include in context"
+		},
+		"maxWorkspaceFiles": {
+			"label": "Max Workspace Files",
+			"description": "Maximum number of workspace files to include in context"
+		}
 	}
 }

@@ -162,4 +162,5 @@ export type TaskEvents = {
 	// ANH-Chat Events
 	[RooCodeEventName.TaskPersonaModeChanged]: [taskId: string, personaMode: RolePersona]
 	[RooCodeEventName.TaskToneStrictChanged]: [taskId: string, toneStrict: boolean]
+	[RooCodeEventName.TaskUseAskToolChanged]: [taskId: string, useAskTool: boolean]
 }

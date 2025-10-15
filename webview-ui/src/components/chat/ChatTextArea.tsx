@@ -32,6 +32,7 @@ import { UserAvatarRoleSelector } from "./UserAvatarRoleSelector"
 import { PersonaModeSelector } from "./PersonaModeSelector"
 import { ToneStrictSelector } from "./ToneStrictSelector"
 import { AutoApproveDropdown } from "./AutoApproveDropdown"
+import { WorkspaceContextDropdown } from "./WorkspaceContextDropdown"
 import { AskToolSelector } from "./AskToolSelector"
 import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import ContextMenu from "./ContextMenu"
@@ -1305,6 +1306,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							pinnedApiConfigs={pinnedApiConfigs}
 							togglePinnedApiConfig={togglePinnedApiConfig}
 						/>
+						<WorkspaceContextDropdown triggerClassName="min-w-[28px] text-ellipsis overflow-hidden flex-shrink" />
 						<AutoApproveDropdown triggerClassName="min-w-[28px] text-ellipsis overflow-hidden flex-shrink" />
 					</div>
 					<div

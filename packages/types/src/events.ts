@@ -42,6 +42,7 @@ export enum RooCodeEventName {
 	ProviderProfileChanged = "providerProfileChanged",
 	TaskPersonaModeChanged = "taskPersonaModeChanged",
 	TaskToneStrictChanged = "taskToneStrictChanged",
+	TaskUseAskToolChanged = "taskUseAskToolChanged",
 
 	// Evals
 	EvalPass = "evalPass",
@@ -94,6 +95,7 @@ export const rooCodeEventsSchema = z.object({
 	[RooCodeEventName.ProviderProfileChanged]: z.tuple([z.object({ name: z.string(), provider: z.string() })]),
 	[RooCodeEventName.TaskPersonaModeChanged]: z.tuple([z.string(), z.string()]),
 	[RooCodeEventName.TaskToneStrictChanged]: z.tuple([z.string(), z.boolean()]),
+	[RooCodeEventName.TaskUseAskToolChanged]: z.tuple([z.string(), z.boolean()]),
 })
 
 export type RooCodeEvents = z.infer<typeof rooCodeEventsSchema>
@@ -200,6 +202,33 @@ export const taskEventSchema = z.discriminatedUnion("eventName", [
 	z.object({
 		eventName: z.literal(RooCodeEventName.TaskTokenUsageUpdated),
 		payload: rooCodeEventsSchema.shape[RooCodeEventName.TaskTokenUsageUpdated],
+		taskId: z.number().optional(),
+	}),
+
+	// Configuration Changes
+	z.object({
+		eventName: z.literal(RooCodeEventName.ModeChanged),
+		payload: rooCodeEventsSchema.shape[RooCodeEventName.ModeChanged],
+		taskId: z.number().optional(),
+	}),
+	z.object({
+		eventName: z.literal(RooCodeEventName.ProviderProfileChanged),
+		payload: rooCodeEventsSchema.shape[RooCodeEventName.ProviderProfileChanged],
+		taskId: z.number().optional(),
+	}),
+	z.object({
+		eventName: z.literal(RooCodeEventName.TaskPersonaModeChanged),
+		payload: rooCodeEventsSchema.shape[RooCodeEventName.TaskPersonaModeChanged],
+		taskId: z.number().optional(),
+	}),
+	z.object({
+		eventName: z.literal(RooCodeEventName.TaskToneStrictChanged),
+		payload: rooCodeEventsSchema.shape[RooCodeEventName.TaskToneStrictChanged],
+		taskId: z.number().optional(),
+	}),
+	z.object({
+		eventName: z.literal(RooCodeEventName.TaskUseAskToolChanged),
+		payload: rooCodeEventsSchema.shape[RooCodeEventName.TaskUseAskToolChanged],
 		taskId: z.number().optional(),
 	}),
 

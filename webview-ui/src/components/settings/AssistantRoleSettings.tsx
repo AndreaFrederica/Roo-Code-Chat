@@ -177,7 +177,7 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 			return defaultDisplayRole
 		}
 
-	const match = allRoles.find((role) => role.uuid === base.uuid)
+	const match = allRoles.find((role) => role.uuid === base.uuid && role.scope === base.scope)
 	return match ?? base
 }, [detailedRole, currentRole, allRoles, defaultDisplayRole])
 

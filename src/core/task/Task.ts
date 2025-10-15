@@ -3460,6 +3460,25 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	}
 
 	/**
+	 * Update the use ask tool setting for this task during conversation.
+	 * This allows dynamic switching between enabling and disabling the ask tool.
+	 *
+	 * @param useAskTool - The new use ask tool setting to set
+	 */
+	public updateUseAskTool(useAskTool: boolean): void {
+		this.anhUseAskTool = useAskTool
+
+		// Log the update for debugging
+		const provider = this.providerRef.deref()
+		if (provider) {
+			provider.log(`[ANH-Chat:Task#${this.taskId}] Use ask tool updated to: ${useAskTool}`)
+		}
+
+		// Emit use ask tool change event
+		this.emit(RooCodeEventName.TaskUseAskToolChanged, this.taskId, useAskTool)
+	}
+
+	/**
 	 * Get the current persona mode for this task.
 	 *
 	 * @returns The current persona mode
@@ -3475,5 +3494,14 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	 */
 	public getToneStrict(): boolean {
 		return this.anhToneStrict ?? true
+	}
+
+	/**
+	 * Get the current use ask tool setting for this task.
+	 *
+	 * @returns The current use ask tool setting
+	 */
+	public getUseAskTool(): boolean {
+		return this.anhUseAskTool ?? true
 	}
 }

@@ -14,8 +14,11 @@ import {
 	type UserAvatarVisibility,
 	type AnhExtensionRuntimeState,
 	type AnhExtensionCapabilityRegistry,
+	type WorkspaceContextSettingKey,
+	type WorkspaceContextSettings,
 	ORGANIZATION_ALLOW_ALL,
 } from "@roo-code/types"
+import { DEFAULT_WORKSPACE_CONTEXT_SETTINGS, WORKSPACE_CONTEXT_SETTING_KEYS } from "@roo-code/types"
 
 import { ExtensionMessage, ExtensionState, MarketplaceInstalledMetadata, Command } from "@roo/ExtensionMessage"
 import { findLastIndex } from "@roo/array"
@@ -28,6 +31,24 @@ import { RouterModels } from "@roo/api"
 
 import { vscode } from "@src/utils/vscode"
 import { convertTextMateToHljs } from "@src/utils/textMateToHljs"
+
+// Add the normalizeWorkspaceContextSettings function
+const normalizeWorkspaceContextSettings = (
+	raw: WorkspaceContextSettings | undefined,
+): Record<WorkspaceContextSettingKey, boolean> => {
+	const resolved = { ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS }
+
+	if (raw) {
+		for (const key of WORKSPACE_CONTEXT_SETTING_KEYS) {
+			const value = raw[key]
+			if (typeof value === "boolean") {
+				resolved[key] = value
+			}
+		}
+	}
+
+	return resolved
+}
 
 // 扩展ExtensionState接口以包含内部状态
 interface ExtendedExtensionState extends ExtensionState {
@@ -118,6 +139,9 @@ export interface ExtensionStateContextType extends ExtendedExtensionState {
 	setTaskSyncEnabled: (value: boolean) => void
 	featureRoomoteControlEnabled: boolean
 	setFeatureRoomoteControlEnabled: (value: boolean) => void
+	workspaceContextSettings: Record<WorkspaceContextSettingKey, boolean>
+	setWorkspaceContextSetting: (key: WorkspaceContextSettingKey, value: boolean) => void
+	setAllWorkspaceContextSettings: (value: boolean) => void
 	alwaysApproveResubmit?: boolean
 	setAlwaysApproveResubmit: (value: boolean) => void
 	requestDelaySeconds: number
@@ -264,6 +288,8 @@ export const mergeExtensionState = (prevState: ExtendedExtensionState, newState:
 	const customModePrompts = { ...prevCustomModePrompts, ...newCustomModePrompts }
 	const experiments = { ...prevExperiments, ...newExperiments }
 	const rest = { ...prevRest, ...newRest }
+	const workspaceContextSettings = normalizeWorkspaceContextSettings(rest.workspaceContextSettings)
+	rest.workspaceContextSettings = workspaceContextSettings
 
 	const resolveVisibility = (): UserAvatarVisibility => {
 		const incomingVisibility = newRest.userAvatarVisibility
@@ -330,6 +356,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		screenshotQuality: 75,
 		terminalOutputLineLimit: 500,
 		terminalOutputCharacterLimit: 50000,
+		workspaceContextSettings: { ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS },
 		terminalShellIntegrationTimeout: 4000,
 		mcpEnabled: true,
 		enableMcpServerCreation: false,
@@ -611,8 +638,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		vscode.postMessage({ type: "webviewDidLaunch" })
 	}, [])
 
-	const contextValue: ExtensionStateContextType = {
+	const normalizedWorkspaceContextSettings = normalizeWorkspaceContextSettings(state.workspaceContextSettings)
+const contextValue: ExtensionStateContextType = {
 	...state,
+	workspaceContextSettings: normalizedWorkspaceContextSettings,
 	anhExtensionsRuntime: state.anhExtensionsRuntime ?? [],
 	anhExtensionCapabilityRegistry: state.anhExtensionCapabilityRegistry,
 		reasoningBlockCollapsed: state.reasoningBlockCollapsed ?? true,
@@ -704,6 +733,24 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setCustomModes: (value) => setState((prevState) => ({ ...prevState, customModes: value })),
 		setMaxOpenTabsContext: (value) => setState((prevState) => ({ ...prevState, maxOpenTabsContext: value })),
 		setMaxWorkspaceFiles: (value) => setState((prevState) => ({ ...prevState, maxWorkspaceFiles: value })),
+		setWorkspaceContextSetting: (key, value) => {
+			setState((prevState) => ({
+				...prevState,
+				workspaceContextSettings: normalizeWorkspaceContextSettings({
+					...prevState.workspaceContextSettings,
+					[key]: value,
+					}),
+			}))
+			vscode.postMessage({ type: "setWorkspaceContextSetting", workspaceContextKey: key, bool: value })
+		},
+		setAllWorkspaceContextSettings: (value) => {
+			const next = WORKSPACE_CONTEXT_SETTING_KEYS.reduce<Record<WorkspaceContextSettingKey, boolean>>((acc, settingKey) => {
+				acc[settingKey] = value
+				return acc
+			}, { ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS })
+			setState((prevState) => ({ ...prevState, workspaceContextSettings: next }))
+			vscode.postMessage({ type: "setWorkspaceContextSettings", workspaceContextSettings: next })
+		},
 		setBrowserToolEnabled: (value) => setState((prevState) => ({ ...prevState, browserToolEnabled: value })),
 		setTelemetrySetting: (value) => setState((prevState) => ({ ...prevState, telemetrySetting: value })),
 		setShowRooIgnoredFiles: (value) => setState((prevState) => ({ ...prevState, showRooIgnoredFiles: value })),

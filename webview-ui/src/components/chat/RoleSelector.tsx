@@ -230,7 +230,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 		if (value.profile && Object.keys(value.profile).length > 0) {
 			return value
 		}
-		return allRoles.find((role) => role.uuid === value.uuid) || value
+		return allRoles.find((role) => role.uuid === value.uuid && role.scope === value.scope) || value
 	}, [value, allRoles, defaultRole])
 
 	// Memoize searchable items for fuzzy search with separate name and description search
@@ -312,6 +312,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 			vscode.postMessage({
 				type: "loadAnhRole",
 				roleUuid: role.uuid ?? DEFAULT_ASSISTANT_ROLE_UUID,
+				scope: role.scope,
 			})
 
 			// After selecting a role, disable further switching until next task

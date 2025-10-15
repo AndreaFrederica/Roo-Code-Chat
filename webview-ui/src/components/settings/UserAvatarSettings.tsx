@@ -146,7 +146,7 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 		if (userAvatarRole.profile && Object.keys(userAvatarRole.profile).length > 0) {
 			return userAvatarRole
 		}
-		return allRoles.find((role) => role.uuid === userAvatarRole.uuid) || userAvatarRole
+		return allRoles.find((role) => role.uuid === userAvatarRole.uuid && role.scope === userAvatarRole.scope) || userAvatarRole
 	}, [userAvatarRole, allRoles, defaultRole])
 
 	// Memoize searchable items for fuzzy search with separate name and description search
@@ -213,6 +213,7 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 				vscode.postMessage({
 					type: "loadUserAvatarRole",
 					roleUuid: targetUuid,
+					scope: role.scope,
 				})
 				
 				// Set a temporary role while loading
@@ -232,7 +233,7 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 
 			if (message.type === "userAvatarRoleLoaded" && message.role) {
 				// Check if this is the role we're waiting for
-				if (message.role.uuid === userAvatarRole?.uuid || !userAvatarRole?.uuid) {
+				if ((message.role.uuid === userAvatarRole?.uuid && message.role.scope === userAvatarRole?.scope) || !userAvatarRole?.uuid) {
 					setCachedStateField("userAvatarRole", message.role)
 				}
 			}
@@ -420,10 +421,10 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 											) : (
 												<div className="py-1">
 													{filteredRoles.map((role) => {
-														const isSelected = role.uuid === selectedRole?.uuid
+														const isSelected = role.uuid === selectedRole?.uuid && role.scope === selectedRole?.scope
 														return (
 															<div
-																key={role.uuid}
+																key={`${role.uuid}-${role.scope}`}
 																onClick={() => handleSelect(role)}
 																className={cn(
 																	"px-3 py-1.5 text-sm cursor-pointer flex items-center gap-2",

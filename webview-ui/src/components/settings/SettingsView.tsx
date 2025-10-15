@@ -32,6 +32,7 @@ import {
 	Users,
 	FileText,
 	Brain,
+	Layers,
 } from "lucide-react"
 
 import type { ProviderSettings, ExperimentId, TelemetrySetting, UserAvatarVisibility } from "@roo-code/types"
@@ -81,6 +82,7 @@ import { ExtensionsSettings } from "./ExtensionsSettings"
 import { AssistantRoleSettings } from "./AssistantRoleSettings"
 import { TSProfileSettings } from "./TSProfileSettings"
 import { MemoryManagementSettings } from "./MemoryManagementSettings"
+import { WorkspaceContextSettings } from "./WorkspaceContextSettings"
 
 export const settingsTabsContainer = "flex flex-1 overflow-hidden [&.narrow_.tab-label]:hidden"
 export const settingsTabList =
@@ -101,6 +103,7 @@ const sectionNames = [
 	"checkpoints",
 	"notifications",
 	"contextManagement",
+	"workspaceContext",
 	"terminal",
 	"assistantRole",
 	"tsProfile",
@@ -754,6 +757,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			{ id: "checkpoints", icon: GitBranch },
 			{ id: "notifications", icon: Bell },
 			{ id: "contextManagement", icon: Database },
+			{ id: "workspaceContext", icon: Layers },
 			{ id: "terminal", icon: SquareTerminal },
 			{ id: "assistantRole", icon: Users },
 			{ id: "tsProfile", icon: FileText },
@@ -1033,6 +1037,16 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							includeDiagnosticMessages={includeDiagnosticMessages}
 							maxDiagnosticMessages={maxDiagnosticMessages}
 							writeDelayMs={writeDelayMs}
+							setCachedStateField={setCachedStateField}
+						/>
+					)}
+
+					{/* Workspace Context Section */}
+					{activeTab === "workspaceContext" && (
+						<WorkspaceContextSettings
+							workspaceContextSettings={cachedState.workspaceContextSettings}
+							maxOpenTabsContext={maxOpenTabsContext}
+							maxWorkspaceFiles={maxWorkspaceFiles ?? 200}
 							setCachedStateField={setCachedStateField}
 						/>
 					)}

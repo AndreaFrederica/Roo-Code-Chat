@@ -30,6 +30,7 @@
 		"checkpoints": "存档点",
 		"notifications": "通知",
 		"contextManagement": "上下文",
+		"workspaceContext": "工作区上下文",
 		"terminal": "终端",
 		"assistantRole": "助手角色",
 		"tsProfile": "SillyTavern Profile",
@@ -1026,5 +1027,55 @@
 		"loading": "加载中...",
 		"openFolder": "打开文件夹",
 		"refresh": "刷新"
+	},
+	"workspaceContext": {
+		"title": "工作区上下文设置",
+		"description": "配置哪些工作区信息会自动包含在与AI助手的对话中。",
+		"enableAll": "启用所有上下文",
+		"disableAll": "禁用所有上下文",
+		"visibleFiles": {
+			"label": "可见文件",
+			"description": "在上下文中包含当前可见的编辑器文件"
+		},
+		"openTabs": {
+			"label": "打开的标签页",
+			"description": "共享打开的编辑器标签页信息"
+		},
+		"terminals": {
+			"label": "终端输出",
+			"description": "在上下文中包含最近的终端输出"
+		},
+		"recentFiles": {
+			"label": "最近文件",
+			"description": "在上下文中包含最近修改的文件"
+		},
+		"currentTime": {
+			"label": "当前时间",
+			"description": "向AI提供当前时间戳"
+		},
+		"currentCost": {
+			"label": "当前费用",
+			"description": "包含API使用费用信息"
+		},
+		"currentMode": {
+			"label": "当前模式",
+			"description": "共享当前应用程序模式信息"
+		},
+		"workspaceFiles": {
+			"label": "工作区文件",
+			"description": "包含工作区文件树结构"
+		},
+		"todo": {
+			"label": "待办事项",
+			"description": "共享当前任务和待办信息"
+		},
+		"maxOpenTabsContext": {
+			"label": "最大打开标签页上下文",
+			"description": "在上下文中包含的最大打开标签页数量"
+		},
+		"maxWorkspaceFiles": {
+			"label": "最大工作区文件数",
+			"description": "在上下文中包含的最大工作区文件数量"
+		}
 	}
 }
