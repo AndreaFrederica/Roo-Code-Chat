@@ -677,8 +677,8 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	// 启用TSProfile - 暂存保存模式
 	const handleEnableTSProfile = (fileName: string, scope: "global" | "workspace" = "workspace") => {
 		console.log(`[TSProfile] Enabling profile: ${fileName}, scope: ${scope}`)
-		// 为启用状态创建唯一标识：name-scope
-		const enabledProfileKey = `${fileName}-${scope}`
+		// 为启用状态创建唯一标识：name|:|scope (使用|:|避免与文件名中的任何字符冲突)
+		const enabledProfileKey = `${fileName}|:|${scope}`
 		// 更新本地状态 - 添加到已启用列表
 		const newEnabledTSProfiles = [...enabledTSProfiles, enabledProfileKey].filter(
 			(key, index, arr) => arr.indexOf(key) === index,
@@ -692,8 +692,8 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	// 禁用TSProfile - 暂存保存模式
 	const handleDisableTSProfile = (fileName: string, scope: "global" | "workspace" = "workspace") => {
 		console.log(`[TSProfile] Disabling profile: ${fileName}, scope: ${scope}`)
-		// 为启用状态创建唯一标识：name-scope
-		const enabledProfileKey = `${fileName}-${scope}`
+		// 为启用状态创建唯一标识：name|:|scope (使用|:|避免与文件名中的任何字符冲突)
+		const enabledProfileKey = `${fileName}|:|${scope}`
 		// 更新本地状态 - 从已启用列表中移除
 		const newEnabledTSProfiles = enabledTSProfiles?.filter((key) => key !== enabledProfileKey) || []
 		console.log(`[TSProfile] New enabled profiles:`, newEnabledTSProfiles)
@@ -843,7 +843,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 						{enabledTSProfiles?.length > 0 && (
 							<div className="flex flex-wrap gap-1 ml-2">
 								{enabledTSProfiles.map((profileKey) => {
-									const [profileName, scope] = profileKey.split('-')
+									const [profileName, scope] = profileKey.split('|:|')
 									const profile = profiles.find(p => p.name === profileName && p.scope === scope)
 									return (
 										<span
@@ -992,7 +992,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 														title="孤立mixin文件无法启用">
 														不可启用
 													</span>
-												) : enabledTSProfiles?.includes(`${profile.name}-${profile.scope || "workspace"}`) ? (
+												) : enabledTSProfiles?.includes(`${profile.name}|:|${profile.scope || "workspace"}`) ? (
 													<>
 														<span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400">
 															已启用

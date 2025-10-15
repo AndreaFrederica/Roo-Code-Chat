@@ -186,6 +186,11 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			sillyTavernWorldBook: false,
 			extensions: false,
 		})
+		
+		// 重置TSProfile变更状态
+		if (tsProfilesHasChanges) {
+			setCachedStateField("tsProfilesHasChanges", false)
+		}
 	}, [extensionState])
 
 	const [activeTab, setActiveTab] = useState<SectionName>(
@@ -282,6 +287,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		enabledTSProfiles,
 		anhTsProfileAutoInject,
 		anhTsProfileVariables,
+		tsProfilesHasChanges,
 	} = cachedState
 
 	const apiConfiguration = useMemo(() => cachedState.apiConfiguration ?? {}, [cachedState.apiConfiguration])
@@ -306,15 +312,16 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		}
 	}, [settingsImportedAt, extensionState])
 
-	// 监听componentChanges变化，更新全局变更状态
+	// 监听componentChanges和tsProfilesHasChanges变化，更新全局变更状态
 	useEffect(() => {
 		const hasComponentChanges = Object.values(componentChanges).some(Boolean)
-		if (hasComponentChanges) {
+		const hasTSProfileChanges = tsProfilesHasChanges || false
+		if (hasComponentChanges || hasTSProfileChanges) {
 			setChangeDetected(true)
 		}
 		// 注意：不要在这里强制设置为false，因为主设置可能有变更
 		// 只有在保存后才应该重置变更状态
-	}, [componentChanges])
+	}, [componentChanges, tsProfilesHasChanges])
 
 	const setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType> = useCallback(
 		(field, value) => {
@@ -532,13 +539,16 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 				type: "openRouterImageGenerationSelectedModel",
 				text: openRouterImageGenerationSelectedModel,
 			})
-			// TSProfile settings - use the unified saveTSProfileChanges message
-			vscode.postMessage({ 
-				type: "saveTSProfileChanges",
-				enabledProfiles: enabledTSProfiles || [],
-				autoInject: anhTsProfileAutoInject,
-				variables: anhTsProfileVariables || {}
-			})
+			// TSProfile settings - skip unified save if TSProfile has its own changes
+			// TSProfile has its own save mechanism, only save here if no pending changes
+			if (!tsProfilesHasChanges) {
+				vscode.postMessage({ 
+					type: "saveTSProfileChanges",
+					enabledProfiles: enabledTSProfiles || [],
+					autoInject: anhTsProfileAutoInject,
+					variables: anhTsProfileVariables || {}
+				})
+			}
 
 			// Memory System settings
 			vscode.postMessage({ type: "memorySystemEnabled", bool: cachedState.memorySystemEnabled ?? true })
@@ -582,6 +592,11 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			sillyTavernWorldBook: false,
 			extensions: false,
 		})
+		
+		// 重置TSProfile变更状态
+		if (tsProfilesHasChanges) {
+			setCachedStateField("tsProfilesHasChanges", false)
+		}
 	}, [
 		isSettingValid,
 		language,

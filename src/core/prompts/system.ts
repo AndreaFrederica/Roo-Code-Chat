@@ -387,17 +387,16 @@ async function applyTsProfilePreprocessing(
 
 		// Process each enabled profile
 		for (const profileKey of enabledTSProfiles) {
-			// Parse profile key format: "name-scope" (e.g., "myProfile-workspace", "myProfile-global")
+			// Parse profile key format: "name|:|scope" (e.g., "myProfile|:|workspace", "myProfile|:|global")
 			let profileName: string
 			let targetScope: string | undefined
 			
-			if (profileKey.includes('-')) {
-				const parts = profileKey.split('-')
-				// Handle cases where profile name itself contains hyphens
-				// The last part is always the scope (workspace/global)
-				if (parts.length >= 2 && (parts[parts.length - 1] === 'workspace' || parts[parts.length - 1] === 'global')) {
-					targetScope = parts[parts.length - 1]
-					profileName = parts.slice(0, -1).join('-')
+			if (profileKey.includes('|:|')) {
+				const parts = profileKey.split('|:|')
+				// The format is always "name|:|scope" where scope is workspace/global
+				if (parts.length === 2 && (parts[1] === 'workspace' || parts[1] === 'global')) {
+					profileName = parts[0]
+					targetScope = parts[1]
 				} else {
 					// Fallback: treat entire key as profile name
 					profileName = profileKey

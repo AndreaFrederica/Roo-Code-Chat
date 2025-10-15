@@ -2191,9 +2191,31 @@ export const webviewMessageHandler = async (
 
 				provider.log(`Saved TSProfile changes: ${enabledProfiles.length} enabled profiles, autoInject: ${autoInject}, ${Object.keys(variables).length} variables`)
 				vscode.window.showInformationMessage("TSProfile设置已保存")
+
+				// 发送确认消息给前端，确保前端状态同步
+				await provider.postMessageToWebview({
+					type: "tsProfileState",
+					text: "tsProfileState",
+					payload: {
+						enabledProfiles,
+						autoInject,
+						variables
+					}
+				})
 			} catch (error) {
 				provider.log(`Error saving TSProfile changes: ${error instanceof Error ? error.message : String(error)}`)
 				vscode.window.showErrorMessage("保存TSProfile设置失败")
+				
+				// 发送错误状态给前端，清除保存中状态
+				await provider.postMessageToWebview({
+					type: "tsProfileState",
+					text: "tsProfileState",
+					payload: {
+						enabledProfiles: getGlobalState("enabledTSProfiles") ?? [],
+						autoInject: getGlobalState("anhTsProfileAutoInject") ?? true,
+						variables: getGlobalState("anhTsProfileVariables") ?? {}
+					}
+				})
 			}
 			break
 		}

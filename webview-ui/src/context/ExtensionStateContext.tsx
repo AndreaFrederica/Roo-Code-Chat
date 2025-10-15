@@ -618,6 +618,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 							anhTsProfileVariables: payload.variables || {},
 							tsProfilesHasChanges: false,
 							_isResetting: false,
+							_isSavingTSProfile: false, // 清除保存中状态
 						}))
 					}
 					break
@@ -926,15 +927,16 @@ const contextValue: ExtensionStateContextType = {
 					variables
 				})
 
-				console.log("TSProfile changes saved successfully")
+				console.log("TSProfile save request sent, waiting for backend confirmation...")
 
+				// 只设置保存中状态，不清除tsProfilesHasChanges
+				// tsProfilesHasChanges将在收到后端的tsProfileState消息时清除
 				return {
 					...prevState,
-					tsProfilesHasChanges: false,
-					_isSavingTSProfile: false,
+					_isSavingTSProfile: true,
 				}
 			} catch (error) {
-				console.error("Failed to save TSProfile changes:", error)
+				console.error("Failed to send TSProfile save request:", error)
 				return {
 					...prevState,
 					_isSavingTSProfile: false,
