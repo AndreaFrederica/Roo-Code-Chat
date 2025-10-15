@@ -1,26 +1,61 @@
 import * as vscode from "vscode"
 import * as path from "path"
 import { STProfileProcessor } from "@roo-code/types"
-import { parseTavernPresetStrict, compilePresetChannels } from "@roo-code/types"
 import { debugLog } from "../../utils/debug"
-import { getGlobalStorageService } from "../storage/GlobalStorageService"
-import type { ProfileInfo, ValidationResult } from "./tsProfileService"
+import { getGlobalStorageService, GlobalStorageService } from "../storage/GlobalStorageService"
+
+export interface ProfileInfo {
+	name: string
+	path: string
+	description?: string
+	promptsCount?: number
+	enabledCount?: number
+	lastModified?: number
+	scope?: "global" | "workspace"
+	hasMixin?: boolean
+	mixinPromptsCount?: number
+	mixinPath?: string
+	isOrphanMixin?: boolean
+	expectedMainProfile?: string
+}
+
+export interface ValidationResult {
+	success: boolean
+	profileName?: string
+	path?: string
+	promptsCount?: number
+	error?: string
+}
 
 export interface ExtendedProfileInfo extends ProfileInfo {
 	/** 是否为全局 profile */
-	isGlobal?: boolean
-	/** profile 类型：global 或 workspace */
-	type?: "global" | "workspace"
+	isGlobal: boolean
+	/** profile 类型 */
+	type: "global" | "workspace"
 }
 
 /**
  * 扩展的 TSProfile 服务，支持全局和本地 profile 管理
  */
 export class ExtendedTSProfileService {
-	private globalStorageService: Promise<any>
+	private globalStorageService: Promise<GlobalStorageService>
 
 	constructor(context: vscode.ExtensionContext) {
 		this.globalStorageService = getGlobalStorageService(context)
+	}
+
+	/**
+	 * 检查文件是否为 mixin 文件
+	 */
+	private isMixinFile(fileName: string): boolean {
+		return fileName.includes(".mixin.json") || fileName.includes(".mixin.jsonc")
+	}
+
+	/**
+	 * 从 mixin 文件名提取主 profile 名称
+	 */
+	private extractMainProfileName(mixinFileName: string): string {
+		return mixinFileName.replace(".mixin.json", ".json").replace(".mixin.jsonc", ".jsonc")
 	}
 
 	/**
@@ -31,11 +66,21 @@ export class ExtendedTSProfileService {
 
 		// 加载工作区 profiles
 		const workspaceProfiles = await this.loadWorkspaceProfiles()
-		profiles.push(...workspaceProfiles.map(p => ({ ...p, type: "workspace" as const, isGlobal: false })))
+		profiles.push(...workspaceProfiles.map(p => ({ 
+			...p, 
+			type: "workspace" as const, 
+			isGlobal: false,
+			scope: "workspace" as const  // 确保scope字段不被覆盖
+		})))
 
 		// 加载全局 profiles
 		const globalProfiles = await this.loadGlobalProfiles()
-		profiles.push(...globalProfiles.map(p => ({ ...p, type: "global" as const, isGlobal: true })))
+		profiles.push(...globalProfiles.map(p => ({ 
+			...p, 
+			type: "global" as const, 
+			isGlobal: true,
+			scope: "global" as const  // 确保scope字段不被覆盖
+		})))
 
 		// 按最后修改时间排序
 		return profiles.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0))
@@ -55,7 +100,9 @@ export class ExtendedTSProfileService {
 			const profileDir = path.join(workspacePath, "novel-helper", ".anh-chat", "tsprofile")
 			debugLog(`TSProfile: Workspace profile directory: ${profileDir}`)
 
-			return await this.scanProfileDirectory(profileDir)
+			const profiles = await this.scanProfileDirectory(profileDir)
+			// 为工作区profiles设置scope
+			return profiles.map(profile => ({ ...profile, scope: "workspace" as const }))
 		} catch (error) {
 			console.error("Error loading workspace TSProfiles:", error)
 			return []
@@ -71,7 +118,9 @@ export class ExtendedTSProfileService {
 			const profileDir = globalService.getGlobalTsProfilesPath()
 			debugLog(`TSProfile: Global profile directory: ${profileDir}`)
 
-			return await this.scanProfileDirectory(profileDir)
+			const profiles = await this.scanProfileDirectory(profileDir)
+			// 为全局profiles设置scope
+			return profiles.map(profile => ({ ...profile, scope: "global" as const }))
 		} catch (error) {
 			console.error("Error loading global TSProfiles:", error)
 			return []
@@ -98,16 +147,58 @@ export class ExtendedTSProfileService {
 		const files = await fs.readdir(profileDir, { withFileTypes: true })
 		debugLog(`TSProfile: Found ${files.length} files in directory`)
 
+		// 分离主 profile 文件和 mixin 文件
+		const mainProfileFiles: string[] = []
+		const mixinFiles: string[] = []
+
+		for (const file of files) {
+			if (file.isFile() && (file.name.endsWith(".json") || file.name.endsWith(".jsonc"))) {
+				if (this.isMixinFile(file.name)) {
+					mixinFiles.push(file.name)
+				} else {
+					mainProfileFiles.push(file.name)
+				}
+			}
+		}
+
+		debugLog(`TSProfile: Found ${mainProfileFiles.length} main profiles and ${mixinFiles.length} mixin files`)
+
 		const profiles: ProfileInfo[] = []
 
-		// 处理 profile 文件
-		for (const file of files) {
-			if (file.isFile() &&
-				(file.name.endsWith(".json") || file.name.endsWith(".jsonc")) &&
-				!file.name.includes(".mixin.json")) { // 排除 mixin 文件
-				const profileInfo = await this.processProfileFile(profileDir, file.name)
-				if (profileInfo) {
-					profiles.push(profileInfo)
+		// 处理主 profile 文件
+		for (const fileName of mainProfileFiles) {
+			const profileInfo = await this.processProfileFile(profileDir, fileName)
+			if (profileInfo) {
+				profiles.push(profileInfo)
+			}
+		}
+
+		// 处理孤立的 mixin 文件（没有对应主 profile 的 mixin 文件）
+		for (const mixinFileName of mixinFiles) {
+			const mainProfileName = this.extractMainProfileName(mixinFileName)
+
+			// 检查是否有对应的主 profile 文件
+			if (!mainProfileFiles.includes(mainProfileName)) {
+				const filePath = path.join(profileDir, mixinFileName)
+				try {
+					const stats = await fs.stat(filePath)
+					const mixinData = await fs.readFile(filePath, "utf-8")
+					const parsed = JSON.parse(mixinData)
+
+					debugLog(`TSProfile: Found orphan mixin file: ${mixinFileName}`)
+
+					profiles.push({
+						name: `${mixinFileName} (孤立mixin)`,
+						path: filePath,
+						description: `Mixin文件，缺少对应的主profile: ${mainProfileName}`,
+						promptsCount: parsed.prompts?.length || 0,
+						enabledCount: parsed.prompts?.filter((p: any) => p.enabled !== false).length || 0,
+						lastModified: stats.mtime.getTime(),
+						isOrphanMixin: true,
+						expectedMainProfile: mainProfileName,
+					} as ProfileInfo & { isOrphanMixin?: boolean; expectedMainProfile?: string })
+				} catch (error) {
+					console.warn(`Failed to load orphan mixin ${mixinFileName}:`, error)
 				}
 			}
 		}
@@ -139,14 +230,39 @@ export class ExtendedTSProfileService {
 			const promptsCount = validation.prompts?.length || 0
 			const enabledCount = validation.prompts?.filter((p: any) => p.enabled !== false).length || 0
 
-			return {
+			// 检查是否存在对应的 mixin 文件
+			const mixinFileName = fileName.replace(".json", ".mixin.json").replace(".jsonc", ".mixin.jsonc")
+			const mixinFilePath = path.join(profileDir, mixinFileName)
+			let hasMixin = false
+			let mixinPromptsCount = 0
+
+			try {
+				await fs.access(mixinFilePath)
+				const mixinContent = await fs.readFile(mixinFilePath, "utf-8")
+				const mixinData = JSON.parse(mixinContent)
+				hasMixin = true
+				mixinPromptsCount = mixinData.prompts?.length || 0
+				debugLog(`TSProfile: Found mixin for ${fileName}: ${mixinFileName} with ${mixinPromptsCount} prompts`)
+			} catch {
+				// 没有找到 mixin 文件或 mixin 文件无效，这是正常情况
+				debugLog(`TSProfile: No mixin found for ${fileName}`)
+			}
+
+			const profileInfo: ProfileInfo = {
 				name: parsed.name || fileName,
 				path: filePath,
 				description: parsed.description || "",
 				promptsCount,
 				enabledCount,
 				lastModified: stats.mtime.getTime(),
+				// 添加 mixin 信息到 profile
+				hasMixin,
+				mixinPromptsCount,
+				mixinPath: hasMixin ? mixinFilePath : undefined,
 			}
+
+			debugLog(`TSProfile: Processed ${fileName} - hasMixin: ${hasMixin}, mixinPromptsCount: ${mixinPromptsCount}`)
+			return profileInfo
 		} catch (error) {
 			console.warn(`Failed to load profile ${fileName}:`, error)
 			return null

@@ -1,4 +1,4 @@
-import { HTMLAttributes, useMemo } from "react"
+import { HTMLAttributes, useMemo, useEffect } from "react"
 import {
 	VSCodeCheckbox,
 	VSCodeTextField,
@@ -25,8 +25,12 @@ type ExtensionsSettingsProps = HTMLAttributes<HTMLDivElement> & {
 	enabledMap: Record<string, boolean | undefined>
 	capabilityRegistry?: AnhExtensionCapabilityRegistry
 	settings: Record<string, Record<string, unknown>>
-	onToggle: (id: string, enabled: boolean) => void
+	onToggle: (compositeKey: string, enabled: boolean) => void
 	onSettingChange: (id: string, key: string, value: unknown) => void
+	hasChanges?: boolean
+	onSaveChanges?: () => void
+	onResetChanges?: () => void
+	onHasChangesChange?: (hasChanges: boolean) => void
 }
 
 const extensionContainerClass =
@@ -46,6 +50,23 @@ const isGlobalExtension = (entryPath: string): boolean => {
 		    entryPath.includes('\\Users\\') || entryPath.includes('\\home\\'))
 }
 
+// Helper function to create scope-aware extension key
+const getExtensionKey = (extension: AnhExtensionRuntimeState): string => {
+	const isGlobal = isGlobalExtension(extension.entryPath)
+	// 使用简单的字符串哈希来确保唯一性，与ExtensionManager保持一致的逻辑
+	const pathHash = extension.entryPath
+		.split('')
+		.reduce((hash, char) => {
+			const charCode = char.charCodeAt(0)
+			hash = ((hash << 5) - hash) + charCode
+			return hash & hash // Convert to 32bit integer
+		}, 0)
+		.toString(16)
+		.substring(0, 8)
+	const scope = isGlobal ? 'global' : 'workspace'
+	return `${extension.id}:${scope}:${pathHash}`
+}
+
 export const ExtensionsSettings = ({
 	extensions,
 	enabledMap,
@@ -53,9 +74,18 @@ export const ExtensionsSettings = ({
 	settings,
 	onToggle,
 	onSettingChange,
+	hasChanges = false,
+	onSaveChanges,
+	onResetChanges,
+	onHasChangesChange,
 	...props
 }: ExtensionsSettingsProps) => {
 	const { t } = useAppTranslation()
+
+	// 监听hasChanges变化，通知父组件
+	useEffect(() => {
+		onHasChangesChange?.(hasChanges)
+	}, [hasChanges, onHasChangesChange])
 
 	const capabilityLabels: Record<AnhExtensionCapability, string> = {
 		systemPrompt: t("settings:extensions.capabilityLabels.systemPrompt"),
@@ -69,14 +99,56 @@ export const ExtensionsSettings = ({
 	const systemPromptProviders = capabilityRegistry?.systemPrompt ?? []
 
 	const sortedExtensions = useMemo(
-		() =>
-			[...extensions].sort((a, b) =>
-				a.manifest.name.localeCompare(b.manifest.name, undefined, {
+		() => {
+			// 不再去重，显示所有扩展（包括全局和本地）
+			return extensions.sort((a, b) => {
+				// 首先按名称排序
+				const nameCompare = a.manifest.name.localeCompare(b.manifest.name, undefined, {
 					sensitivity: "base",
-				}),
-			),
+				})
+				if (nameCompare !== 0) return nameCompare
+				
+				// 如果名称相同，本地扩展排在前面
+				const aIsGlobal = isGlobalExtension(a.entryPath)
+				const bIsGlobal = isGlobalExtension(b.entryPath)
+				if (aIsGlobal && !bIsGlobal) return 1
+				if (!aIsGlobal && bIsGlobal) return -1
+				return 0
+			})
+		},
 		[extensions],
 	)
+
+	// 检测扩展冲突（同ID的全局和本地扩展）
+	const extensionConflicts = useMemo(() => {
+		const conflicts = new Map<string, { global: AnhExtensionRuntimeState[], workspace: AnhExtensionRuntimeState[] }>()
+		
+		extensions.forEach(extension => {
+			const isGlobal = isGlobalExtension(extension.entryPath)
+			const id = extension.id
+			
+			if (!conflicts.has(id)) {
+				conflicts.set(id, { global: [], workspace: [] })
+			}
+			
+			const conflict = conflicts.get(id)!
+			if (isGlobal) {
+				conflict.global.push(extension)
+			} else {
+				conflict.workspace.push(extension)
+			}
+		})
+		
+		// 只返回真正有冲突的（同时存在全局和本地扩展）
+		const realConflicts = new Map<string, { global: AnhExtensionRuntimeState[], workspace: AnhExtensionRuntimeState[] }>()
+		conflicts.forEach((conflict, id) => {
+			if (conflict.global.length > 0 && conflict.workspace.length > 0) {
+				realConflicts.set(id, conflict)
+			}
+		})
+		
+		return realConflicts
+	}, [extensions])
 
 	return (
 		<div {...props}>
@@ -104,6 +176,55 @@ export const ExtensionsSettings = ({
 						<span>全局扩展适用于所有工作区，工作区扩展仅适用于当前工作区</span>
 					</div>
 
+					{hasChanges && (
+						<div style={{
+							backgroundColor: 'var(--vscode-inputValidation-warningBackground)',
+							border: '1px solid var(--vscode-inputValidation-warningBorder)',
+							borderRadius: '4px',
+							padding: '8px 12px',
+							marginBottom: '16px',
+							display: 'flex',
+							justifyContent: 'space-between',
+							alignItems: 'center'
+						}}>
+							<span style={{ color: 'var(--vscode-inputValidation-warningForeground)', fontSize: '12px' }}>
+								⚠️ 您有未保存的扩展设置更改
+							</span>
+							<div style={{ display: 'flex', gap: '8px' }}>
+								<button
+									style={{
+										backgroundColor: 'var(--vscode-button-secondaryBackground)',
+										color: 'var(--vscode-button-secondaryForeground)',
+										border: '1px solid var(--vscode-button-border)',
+										borderRadius: '3px',
+										padding: '4px 8px',
+										fontSize: '11px',
+										cursor: 'pointer'
+									}}
+									onClick={onResetChanges}
+									disabled={!onResetChanges}
+								>
+									重置
+								</button>
+								<button
+									style={{
+										backgroundColor: 'var(--vscode-button-background)',
+										color: 'var(--vscode-button-foreground)',
+										border: '1px solid var(--vscode-button-border)',
+										borderRadius: '3px',
+										padding: '4px 8px',
+										fontSize: '11px',
+										cursor: 'pointer'
+									}}
+									onClick={onSaveChanges}
+									disabled={!onSaveChanges}
+								>
+									保存更改
+								</button>
+							</div>
+						</div>
+					)}
+
 					{sortedExtensions.length === 0 ? (
 						<div className="text-sm text-vscode-descriptionForeground">
 							{t("settings:extensions.empty")}
@@ -111,14 +232,16 @@ export const ExtensionsSettings = ({
 					) : (
 						<div className="space-y-3">
 							{sortedExtensions.map((extension) => {
+								const extensionKey = getExtensionKey(extension)
+								const isGlobal = isGlobalExtension(extension.entryPath)
 								const isEnabled =
-									enabledMap[extension.id] ?? extension.enabled ?? extension.manifest.enabled ?? true
+									enabledMap[extensionKey] ?? extension.enabled ?? extension.manifest.enabled ?? true
 								const registeredSet = new Set(extension.registeredCapabilities)
 								const declaredCapabilities = capabilityOrder.filter((capability) =>
 									extension.manifest.capabilities.includes(capability),
 								)
 								const settingsSchema = extension.manifest.settings ?? []
-								const extensionSettings = settings[extension.id] ?? {}
+								const extensionSettings = settings[extensionKey] ?? {}
 
 								const renderSettingControl = (setting: AnhExtensionSettingDefinition) => {
 									const commonDescription = setting.description ? (
@@ -136,9 +259,10 @@ export const ExtensionsSettings = ({
 											<div key={setting.id} className="space-y-1">
 												<VSCodeCheckbox
 													checked={checked}
-													onChange={(event: any) =>
-														onSettingChange(extension.id, setting.id, event.target.checked)
-													}
+													onChange={(event: any) => {
+														onSettingChange(extensionKey, setting.id, event.target.checked)
+														onHasChangesChange?.(true)
+													}}
 												>
 													<span className="text-sm font-medium text-vscode-foreground">
 														{setting.label}
@@ -169,8 +293,10 @@ export const ExtensionsSettings = ({
 													: undefined) ??
 												setting.default ??
 												""
-											const handleInput = (event: any) =>
-												onSettingChange(extension.id, setting.id, event.target.value)
+											const handleInput = (event: any) => {
+												onSettingChange(extensionKey, setting.id, event.target.value)
+												onHasChangesChange?.(true)
+											}
 
 											return (
 												<div key={setting.id} className="space-y-1">
@@ -202,12 +328,14 @@ export const ExtensionsSettings = ({
 											const handleInput = (event: any) => {
 												const raw = event.target.value
 												if (raw === "") {
-													onSettingChange(extension.id, setting.id, undefined)
+													onSettingChange(extensionKey, setting.id, undefined)
+													onHasChangesChange?.(true)
 													return
 												}
 												const parsed = Number(raw)
 												if (!Number.isNaN(parsed)) {
-													onSettingChange(extension.id, setting.id, parsed)
+													onSettingChange(extensionKey, setting.id, parsed)
+													onHasChangesChange?.(true)
 												}
 											}
 
@@ -232,8 +360,10 @@ export const ExtensionsSettings = ({
 												setting.default ??
 												options[0]?.value ??
 												""
-											const handleChange = (event: any) =>
-												onSettingChange(extension.id, setting.id, event.target.value)
+											const handleChange = (event: any) => {
+												onSettingChange(extensionKey, setting.id, event.target.value)
+												onHasChangesChange?.(true)
+											}
 
 											return (
 												<div key={setting.id} className="space-y-1">
@@ -255,14 +385,39 @@ export const ExtensionsSettings = ({
 								}
 
 								return (
-									<div key={extension.id} className={extensionContainerClass}>
+									<div key={extensionKey} className={extensionContainerClass}>
+										{/* 冲突警告 */}
+										{extensionConflicts.has(extension.id) && (
+											<div style={{
+												backgroundColor: 'var(--vscode-inputValidation-warningBackground)',
+												border: '1px solid var(--vscode-inputValidation-warningBorder)',
+												borderRadius: '4px',
+												padding: '6px 8px',
+												marginBottom: '12px',
+												fontSize: '11px',
+												color: 'var(--vscode-inputValidation-warningForeground)',
+												display: 'flex',
+												alignItems: 'center',
+												gap: '6px'
+											}}>
+												<span>⚠️</span>
+												<span>
+													检测到同ID扩展冲突：存在同名的全局和工作区扩展。工作区扩展将优先生效。
+												</span>
+											</div>
+										)}
+										
 										<div className="flex items-start justify-between gap-4">
 											<div className="space-y-2">
 												<div className="flex items-center gap-2">
 													{isGlobalExtension(extension.entryPath) ? (
-														<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局扩展" />
+														<span title="全局扩展">
+															<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+														</span>
 													) : (
-														<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区扩展" />
+														<span title="工作区扩展">
+															<Folder className="w-3 h-3 text-green-400 flex-shrink-0" />
+														</span>
 													)}
 													<span className="font-medium text-sm text-vscode-foreground">
 														{extension.manifest.name}
@@ -327,7 +482,10 @@ export const ExtensionsSettings = ({
 
 											<VSCodeCheckbox
 												checked={isEnabled}
-												onChange={(event: any) => onToggle(extension.id, event.target.checked)}
+												onChange={(event: any) => {
+													onToggle(extensionKey, event.target.checked)
+													onHasChangesChange?.(true)
+												}}
 												disabled={Boolean(extension.error)}
 											>
 												{t("settings:extensions.enableLabel")}

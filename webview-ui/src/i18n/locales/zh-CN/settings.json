@@ -32,7 +32,7 @@
 		"contextManagement": "上下文",
 		"terminal": "终端",
 		"assistantRole": "助手角色",
-		"tsProfile": "TSProfile",
+		"tsProfile": "SillyTavern Profile",
 		"userAvatar": "用户代理角色",
 		"memoryManagement": "记忆管理",
 		"prompts": "提示词",
@@ -63,10 +63,10 @@
 		"noProfile": "该角色未定义详细档案。"
 	},
 	"tsProfile": {
-		"title": "TSProfile配置",
-		"description": "配置Tavern Style Profile文件，用于在生成系统提示词时对角色进行预处理。这允许使用复杂的提示词模板和变量替换。",
-		"enableLabel": "启用TSProfile",
-		"enableTooltip": "启用TSProfile功能后，系统将在生成提示词时使用Profile文件对角色进行预处理。",
+		"title": "SillyTavern Profile配置",
+		"description": "配置SillyTavern Profile文件，用于在生成系统提示词时对角色进行预处理。这允许使用复杂的提示词模板和变量替换。",
+		"enableLabel": "启用SillyTavern Profile",
+		"enableTooltip": "启用SillyTavern Profile功能后，系统将在生成提示词时使用Profile文件对角色进行预处理。",
 		"autoInjectLabel": "自动注入",
 		"autoInjectTooltip": "自动将Profile编译后的系统提示词注入到角色的system_prompt字段中。",
 		"selectLabel": "选择Profile文件",

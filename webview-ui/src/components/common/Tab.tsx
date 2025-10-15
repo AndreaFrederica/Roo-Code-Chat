@@ -54,13 +54,18 @@ export const TabList = forwardRef<
 		onValueChange: (value: string) => void
 	}
 >(({ children, className, value, onValueChange, ...props }, ref) => {
+	// Memoize the onValueChange function to prevent infinite loops
+	const memoizedOnValueChange = useCallback((newValue: string) => {
+		onValueChange(newValue)
+	}, [onValueChange])
+
 	return (
 		<div ref={ref} role="tablist" className={cn("flex", className)} {...props}>
 			{React.Children.map(children, (child) => {
 				if (React.isValidElement(child)) {
 					return React.cloneElement(child as React.ReactElement<any>, {
 						isSelected: child.props.value === value,
-						onSelect: () => onValueChange(child.props.value),
+						onSelect: () => memoizedOnValueChange(child.props.value),
 					})
 				}
 				return child

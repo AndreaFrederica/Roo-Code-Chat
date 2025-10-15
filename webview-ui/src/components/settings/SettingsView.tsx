@@ -52,7 +52,6 @@ import {
 	Button,
 	Tooltip,
 	TooltipContent,
-	TooltipProvider,
 	TooltipTrigger,
 	StandardTooltip,
 } from "@src/components/ui"
@@ -146,6 +145,46 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	const [isDiscardDialogShow, setDiscardDialogShow] = useState(false)
 	const [isChangeDetected, setChangeDetected] = useState(false)
 	const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined)
+	
+	// 为WorldBook组件创建ref
+	const worldBookRef = useRef<{ handleSaveAll: () => Promise<void> }>(null);
+	
+	// 为Worldview组件创建ref
+	const worldviewRef = useRef<{ handleSaveChanges: () => Promise<void> }>(null);
+	
+	// 统一管理所有设置子组件的变更状态
+	const [componentChanges, setComponentChanges] = useState<Record<string, boolean>>({
+		worldview: false,
+		sillyTavernWorldBook: false,
+		extensions: false,
+	})
+
+	// 处理子组件的变更状态
+	const handleComponentChange = useCallback((componentId: string, hasChanges: boolean) => {
+		setComponentChanges(prev => {
+			const newChanges = { ...prev, [componentId]: hasChanges }
+			return newChanges
+		})
+	}, [])
+
+	// 为ExtensionsSettings创建稳定的回调
+	const handleExtensionsChange = useCallback((hasChanges: boolean) => {
+		handleComponentChange('extensions', hasChanges)
+	}, [handleComponentChange])
+
+	const handleResetAllChanges = useCallback(() => {
+		// 重置主设置
+		setCachedState(extensionState)
+		setChangeDetected(false)
+		
+		// 重置子组件变更状态
+		setComponentChanges({
+			worldview: false,
+			sillyTavernWorldBook: false,
+			extensions: false,
+		})
+	}, [extensionState])
+
 	const [activeTab, setActiveTab] = useState<SectionName>(
 		targetSection && sectionNames.includes(targetSection as SectionName)
 			? (targetSection as SectionName)
@@ -264,6 +303,16 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		}
 	}, [settingsImportedAt, extensionState])
 
+	// 监听componentChanges变化，更新全局变更状态
+	useEffect(() => {
+		const hasComponentChanges = Object.values(componentChanges).some(Boolean)
+		if (hasComponentChanges) {
+			setChangeDetected(true)
+		}
+		// 注意：不要在这里强制设置为false，因为主设置可能有变更
+		// 只有在保存后才应该重置变更状态
+	}, [componentChanges])
+
 	const setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType> = useCallback(
 		(field, value) => {
 			setCachedState((prevState) => {
@@ -294,6 +343,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							[key]: value,
 						},
 					},
+					anhExtensionsHasChanges: true,
 				}
 			})
 			setChangeDetected(true)
@@ -387,7 +437,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 	const isSettingValid = !errorMessage
 
-	const handleSubmit = () => {
+	// 统一的保存方法
+	const handleSaveAllChanges = useCallback(async () => {
 		if (isSettingValid) {
 			vscode.postMessage({ type: "language", text: language })
 			vscode.postMessage({ type: "alwaysAllowReadOnly", bool: alwaysAllowReadOnly })
@@ -478,9 +529,13 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 				type: "openRouterImageGenerationSelectedModel",
 				text: openRouterImageGenerationSelectedModel,
 			})
-			// TSProfile settings
-			vscode.postMessage({ type: "anhTsProfileAutoInject", bool: anhTsProfileAutoInject })
-			vscode.postMessage({ type: "anhTsProfileVariables", values: anhTsProfileVariables || {} })
+			// TSProfile settings - use the unified saveTSProfileChanges message
+			vscode.postMessage({ 
+				type: "saveTSProfileChanges",
+				enabledProfiles: enabledTSProfiles || [],
+				autoInject: anhTsProfileAutoInject,
+				variables: anhTsProfileVariables || {}
+			})
 
 			// Memory System settings
 			vscode.postMessage({ type: "memorySystemEnabled", bool: cachedState.memorySystemEnabled ?? true })
@@ -488,7 +543,131 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 			setChangeDetected(false)
 		}
-	}
+
+		// 保存子组件变更
+		const promises: Promise<void>[] = []
+
+		// 保存WorldBook设置
+		if (componentChanges.sillyTavernWorldBook) {
+			// 调用WorldBook组件的保存方法
+			if (worldBookRef.current?.handleSaveAll) {
+				promises.push(worldBookRef.current.handleSaveAll())
+			}
+		}
+
+		// 保存Worldview设置
+		if (componentChanges.worldview) {
+			// 调用Worldview组件的保存方法
+			if (worldviewRef.current?.handleSaveChanges) {
+				promises.push(worldviewRef.current.handleSaveChanges())
+			}
+		}
+
+		// 保存Extensions设置
+		if (componentChanges.extensions) {
+			// 调用Extensions设置的保存方法
+			if (cachedState.saveAnhExtensionChanges) {
+				cachedState.saveAnhExtensionChanges()
+			}
+		}
+
+		await Promise.all(promises)
+
+		// 重置所有组件变更状态
+		setComponentChanges({
+			worldview: false,
+			sillyTavernWorldBook: false,
+			extensions: false,
+		})
+	}, [
+		isSettingValid,
+		language,
+		alwaysAllowReadOnly,
+		alwaysAllowReadOnlyOutsideWorkspace,
+		alwaysAllowWrite,
+		alwaysAllowWriteOutsideWorkspace,
+		alwaysAllowWriteProtected,
+		alwaysAllowExecute,
+		alwaysAllowBrowser,
+		alwaysAllowMcp,
+		allowedCommands,
+		deniedCommands,
+		allowedMaxRequests,
+		allowedMaxCost,
+		autoCondenseContext,
+		autoCondenseContextPercent,
+		browserToolEnabled,
+		soundEnabled,
+		ttsEnabled,
+		ttsSpeed,
+		soundVolume,
+		diffEnabled,
+		enableCheckpoints,
+		browserViewportSize,
+		remoteBrowserHost,
+		remoteBrowserEnabled,
+		fuzzyMatchThreshold,
+		writeDelayMs,
+		screenshotQuality,
+		terminalOutputLineLimit,
+		terminalOutputCharacterLimit,
+		terminalShellIntegrationTimeout,
+		terminalShellIntegrationDisabled,
+		terminalCommandDelay,
+		terminalPowershellCounter,
+		terminalZshClearEolMark,
+		terminalZshOhMy,
+		terminalZshP10k,
+		terminalZdotdir,
+		terminalCompressProgressBar,
+		mcpEnabled,
+		alwaysApproveResubmit,
+		requestDelaySeconds,
+		maxOpenTabsContext,
+		maxWorkspaceFiles,
+		showRooIgnoredFiles,
+		maxReadFileLine,
+		maxImageFileSize,
+		maxTotalImageSize,
+		cachedState.maxConcurrentFileReads,
+		includeDiagnosticMessages,
+		maxDiagnosticMessages,
+		currentApiConfigName,
+		experiments,
+		alwaysAllowModeSwitch,
+		alwaysAllowSubtasks,
+		alwaysAllowFollowupQuestions,
+		alwaysAllowUpdateTodoList,
+		followupAutoApproveTimeoutMs,
+		condensingApiConfigId,
+		customCondensingPrompt,
+		customSupportPrompts,
+		includeTaskHistoryInEnhance,
+		reasoningBlockCollapsed,
+		apiConfiguration,
+		telemetrySetting,
+		profileThresholds,
+		anhChatModeHideTaskCompletion,
+		anhShowRoleCardOnSwitch,
+		hideRoleDescription,
+		cachedAnhExtensionSettings,
+		setContextAnhExtensionSettings,
+		setHideRoleDescription,
+		enableUserAvatar,
+		userAvatarVisibility,
+		setUserAvatarVisibility,
+		setUserAvatarHideFullData,
+		userAvatarRole,
+		openRouterImageApiKey,
+		openRouterImageGenerationSelectedModel,
+		anhTsProfileAutoInject,
+		anhTsProfileVariables,
+		cachedState.memorySystemEnabled,
+		cachedState.memoryToolsEnabled,
+		setChangeDetected,
+		componentChanges,
+		setComponentChanges,
+	])
 
 	const checkUnsaveChanges = useCallback(
 		(then: () => void) => {
@@ -527,6 +706,11 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		},
 		[activeTab],
 	)
+
+	// Memoize the onValueChange function for TabList to prevent infinite loops
+	const memoizedOnValueChange = useCallback((value: string) => {
+		handleTabChange(value as SectionName)
+	}, [handleTabChange])
 
 	useLayoutEffect(() => {
 		if (contentRef.current) {
@@ -609,7 +793,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	// Effect to scroll when the active tab changes
 	useEffect(() => {
 		scrollToActiveTab()
-	}, [activeTab, scrollToActiveTab])
+	}, [activeTab])
 
 	// Effect to scroll when the webview becomes visible
 	useLayoutEffect(() => {
@@ -634,28 +818,34 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 					<h3 className="text-vscode-foreground m-0">{t("settings:header.title")}</h3>
 				</div>
 				<div className="flex gap-2">
-					<StandardTooltip
-						content={
-							!isSettingValid
-								? errorMessage
-								: isChangeDetected
-									? t("settings:header.saveButtonTooltip")
-									: t("settings:header.nothingChangedTooltip")
-						}>
-						<Button
-							variant={isSettingValid ? "default" : "secondary"}
-							className={!isSettingValid ? "!border-vscode-errorForeground" : ""}
-							onClick={handleSubmit}
-							disabled={!isChangeDetected || !isSettingValid}
-							data-testid="save-button">
-							{t("settings:common.save")}
-						</Button>
-					</StandardTooltip>
-					<StandardTooltip content={t("settings:header.doneButtonTooltip")}>
-						<Button variant="secondary" onClick={() => checkUnsaveChanges(onDone)}>
-							{t("settings:common.done")}
-						</Button>
-					</StandardTooltip>
+					{useMemo(() => {
+						const tooltipContent = !isSettingValid
+							? errorMessage
+							: isChangeDetected
+								? t("settings:header.saveButtonTooltip")
+								: t("settings:header.nothingChangedTooltip")
+						
+						return (
+							<StandardTooltip content={tooltipContent}>
+								<Button
+									variant={isSettingValid ? "default" : "secondary"}
+									className={!isSettingValid ? "!border-vscode-errorForeground" : ""}
+									onClick={handleSaveAllChanges}
+									disabled={!isChangeDetected || !isSettingValid}
+									data-testid="save-button">
+									{t("settings:common.save")}
+								</Button>
+							</StandardTooltip>
+						)
+					}, [isSettingValid, errorMessage, isChangeDetected, t, handleSaveAllChanges])}
+					
+					{useMemo(() => (
+						<StandardTooltip content={t("settings:header.doneButtonTooltip")}>
+							<Button variant="secondary" onClick={() => checkUnsaveChanges(onDone)}>
+								{t("settings:common.done")}
+							</Button>
+						</StandardTooltip>
+					), [t, checkUnsaveChanges, onDone])}
 				</div>
 			</TabHeader>
 
@@ -664,7 +854,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 				{/* Tab sidebar */}
 				<TabList
 					value={activeTab}
-					onValueChange={(value) => handleTabChange(value as SectionName)}
+					onValueChange={memoizedOnValueChange}
 					className={cn(settingsTabList)}
 					data-compact={isCompactMode}
 					data-testid="settings-tab-list">
@@ -697,17 +887,15 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 						if (isCompactMode) {
 							// Wrap in Tooltip and manually add onClick to the trigger
 							return (
-								<TooltipProvider key={id} delayDuration={300}>
-									<Tooltip>
-										<TooltipTrigger asChild onClick={onSelect}>
-											{/* Clone to avoid ref issues if triggerComponent itself had a key */}
-											{React.cloneElement(triggerComponent)}
-										</TooltipTrigger>
-										<TooltipContent side="right" className="text-base">
-											<p className="m-0">{t(`settings:sections.${id}`)}</p>
-										</TooltipContent>
-									</Tooltip>
-								</TooltipProvider>
+								<Tooltip key={id}>
+									<TooltipTrigger asChild onClick={onSelect}>
+										{/* Clone to avoid ref issues if triggerComponent itself had a key */}
+										{React.cloneElement(triggerComponent)}
+									</TooltipTrigger>
+									<TooltipContent side="right" className="text-base">
+										<p className="m-0">{t(`settings:sections.${id}`)}</p>
+									</TooltipContent>
+								</Tooltip>
 							)
 						} else {
 							// Render trigger directly; TabList will inject onSelect via cloning
@@ -879,6 +1067,10 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 					{activeTab === "tsProfile" && (
 						<TSProfileSettings
 							setCachedStateField={setCachedStateField}
+							anhTsProfileAutoInject={cachedState.anhTsProfileAutoInject}
+							anhTsProfileVariables={cachedState.anhTsProfileVariables}
+							tsProfilesHasChanges={cachedState.tsProfilesHasChanges}
+							enabledTSProfiles={cachedState.enabledTSProfiles}
 						/>
 					)}
 
@@ -930,20 +1122,43 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							extensions={anhExtensionsRuntime}
 							enabledMap={anhExtensionsEnabled}
 							capabilityRegistry={anhExtensionCapabilityRegistry}
-							onToggle={setAnhExtensionEnabled}
+							onToggle={(compositeKey, enabled) => setAnhExtensionEnabled(compositeKey, enabled)}
 							settings={cachedAnhExtensionSettings ?? {}}
 							onSettingChange={handleExtensionSettingChange}
+							hasChanges={cachedState.anhExtensionsHasChanges}
+							onSaveChanges={cachedState.saveAnhExtensionChanges}
+							onResetChanges={cachedState.resetAnhExtensionChanges}
+							onHasChangesChange={handleExtensionsChange}
 						/>
 					)}
 
 					{/* Worldview Section */}
-					{activeTab === "worldview" && <WorldviewSettings />}
+					{activeTab === "worldview" && (
+						<WorldviewSettings 
+							ref={worldviewRef}
+							onHasChangesChange={(hasChanges) => handleComponentChange('worldview', hasChanges)}
+							onSaveChanges={async () => {
+								// Worldview的保存逻辑
+								// 这里可以调用Worldview的保存方法
+							}}
+							onResetChanges={() => {
+								// 重置Worldview的变更状态
+								setComponentChanges(prev => ({ ...prev, worldview: false }))
+							}}
+						/>
+					)}
 
 					{/* SillyTavern World Book Section */}
 					{activeTab === "sillyTavernWorldBook" && (
 						<SillyTavernWorldBookSettings 
+							ref={worldBookRef}
 							state={extensionState}
 							vscode={vscode}
+							onHasChangesChange={(hasChanges) => handleComponentChange('sillyTavernWorldBook', hasChanges)}
+							onResetChanges={() => {
+								// 重置WorldBook的变更状态
+								setComponentChanges(prev => ({ ...prev, sillyTavernWorldBook: false }))
+							}}
 						/>
 					)}
 

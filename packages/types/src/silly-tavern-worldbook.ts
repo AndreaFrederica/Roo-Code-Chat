@@ -193,8 +193,8 @@ export interface WorldBookInfo {
   loaded: boolean;
   /** 错误信息 */
   error?: string;
-  /** 是否为全局世界书 */
-  isGlobal?: boolean;
+  /** 范围：全局或工作区 */
+  scope?: "global" | "workspace";
 }
 
 /** 转换结果 */

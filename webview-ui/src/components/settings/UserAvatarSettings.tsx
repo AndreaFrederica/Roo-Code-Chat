@@ -352,11 +352,17 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 										)}
 										{/* Global/Workspace indicator */}
 										{!selectedRole || selectedRole.uuid === DEFAULT_ASSISTANT_ROLE_UUID ? (
-											<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" title="默认角色" />
+											<span title="默认角色">
+												<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" />
+											</span>
 										) : selectedRole.scope === "global" ? (
-											<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局角色" />
+											<span title="全局角色">
+												<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+											</span>
 										) : (
-											<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区角色" />
+											<span title="工作区角色">
+												<Folder className="w-3 h-3 text-green-400 flex-shrink-0" />
+											</span>
 										)}
 										<span className="truncate">{selectedRole?.name || ""}</span>
 									</div>
@@ -436,11 +442,17 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 																	<div className="flex items-center gap-2">
 																		{/* Global/Workspace indicator */}
 																		{role.uuid === DEFAULT_ASSISTANT_ROLE_UUID ? (
-																			<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" title="默认角色" />
+																			<span title="默认角色">
+																				<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" />
+																			</span>
 																		) : role.scope === "global" ? (
-																			<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局角色" />
+																			<span title="全局角色">
+																				<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+																			</span>
 																		) : (
-																			<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区角色" />
+																			<span title="工作区角色">
+																				<Folder className="w-3 h-3 text-green-400 flex-shrink-0" />
+																			</span>
 																		)}
 																		<div className="font-bold truncate">{role.name}</div>
 																	</div>
@@ -474,11 +486,17 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 									)}
 									{/* Global/Workspace indicator */}
 									{selectedRole.uuid === DEFAULT_ASSISTANT_ROLE_UUID ? (
-										<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" title="默认角色" />
+										<span title="默认角色">
+											<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" />
+										</span>
 									) : selectedRole.scope === "global" ? (
-										<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局角色" />
+										<span title="全局角色">
+											<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+										</span>
 									) : (
-										<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区角色" />
+										<span title="工作区角色">
+											<Folder className="w-3 h-3 text-green-400 flex-shrink-0" />
+										</span>
 									)}
 									<div className="font-medium">{selectedRole.name}</div>
 									<div className="text-xs text-vscode-descriptionForeground">

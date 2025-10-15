@@ -502,6 +502,7 @@ describe("ClineProvider", () => {
 			clineMessages: [],
 			taskHistory: [],
 			shouldShowAnnouncement: false,
+			anhExtensionsHasChanges: false,
 			apiConfiguration: {
 				apiProvider: "openrouter",
 			},

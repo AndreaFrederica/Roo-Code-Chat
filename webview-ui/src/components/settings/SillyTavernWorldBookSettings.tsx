@@ -1,18 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import {
   VSCodeButton,
   VSCodeCheckbox,
   VSCodeDivider,
-  VSCodePanels,
-  VSCodePanelTab,
-  VSCodePanelView,
-  VSCodeRadioGroup,
-  VSCodeRadio,
 } from '@vscode/webview-ui-toolkit/react';
 import type { WorldBookInfo, WorldEntry, WorldBookEntryMixin } from '@roo-code/types';
 import { WorldBookConfigForm } from './WorldBookConfigForm';
 import { WorldBookList } from './WorldBookList';
 import { WorldBookMixinModal } from './WorldBookMixinModal';
+
+// 路径工具函数
+const joinPath = (basePath: string, fileName: string): string => {
+  // 标准化路径分隔符
+  const normalizedBasePath = basePath.replace(/[/\\]/g, '\\');
+  return `${normalizedBasePath}\\${fileName}`;
+};
+
+const normalizePath = (path: string): string => {
+  // 将所有路径分隔符标准化为反斜杠（Windows风格）
+  return path.replace(/[/\\]/g, '\\');
+};
 
 interface WorldBookConfig {
   filePath: string;
@@ -34,11 +41,25 @@ interface WorldBookConfig {
 interface SillyTavernWorldBookSettingsProps {
   state: any;
   vscode: any;
+  onHasChangesChange?: (hasChanges: boolean) => void;
+  onSaveChanges?: () => Promise<void>;
+  onResetChanges?: () => void;
 }
 
-export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettingsProps> = ({ state, vscode }) => {
+const SillyTavernWorldBookSettings = forwardRef<
+  { handleSaveAll: () => Promise<void> },
+  SillyTavernWorldBookSettingsProps
+>(({
+  state,
+  vscode,
+  onHasChangesChange,
+  onSaveChanges,
+  onResetChanges
+}, ref) => {
   const [worldBooks, setWorldBooks] = useState<WorldBookInfo[]>([]);
   const [globalWorldBooks, setGlobalWorldBooks] = useState<string[]>([]);
+  const [globalWorldBooksPath, setGlobalWorldBooksPath] = useState<string>('');
+  const [globalWorldBooksWithInfo, setGlobalWorldBooksWithInfo] = useState<any[]>([]);
   const [originalConfigs, setOriginalConfigs] = useState<Record<string, WorldBookConfig>>({});
   const [configs, setConfigs] = useState<Record<string, WorldBookConfig>>({});
   const [originalActiveWorldBooks, setOriginalActiveWorldBooks] = useState<string[]>([]);
@@ -46,16 +67,24 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
   const [isLoading, setIsLoading] = useState(false);
   const [selectedWorldBook, setSelectedWorldBook] = useState<WorldBookInfo | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 计算是否有变更
+  const hasChanges = useMemo(() => {
+    const configsChanged = JSON.stringify(originalConfigs) !== JSON.stringify(configs);
+    const activeBooksChanged = JSON.stringify(originalActiveWorldBooks.sort()) !== JSON.stringify(activeWorldBooks.sort());
+    return configsChanged || activeBooksChanged;
+  }, [originalConfigs, configs, originalActiveWorldBooks, activeWorldBooks]);
 
   // Mixin相关状态
   const [showMixinModal, setShowMixinModal] = useState(false);
   const [selectedWorldBookForMixin, setSelectedWorldBookForMixin] = useState<WorldBookInfo | null>(null);
   const [currentScope, setCurrentScope] = useState<'all' | 'workspace' | 'global'>('all');
 
+  const [isInitialized, setIsInitialized] = useState(false);
+
   useEffect(() => {
-    if (state?.sillyTavernWorldBookState) {
+    if (state?.sillyTavernWorldBookState && !isInitialized) {
       const wbState = state.sillyTavernWorldBookState;
       setWorldBooks(wbState.loadedWorldBooks || []);
       const newConfigs = wbState.configs || {};
@@ -65,45 +94,119 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
       setConfigs(JSON.parse(JSON.stringify(newConfigs)));
       setOriginalActiveWorldBooks(newActiveBooks);
       setActiveWorldBooks([...newActiveBooks]);
-      setHasChanges(false);
+      setIsInitialized(true);
     }
-  }, [state?.sillyTavernWorldBookState]);
+  }, [state?.sillyTavernWorldBookState, isInitialized]);
 
-  // 加载全局世界书列表
+  // 通知父组件变更状态
   useEffect(() => {
-    const loadGlobalWorldBooks = async () => {
-      try {
-        const response = await vscode.postMessage({
-          type: 'STWordBookGetGlobal'
-        });
-        if (response?.globalWorldBooks) {
-          setGlobalWorldBooks(response.globalWorldBooks);
-        }
-      } catch (error) {
-        console.error('Failed to load global world books:', error);
+    onHasChangesChange?.(hasChanges);
+  }, [hasChanges]);
+
+  // 监听来自后端的消息
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+
+      switch (message.type) {
+        case 'STWordBookGetGlobalResponse':
+          console.log('Received STWordBookGetGlobalResponse:', message);
+          if (message.globalWorldBooks) {
+            console.log('Setting global world books:', message.globalWorldBooks);
+            setGlobalWorldBooks(message.globalWorldBooks);
+          } else {
+            console.log('No global world books in response');
+          }
+          
+          // 处理 globalWorldBooksPath
+          if (message.globalWorldBooksPath) {
+            console.log('Setting global world books path:', message.globalWorldBooksPath);
+            setGlobalWorldBooksPath(message.globalWorldBooksPath);
+          } else {
+            console.log('No global world books path in response');
+          }
+
+          // 处理 globalWorldBooksWithInfo - 包含词条数的详细信息
+          if (message.globalWorldBooksWithInfo) {
+            console.log('Setting global world books with info:', message.globalWorldBooksWithInfo);
+            console.log('globalWorldBooksWithInfo structure:', JSON.stringify(message.globalWorldBooksWithInfo, null, 2));
+            setGlobalWorldBooksWithInfo(message.globalWorldBooksWithInfo);
+          } else {
+            console.log('No global world books with info in response');
+          }
+          break;
       }
     };
 
-    loadGlobalWorldBooks();
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // 加载全局世界书列表
+  useEffect(() => {
+    // 发送消息获取全局世界书列表
+    vscode.postMessage({
+      type: 'STWordBookGetGlobal'
+    });
   }, [vscode]);
 
-  // 处理世界书操作
-  const handleWorldBookToggle = async (filePath: string, enabled: boolean) => {
-    setConfigs(prev => ({
-      ...prev,
-      [filePath]: { ...prev[filePath], enabled }
-    }));
+  // 处理世界书操作（使用scope-aware的worldbookKey）- 暂存模式
+  const handleWorldBookToggle = (worldBookKey: string, enabled: boolean) => {
+    // worldBookKey格式：path-scope
+    // 这里我们需要根据scope决定如何处理
+    const [filePath, scope] = worldBookKey.endsWith('-global')
+      ? [worldBookKey.slice(0, -7), 'global']
+      : [worldBookKey.slice(0, -10), 'workspace'];
+
+    setConfigs(prev => {
+      const existingConfig = prev[filePath] || {};
+      const newEnabledFiles = enabled
+        ? [...(existingConfig.enabledFiles || []), worldBookKey].filter((key, index, arr) => arr.indexOf(key) === index)
+        : (existingConfig.enabledFiles || []).filter(key => key !== worldBookKey);
+
+      // 创建默认配置
+      const defaultConfig: WorldBookConfig = {
+        filePath,
+        enabled: false,
+        enabledFiles: [],
+        autoReload: true,
+        reloadInterval: 5000,
+        markdownOptions: {
+          headingLevel: 2,
+          titleStrategy: 'auto',
+          includeDisabled: false,
+          sortBy: 'order',
+          includeFrontMatter: true,
+          frontMatterStyle: 'table',
+          includeKeys: true
+        }
+      };
+
+      // 合并配置，当前状态优先
+      const finalConfig: WorldBookConfig = {
+        ...defaultConfig,
+        ...existingConfig,
+        filePath, // 确保filePath始终正确
+        enabled,  // 当前启用状态
+        enabledFiles: newEnabledFiles // 更新后的文件列表
+      };
+
+      return {
+        ...prev,
+        [filePath]: finalConfig
+      };
+    });
 
     setActiveWorldBooks(prev => {
-      if (enabled && !prev.includes(filePath)) {
-        return [...prev, filePath];
-      } else if (!enabled && prev.includes(filePath)) {
-        return prev.filter(path => path !== filePath);
+      if (enabled && !prev.includes(worldBookKey)) {
+        return [...prev, worldBookKey];
+      } else if (!enabled && prev.includes(worldBookKey)) {
+        return prev.filter(key => key !== worldBookKey);
       }
       return prev;
     });
 
-    setHasChanges(true);
+    // 不再立即发送给后端，而是等待用户点击保存
   };
 
   const handleWorldBookDelete = async (worldBook: WorldBookInfo) => {
@@ -120,12 +223,17 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
     }
   };
 
-  const handleWorldBookReload = async (filePath: string) => {
+  const handleWorldBookReload = async (worldBookKey: string) => {
     setIsLoading(true);
     try {
+      const [filePath, scope] = worldBookKey.endsWith('-global')
+        ? [worldBookKey.slice(0, -7), 'global']
+        : [worldBookKey.slice(0, -10), 'workspace'];
+
       await vscode.postMessage({
         type: 'STWordBookReload',
-        worldBookFilePath: filePath
+        worldBookFilePath: filePath,
+        worldBookScope: scope
       });
     } finally {
       setIsLoading(false);
@@ -142,7 +250,8 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
       try {
         const validation = await vscode.postMessage({
           type: 'STWordBookValidate',
-          worldBookFilePath: result.worldBookFilePath
+          worldBookFilePath: result.worldBookFilePath,
+          worldBookScope: 'workspace' // 验证默认为工作区范围
         });
 
         if (validation?.worldBookValid) {
@@ -165,7 +274,8 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
 
           await vscode.postMessage({
             type: 'STWordBookAdd',
-            worldBookConfig: newConfig
+            worldBookConfig: newConfig,
+            worldBookScope: 'workspace' // 新添加的默认为工作区范围
           });
         } else {
           vscode.postMessage({
@@ -179,11 +289,16 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
     }
   };
 
-  const handleWorldBookValidate = async (filePath: string) => {
+  const handleWorldBookValidate = async (worldBookKey: string) => {
     try {
+      const [filePath, scope] = worldBookKey.endsWith('-global')
+        ? [worldBookKey.slice(0, -7), 'global']
+        : [worldBookKey.slice(0, -10), 'workspace'];
+
       const validation = await vscode.postMessage({
         type: 'STWordBookValidate',
-        worldBookFilePath: filePath
+        worldBookFilePath: filePath,
+        worldBookScope: scope
       });
 
       if (!validation?.worldBookValid) {
@@ -204,12 +319,10 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
         worldBookFilePath: filePath
       });
 
-      const response = await vscode.postMessage({
+      // 刷新全局世界书列表
+      vscode.postMessage({
         type: 'STWordBookGetGlobal'
       });
-      if (response?.globalWorldBooks) {
-        setGlobalWorldBooks(response.globalWorldBooks);
-      }
     } catch (error) {
       console.error('Failed to copy world book to global:', error);
     }
@@ -280,6 +393,7 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
         type: 'getWorldBookMixin',
         worldBookPath: worldBook.path,
         isGlobal,
+        worldBookScope: isGlobal ? 'global' : 'workspace',
         messageId
       });
 
@@ -293,11 +407,15 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
 
   const handleUpdateEntryMixin = async (entryUid: number | string, updates: Partial<WorldBookEntryMixin>) => {
     try {
+      if (!selectedWorldBookForMixin) return;
+
       await vscode.postMessage({
         type: 'updateWorldBookEntryMixin',
-        worldBookPath: selectedWorldBookForMixin?.path,
+        worldBookPath: selectedWorldBookForMixin.path,
         entryUid,
-        mixinUpdates: updates
+        mixinUpdates: updates,
+        isGlobal: selectedWorldBookForMixin.scope === 'global',
+        worldBookScope: selectedWorldBookForMixin.scope
       });
     } catch (error) {
       console.error('Failed to update entry mixin:', error);
@@ -307,10 +425,14 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
 
   const handleRemoveEntryMixin = async (entryUid: number | string) => {
     try {
+      if (!selectedWorldBookForMixin) return;
+
       await vscode.postMessage({
         type: 'removeWorldBookEntryMixin',
-        worldBookPath: selectedWorldBookForMixin?.path,
-        entryUid
+        worldBookPath: selectedWorldBookForMixin.path,
+        entryUid,
+        isGlobal: selectedWorldBookForMixin.scope === 'global',
+        worldBookScope: selectedWorldBookForMixin.scope
       });
     } catch (error) {
       console.error('Failed to remove entry mixin:', error);
@@ -323,7 +445,7 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
     setSelectedWorldBook(worldBook || null);
   };
 
-  // 保存操作
+  // 保存操作 - 通过父组件的统一保存机制调用
   const handleSaveAll = async () => {
     try {
       setIsLoading(true);
@@ -343,30 +465,66 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
       });
 
       for (const filePath of addedPaths) {
+        // 检查这个配置是否来自全局世界书
+        const isGlobal = globalWorldBooks.some(fileName => {
+          // 使用本地状态中的全局世界书路径进行判断
+          const globalPath = globalWorldBooksPath 
+            ? joinPath(globalWorldBooksPath, fileName)
+            : joinPath('~/.anh-chat/worldbook', fileName);
+          
+          return normalizePath(filePath).includes(normalizePath(globalPath)) ||
+                 filePath.includes(fileName.replace('.json', ''));
+        });
+
         await vscode.postMessage({
           type: 'STWordBookAdd',
-          worldBookConfig: configs[filePath]
+          worldBookConfig: configs[filePath],
+          worldBookScope: isGlobal ? 'global' : 'workspace'
         });
       }
 
       for (const filePath of updatedPaths) {
+        // 检查这个配置是否来自全局世界书
+        const isGlobal = globalWorldBooks.some(fileName => {
+          // 使用本地状态中的全局世界书路径进行判断
+          const globalPath = globalWorldBooksPath 
+            ? joinPath(globalWorldBooksPath, fileName)
+            : joinPath('~/.anh-chat/worldbook', fileName);
+          
+          return normalizePath(filePath).includes(normalizePath(globalPath)) ||
+                 filePath.includes(fileName.replace('.json', ''));
+        });
+
         await vscode.postMessage({
           type: 'STWordBookUpdate',
           worldBookFilePath: filePath,
-          worldBookConfig: configs[filePath]
+          worldBookConfig: configs[filePath],
+          worldBookScope: isGlobal ? 'global' : 'workspace'
         });
       }
 
       for (const filePath of removedPaths) {
+        // 检查这个配置是否来自全局世界书
+        const isGlobal = globalWorldBooks.some(fileName => {
+          // 使用本地状态中的全局世界书路径进行判断
+          const globalPath = globalWorldBooksPath 
+            ? joinPath(globalWorldBooksPath, fileName)
+            : joinPath('~/.anh-chat/worldbook', fileName);
+          
+          return normalizePath(filePath).includes(normalizePath(globalPath)) ||
+                 filePath.includes(fileName.replace('.json', ''));
+        });
+
         await vscode.postMessage({
           type: 'STWordBookRemove',
-          worldBookFilePath: filePath
+          worldBookFilePath: filePath,
+          worldBookScope: isGlobal ? 'global' : 'workspace'
         });
       }
 
+      // 保存成功后，更新原始状态为当前状态，这样hasChanges会变为false
       setOriginalConfigs(JSON.parse(JSON.stringify(configs)));
       setOriginalActiveWorldBooks([...activeWorldBooks]);
-      setHasChanges(false);
 
       vscode.postMessage({
         type: 'showInfo',
@@ -378,15 +536,35 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
         type: 'showError',
         message: '保存失败: ' + (error instanceof Error ? error.message : String(error))
       });
+      throw error; // 重新抛出错误以便父组件处理
     } finally {
       setIsLoading(false);
     }
   };
 
+  // 使用useImperativeHandle暴露handleSaveAll方法给父组件
+  useImperativeHandle(ref, () => ({
+    handleSaveAll
+  }), [handleSaveAll]);
+
+  // 使用useEffect来响应onSaveChanges的调用（保持向后兼容）
+  useEffect(() => {
+    if (onSaveChanges) {
+      // 将handleSaveAll方法暴露给父组件
+      (onSaveChanges as any).current = handleSaveAll;
+    }
+  }, [onSaveChanges, handleSaveAll]);
+
   const handleReset = () => {
-    setConfigs(JSON.parse(JSON.stringify(originalConfigs)));
-    setActiveWorldBooks([...originalActiveWorldBooks]);
-    setHasChanges(false);
+    // 使用父组件提供的重置方法，如果没有则使用本地重置
+    if (onResetChanges) {
+      onResetChanges();
+    } else {
+      setConfigs(JSON.parse(JSON.stringify(originalConfigs)));
+      setActiveWorldBooks([...originalActiveWorldBooks]);
+    }
+    // 重置初始化标志，允许重新从state初始化
+    setIsInitialized(false);
   };
 
   // 准备世界书配置
@@ -408,25 +586,37 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
   };
 
   // 获取增强的世界书列表
-  const getEnhancedWorldBooks = (): WorldBookInfo[] => {
+  const enhancedWorldBooks = useMemo((): WorldBookInfo[] => {
     let filtered = [...worldBooks];
 
-    // 为工作区世界书添加isGlobal标志
-    filtered = filtered.map(wb => ({ ...wb, isGlobal: false }));
+    // 为工作区世界书添加scope标志
+    filtered = filtered.map(wb => ({ ...wb, scope: 'workspace' as const }));
 
     // 添加全局世界书
-    const globalWorldBookInfos: WorldBookInfo[] = globalWorldBooks.map(fileName => ({
-      name: fileName.replace('.json', ''),
-      path: `~/.anh-chat/worldbook/${fileName}`,
-      entryCount: 0,
-      fileSize: 0,
-      lastModified: 0,
-      loaded: true,
-      isGlobal: true
-    }));
+    const globalWorldBookInfos: WorldBookInfo[] = globalWorldBooks.map(fileName => {
+      // 使用本地状态中的全局世界书路径信息，如果没有则使用文件名作为标识
+      const globalPath = globalWorldBooksPath 
+        ? joinPath(globalWorldBooksPath, fileName)
+        : fileName;
+      
+      // 查找对应的详细信息
+      const detailedInfo = globalWorldBooksWithInfo.find(info => info.fileName === fileName);
+      console.log(`Looking for ${fileName}, found:`, detailedInfo);
+      
+      return {
+        name: fileName.replace('.json', ''),
+        path: globalPath,
+        entryCount: detailedInfo?.entryCount || 0,
+        fileSize: detailedInfo?.fileSize || 0,
+        lastModified: detailedInfo?.lastModified || 0,
+        loaded: detailedInfo?.loaded || true,
+        scope: 'global' as const
+      };
+    });
 
+    
     return [...filtered, ...globalWorldBookInfos];
-  };
+  }, [worldBooks, globalWorldBooks, globalWorldBooksPath]);
 
   return (
     <div className="settings-section">
@@ -447,14 +637,11 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
           alignItems: 'center'
         }}>
           <span style={{ color: 'var(--vscode-inputValidation-warningForeground)' }}>
-            ⚠️ 您有未保存的更改
+            ⚠️ 世界书设置有未保存的更改
           </span>
           <div style={{ display: 'flex', gap: '8px' }}>
             <VSCodeButton appearance="secondary" onClick={handleReset} disabled={isLoading}>
-              重置
-            </VSCodeButton>
-            <VSCodeButton appearance="primary" onClick={handleSaveAll} disabled={isLoading}>
-              保存所有更改
+              重置更改
             </VSCodeButton>
           </div>
         </div>
@@ -472,148 +659,65 @@ export const SillyTavernWorldBookSettings: React.FC<SillyTavernWorldBookSettings
         </div>
       )}
 
-      <VSCodePanels>
-        <VSCodePanelTab id="worldbook-list">世界书列表</VSCodePanelTab>
-        <VSCodePanelTab id="worldbook-config">配置选项</VSCodePanelTab>
+      <div className="settings-content">
+        <WorldBookList
+          worldBooks={enhancedWorldBooks}
+          worldBookConfig={worldBookConfig}
+          isLoading={isLoading}
+          error={error}
+          currentScope={currentScope}
+          onScopeChange={setCurrentScope}
+          onWorldBookToggle={handleWorldBookToggle}
+          onWorldBookDelete={handleWorldBookDelete}
+          onWorldBookReload={handleWorldBookReload}
+          onWorldBookBrowse={handleWorldBookBrowse}
+          onWorldBookValidate={handleWorldBookValidate}
+          onCopyToGlobal={handleCopyToGlobal}
+          onCopyFromGlobal={handleCopyFromGlobal}
+          onOpenMixinManager={handleOpenMixinManager}
+          onOpenConfigForm={handleOpenConfigForm}
+        />
 
-        <VSCodePanelView id="worldbook-list">
-          <WorldBookList
-            worldBooks={getEnhancedWorldBooks()}
-            worldBookConfig={worldBookConfig}
-            isLoading={isLoading}
-            error={error}
-            currentScope={currentScope}
-            onScopeChange={setCurrentScope}
-            onWorldBookToggle={handleWorldBookToggle}
-            onWorldBookDelete={handleWorldBookDelete}
-            onWorldBookReload={handleWorldBookReload}
-            onWorldBookBrowse={handleWorldBookBrowse}
-            onWorldBookValidate={handleWorldBookValidate}
-            onCopyToGlobal={handleCopyToGlobal}
-            onCopyFromGlobal={handleCopyFromGlobal}
-            onOpenMixinManager={handleOpenMixinManager}
-            onOpenConfigForm={handleOpenConfigForm}
-          />
-
-          {selectedWorldBook && configs[selectedWorldBook.path] && (
-            <>
-              <VSCodeDivider />
-              <div className="settings-group">
-                <div className="settings-group-header">
-                  <h4>配置: {selectedWorldBook.name}</h4>
-                  <VSCodeButton
-                    appearance="secondary"
-                    onClick={() => setSelectedWorldBook(null)}
-                  >
-                    关闭
-                  </VSCodeButton>
-                </div>
-
-                <WorldBookConfigForm
-                  config={configs[selectedWorldBook.path]}
-                  onChange={(updates: any) => {
-                    setConfigs(prev => ({
-                      ...prev,
-                      [selectedWorldBook.path]: { ...prev[selectedWorldBook.path], ...updates }
-                    }));
-                    setHasChanges(true);
-                  }}
-                />
+        {selectedWorldBook && configs[selectedWorldBook.path] && (
+          <>
+            <VSCodeDivider />
+            <div className="settings-group">
+              <div className="settings-group-header">
+                <h4>配置: {selectedWorldBook.name}</h4>
+                <VSCodeButton
+                  appearance="secondary"
+                  onClick={() => setSelectedWorldBook(null)}
+                >
+                  关闭
+                </VSCodeButton>
               </div>
-            </>
-          )}
-        </VSCodePanelView>
 
-        <VSCodePanelView id="worldbook-config">
-          <div className="settings-group">
-            <h4>默认转换选项</h4>
-            <p className="settings-description">
-              这些选项将作为新添加世界书的默认配置。
-            </p>
-
-            <div className="form-group">
-              <VSCodeCheckbox checked={showAdvanced} onChange={(e: any) => setShowAdvanced(e.target.checked)}>
-                显示高级选项
-              </VSCodeCheckbox>
+              <WorldBookConfigForm
+                config={configs[selectedWorldBook.path]}
+                onChange={(updates: any) => {
+                  setConfigs(prev => ({
+                    ...prev,
+                    [selectedWorldBook.path]: { ...prev[selectedWorldBook.path], ...updates }
+                  }));
+                }}
+              />
             </div>
-
-            <div className="form-group">
-              <label>标题级别</label>
-              <VSCodeRadioGroup value="2" orientation="horizontal">
-                <VSCodeRadio value="1">H1</VSCodeRadio>
-                <VSCodeRadio value="2">H2</VSCodeRadio>
-                <VSCodeRadio value="3">H3</VSCodeRadio>
-                <VSCodeRadio value="4">H4</VSCodeRadio>
-              </VSCodeRadioGroup>
-            </div>
-
-            <div className="form-group">
-              <label>标题策略</label>
-              <VSCodeRadioGroup value="auto">
-                <VSCodeRadio value="auto">自动 (comment → key → uid)</VSCodeRadio>
-                <VSCodeRadio value="comment">优先使用注释</VSCodeRadio>
-                <VSCodeRadio value="key">优先使用关键词</VSCodeRadio>
-                <VSCodeRadio value="uid">优先使用ID</VSCodeRadio>
-              </VSCodeRadioGroup>
-            </div>
-
-            <div className="form-group">
-              <label>排序策略</label>
-              <VSCodeRadioGroup value="order">
-                <VSCodeRadio value="order">按排序字段</VSCodeRadio>
-                <VSCodeRadio value="displayIndex">按显示索引</VSCodeRadio>
-                <VSCodeRadio value="uid">按ID</VSCodeRadio>
-                <VSCodeRadio value="title">按标题</VSCodeRadio>
-                <VSCodeRadio value="none">不排序</VSCodeRadio>
-              </VSCodeRadioGroup>
-            </div>
-
-            <div className="form-group">
-              <VSCodeCheckbox checked={true}>
-                包含元数据表格
-              </VSCodeCheckbox>
-            </div>
-
-            <div className="form-group">
-              <VSCodeCheckbox checked={true}>
-                包含关键词信息
-              </VSCodeCheckbox>
-            </div>
-
-            <div className="form-group">
-              <VSCodeCheckbox checked={false}>
-                包含已禁用的词条
-              </VSCodeCheckbox>
-            </div>
-
-            {showAdvanced && (
-              <>
-                <VSCodeDivider />
-                <h5>高级选项</h5>
-
-                <div className="form-group">
-                  <label>元数据格式</label>
-                  <VSCodeRadioGroup value="table">
-                    <VSCodeRadio value="table">表格格式</VSCodeRadio>
-                    <VSCodeRadio value="yaml">YAML格式</VSCodeRadio>
-                  </VSCodeRadioGroup>
-                </div>
-              </>
-            )}
-          </div>
-        </VSCodePanelView>
-      </VSCodePanels>
+          </>
+        )}
+      </div>
 
       {/* Mixin管理模态框 */}
       <WorldBookMixinModal
         isOpen={showMixinModal}
         onClose={handleCloseMixinModal}
         worldBook={selectedWorldBookForMixin}
-        isGlobal={selectedWorldBookForMixin?.isGlobal || false}
+        isGlobal={selectedWorldBookForMixin?.scope === 'global' || false}
         onLoadMixin={handleLoadMixin}
         onUpdateEntryMixin={handleUpdateEntryMixin}
         onRemoveEntryMixin={handleRemoveEntryMixin}
       />
     </div>
   );
-};
+});
+
+export { SillyTavernWorldBookSettings };

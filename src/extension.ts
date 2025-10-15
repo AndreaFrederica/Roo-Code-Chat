@@ -135,7 +135,6 @@ export async function activate(context: vscode.ExtensionContext) {
 				console.error(message)
 			},
 		}
-		const extensionManager = new AnhExtensionManager(resolvedBasePath, extensionLogger)
 		const worldBookService = new WorldBookService(outputChannel, contextProxy)
 		const worldBookTriggerService = new SillyTavernWorldBookTriggerService({
 			enabled: true,
@@ -177,7 +176,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			conversationLogService,
 			worldBookService,
 			worldBookTriggerService,
-			extensionManager,
+			extensionManager: null as any, // 将在后面设置
 		}
 
 		// 初始化记忆触发服务
@@ -191,13 +190,23 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		// 初始化全局存储服务
+		let globalStorageService
 		try {
-			const globalStorageService = await getGlobalStorageService(context)
+			globalStorageService = await getGlobalStorageService(context)
 			outputChannel.appendLine(`[GlobalStorage] Global storage service initialized at: ${globalStorageService.getCurrentStoragePath()}`)
 		} catch (error) {
 			outputChannel.appendLine(
 				`[GlobalStorage] Failed to initialize global storage service: ${error instanceof Error ? error.message : String(error)}`,
 			)
+		}
+
+		// 重新创建ExtensionManager，传入全局扩展目录
+		const globalExtensionsDir = globalStorageService?.getGlobalExtensionsPath()
+		const extensionManager = new AnhExtensionManager(resolvedBasePath, extensionLogger, globalExtensionsDir)
+
+		// 更新anhChatServices中的extensionManager
+		if (anhChatServices) {
+			anhChatServices.extensionManager = extensionManager
 		}
 
 		outputChannel.appendLine(`[AnhChat] All services initialized at ${resolvedBasePath}`)

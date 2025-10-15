@@ -92,8 +92,7 @@ interface ProfileInfo {
 	isOrphanMixin?: boolean
 	expectedMainProfile?: string
 	// 全局/工作区标识
-	isGlobal?: boolean
-	type?: "global" | "workspace"
+	scope?: "global" | "workspace"
 }
 
 interface ValidationError {
@@ -109,6 +108,10 @@ interface ValidationResult {
 
 interface TSProfileSettingsProps {
 	setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType>
+	anhTsProfileAutoInject?: boolean
+	anhTsProfileVariables?: Record<string, string>
+	tsProfilesHasChanges?: boolean
+	enabledTSProfiles?: string[]
 }
 
 type TSProfileSettingsPropsExtended = HTMLAttributes<HTMLDivElement> & TSProfileSettingsProps
@@ -116,19 +119,29 @@ type TSProfileSettingsPropsExtended = HTMLAttributes<HTMLDivElement> & TSProfile
 export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	className,
 	setCachedStateField,
+	anhTsProfileAutoInject: propAnhTsProfileAutoInject,
+	anhTsProfileVariables: propAnhTsProfileVariables,
+	tsProfilesHasChanges: propTsProfilesHasChanges,
+	enabledTSProfiles: propEnabledTSProfiles,
 	...props
 }) => {
 	const { t } = useAppTranslation()
 
 	// 获取全局状态中的 TSProfile 设置
 	const {
-		enabledTSProfiles = [],
-		anhTsProfileAutoInject = true,
-		anhTsProfileVariables = {},
+		saveTSProfileChanges,
+		resetTSProfileChanges,
 	} = useExtensionState() as ExtensionStateContextType
+
+	// 使用props传入的缓存状态值，如果没有则使用默认值
+	const anhTsProfileAutoInject = propAnhTsProfileAutoInject ?? true
+	const anhTsProfileVariables = propAnhTsProfileVariables ?? {}
+	const tsProfilesHasChanges = propTsProfilesHasChanges ?? false
+	const enabledTSProfiles = propEnabledTSProfiles ?? []
 
 	const [profiles, setProfiles] = useState<ProfileInfo[]>([])
 	const [selectedProfile, setSelectedProfile] = useState<string | null>(null)
+	const [selectedProfileScope, setSelectedProfileScope] = useState<"global" | "workspace">("workspace")
 	const [profileContent, setProfileContent] = useState<string>("")
 	const [loading, setLoading] = useState(false)
 	const [validationError, setValidationError] = useState<string | null>(null)
@@ -468,8 +481,8 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	}, [editingPrompts, profileData])
 
 	// 选择TSProfile文件
-	const handleProfileSelect = (fileName: string) => {
-		const profile = profiles.find((p) => p.name === fileName)
+	const handleProfileSelect = (fileName: string, scope?: "global" | "workspace") => {
+		const profile = profiles.find((p) => p.name === fileName && (scope ? p.scope === scope : true))
 		if (!profile) return
 
 		// 检查是否为孤立的mixin文件
@@ -481,6 +494,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 		}
 
 		setSelectedProfile(fileName)
+		setSelectedProfileScope(profile.scope || "workspace")
 		setLoading(true)
 		setValidationError(null)
 		setValidationSuccess(null)
@@ -493,6 +507,8 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 			})
 			// 同时加载profile内容
 			loadProfileContent(fileName)
+			// 同时加载mixin数据以确保显示一致性
+			loadProfileMixin(fileName)
 		}
 		setLoading(false)
 	}
@@ -634,34 +650,39 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 		setHasUnsavedChanges(true)
 	}
 
-	// 启用TSProfile
-	const handleEnableTSProfile = (fileName: string) => {
-		vscode.postMessage({
-			type: "enableTSProfile",
-			tsProfileName: fileName,
-		})
+	// 启用TSProfile - 暂存保存模式
+	const handleEnableTSProfile = (fileName: string, scope: "global" | "workspace" = "workspace") => {
+		console.log(`[TSProfile] Enabling profile: ${fileName}, scope: ${scope}`)
+		// 为启用状态创建唯一标识：name-scope
+		const enabledProfileKey = `${fileName}-${scope}`
 		// 更新本地状态 - 添加到已启用列表
-		const newEnabledTSProfiles = [...enabledTSProfiles, fileName].filter(
-			(name, index, arr) => arr.indexOf(name) === index,
+		const newEnabledTSProfiles = [...enabledTSProfiles, enabledProfileKey].filter(
+			(key, index, arr) => arr.indexOf(key) === index,
 		)
+		console.log(`[TSProfile] New enabled profiles:`, newEnabledTSProfiles)
 		setCachedStateField("enabledTSProfiles", newEnabledTSProfiles)
+		setCachedStateField("tsProfilesHasChanges", true)
+		// 不再立即发送给后端，而是等待用户点击保存
 	}
 
-	// 禁用TSProfile
-	const handleDisableTSProfile = (fileName?: string) => {
-		if (fileName) {
-			// 禁用特定的TSProfile
-			vscode.postMessage({
-				type: "disableTSProfile",
-				tsProfileName: fileName,
-			})
-			// 更新本地状态 - 从已启用列表中移除
-			const newEnabledTSProfiles = enabledTSProfiles.filter((name) => name !== fileName)
-			setCachedStateField("enabledTSProfiles", newEnabledTSProfiles)
-		} else {
-			// 禁用所有TSProfiles
-			setCachedStateField("enabledTSProfiles", [])
-		}
+	// 禁用TSProfile - 暂存保存模式
+	const handleDisableTSProfile = (fileName: string, scope: "global" | "workspace" = "workspace") => {
+		console.log(`[TSProfile] Disabling profile: ${fileName}, scope: ${scope}`)
+		// 为启用状态创建唯一标识：name-scope
+		const enabledProfileKey = `${fileName}-${scope}`
+		// 更新本地状态 - 从已启用列表中移除
+		const newEnabledTSProfiles = enabledTSProfiles?.filter((key) => key !== enabledProfileKey) || []
+		console.log(`[TSProfile] New enabled profiles:`, newEnabledTSProfiles)
+		setCachedStateField("enabledTSProfiles", newEnabledTSProfiles)
+		setCachedStateField("tsProfilesHasChanges", true)
+		// 不再立即发送给后端，而是等待用户点击保存
+	}
+
+	// 禁用所有TSProfile - 暂存保存模式
+	const handleDisableAllTSProfiles = () => {
+		setCachedStateField("enabledTSProfiles", [])
+		setCachedStateField("tsProfilesHasChanges", true)
+		// 不再立即发送给后端，而是等待用户点击保存
 	}
 
 	// 刷新TSProfile列表
@@ -713,9 +734,9 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	const getFilteredProfiles = () => {
 		switch (profileScope) {
 			case "global":
-				return profiles.filter(p => p.isGlobal)
+				return profiles.filter(p => p.scope === "global")
 			case "workspace":
-				return profiles.filter(p => !p.isGlobal)
+				return profiles.filter(p => p.scope === "workspace" || !p.scope)
 			default:
 				return profiles
 		}
@@ -723,46 +744,38 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 
 	const filteredProfiles = getFilteredProfiles()
 
-	// 处理自动注入开关变化
+	// 处理自动注入开关变化 - 暂存保存模式
 	const handleAutoInjectChange = (value: boolean) => {
 		setCachedStateField("anhTsProfileAutoInject", value)
-		vscode.postMessage({
-			type: "anhTsProfileAutoInject",
-			bool: value,
-		})
+		setCachedStateField("tsProfilesHasChanges", true)
+		// 不再立即发送给后端，而是等待用户点击保存
 	}
 
-	// 处理变量变化
+	// 处理变量变化 - 暂存保存模式
 	const handleVariableChange = (key: string, value: string) => {
 		const newVariables = { ...anhTsProfileVariables, [key]: value }
 		setCachedStateField("anhTsProfileVariables", newVariables)
-		vscode.postMessage({
-			type: "anhTsProfileVariables",
-			values: newVariables,
-		})
+		setCachedStateField("tsProfilesHasChanges", true)
+		// 不再立即发送给后端，而是等待用户点击保存
 	}
 
 	const handleVariableRemove = (key: string) => {
 		const newVariables = { ...anhTsProfileVariables }
 		delete newVariables[key]
 		setCachedStateField("anhTsProfileVariables", newVariables)
-		vscode.postMessage({
-			type: "anhTsProfileVariables",
-			values: newVariables,
-		})
+		setCachedStateField("tsProfilesHasChanges", true)
+		// 不再立即发送给后端，而是等待用户点击保存
 	}
 
 	const handleVariableAdd = () => {
 		const newKey = `variable_${Object.keys(anhTsProfileVariables).length + 1}`
 		const newVariables = { ...anhTsProfileVariables, [newKey]: "" }
 		setCachedStateField("anhTsProfileVariables", newVariables)
-		vscode.postMessage({
-			type: "anhTsProfileVariables",
-			values: newVariables,
-		})
+		setCachedStateField("tsProfilesHasChanges", true)
+		// 不再立即发送给后端，而是等待用户点击保存
 	}
 
-	const currentProfile = profiles.find((p) => p.name === selectedProfile)
+	const currentProfile = profiles.find((p) => p.name === selectedProfile && p.scope === selectedProfileScope)
 
 	return (
 		<div className={cn("flex flex-col gap-4", className)} {...props}>
@@ -770,6 +783,23 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 				<div className="flex items-center gap-2">
 					<FileText className="w-4 h-4" />
 					<div>{t("settings:tsProfile.title")}</div>
+					{tsProfilesHasChanges && (
+						<div className="flex items-center gap-2 ml-auto">
+							<span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-400">
+								未保存的更改
+							</span>
+							<button
+								className="px-2 py-1 text-xs bg-gray-500/20 text-gray-400 rounded hover:bg-gray-500/30"
+								onClick={resetTSProfileChanges}>
+								重置
+							</button>
+							<button
+								className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30"
+								onClick={saveTSProfileChanges}>
+								保存更改
+							</button>
+						</div>
+					)}
 				</div>
 			</SectionHeader>
 
@@ -780,34 +810,43 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 						<div
 							className={cn(
 								"w-2 h-2 rounded-full",
-								enabledTSProfiles.length > 0 ? "bg-green-400" : "bg-gray-400",
+								enabledTSProfiles?.length > 0 ? "bg-green-400" : "bg-gray-400",
 							)}
 						/>
 						<span className="text-sm font-medium">
-							{enabledTSProfiles.length > 0 ? `已启用 (${enabledTSProfiles.length})` : "未启用"}
+							{enabledTSProfiles?.length > 0 ? `已启用 (${enabledTSProfiles.length})` : "未启用"}
 						</span>
-						{enabledTSProfiles.length > 0 && (
+						{enabledTSProfiles?.length > 0 && (
 							<div className="flex flex-wrap gap-1 ml-2">
-								{enabledTSProfiles.map((profileName) => (
-									<span
-										key={profileName}
-										className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 flex items-center gap-1">
-										{profileName}
-										<button
-											className="hover:bg-red-500/30 rounded-full p-0.5"
-											onClick={() => handleDisableTSProfile(profileName)}
-											title={`禁用 ${profileName}`}>
-											<Square className="w-2 h-2" />
-										</button>
-									</span>
-								))}
+								{enabledTSProfiles.map((profileKey) => {
+									const [profileName, scope] = profileKey.split('-')
+									const profile = profiles.find(p => p.name === profileName && p.scope === scope)
+									return (
+										<span
+											key={profileKey}
+											className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 flex items-center gap-1">
+											{profileName}
+											{scope === "global" && (
+												<span title="全局">
+													<Globe className="w-2 h-2" />
+												</span>
+											)}
+											<button
+												className="hover:bg-red-500/30 rounded-full p-0.5"
+												onClick={() => handleDisableTSProfile(profileName, scope as "global" | "workspace")}
+												title={`禁用 ${profileName} (${scope === "global" ? "全局" : "工作区"})`}>
+												<Square className="w-2 h-2" />
+											</button>
+										</span>
+									)
+								})}
 							</div>
 						)}
 					</div>
-					{enabledTSProfiles.length > 0 && (
+					{enabledTSProfiles?.length > 0 && (
 						<button
 							className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
-							onClick={() => handleDisableTSProfile()}>
+							onClick={handleDisableAllTSProfiles}>
 							<Square className="w-3 h-3 inline mr-1" />
 							全部禁用
 						</button>
@@ -837,9 +876,9 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 			</Section>
 
 			<Section>
-				<div className="flex gap-4 h-96">
+				<div className="flex gap-4 h-96 overflow-hidden">
 					{/* 左栏：TSProfile文件选择 */}
-					<div className="flex-1 border-r border-vscode-sideBar-background pr-4">
+					<div className="flex-1 border-r border-vscode-sideBar-background pr-4 min-w-0">
 						<div className="flex items-center justify-between mb-3">
 							<div className="flex items-center gap-2">
 								<FileText className="w-4 h-4" />
@@ -911,15 +950,15 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 							) : (
 								filteredProfiles.map((profile) => (
 									<div
-										key={profile.name}
+										key={`${profile.name}-${profile.scope || "workspace"}`}
 										className={cn(
 											"p-3 rounded border transition-colors",
 											"hover:bg-vscode-list-hoverBackground",
-											selectedProfile === profile.name
+											selectedProfile === profile.name && selectedProfileScope === (profile.scope || "workspace")
 												? "bg-vscode-list-activeSelectionBackground border-vscode-focusBorder"
 												: "border-vscode-widget-border",
 										)}
-										onClick={() => handleProfileSelect(profile.name)}>
+										onClick={() => handleProfileSelect(profile.name, profile.scope || "workspace")}>
 										<div className="flex items-center justify-between mb-1">
 											<h4 className="text-sm font-medium truncate">{profile.name}</h4>
 											<div className="flex gap-1">
@@ -929,7 +968,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 														title="孤立mixin文件无法启用">
 														不可启用
 													</span>
-												) : enabledTSProfiles.includes(profile.name) ? (
+												) : enabledTSProfiles?.includes(`${profile.name}-${profile.scope || "workspace"}`) ? (
 													<>
 														<span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400">
 															已启用
@@ -938,7 +977,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 															className="text-xs px-2 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30"
 															onClick={(e) => {
 																e.stopPropagation()
-																handleDisableTSProfile(profile.name)
+																handleDisableTSProfile(profile.name, profile.scope || "workspace")
 															}}>
 															<Square className="w-3 h-3 inline mr-1" />
 															禁用
@@ -949,7 +988,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 														className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
 														onClick={(e) => {
 															e.stopPropagation()
-															handleEnableTSProfile(profile.name)
+															handleEnableTSProfile(profile.name, profile.scope || "workspace")
 														}}>
 														<Play className="w-3 h-3 inline mr-1" />
 														启用
@@ -960,9 +999,9 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 													className="text-xs px-1.5 py-1 rounded bg-gray-500/20 text-gray-400 hover:bg-gray-500/30"
 													onClick={(e) => {
 														e.stopPropagation()
-														handleCopyProfile(profile, profile.isGlobal ? "workspace" : "global")
+														handleCopyProfile(profile, profile.scope === "global" ? "workspace" : "global")
 													}}
-													title={`复制到${profile.isGlobal ? "工作区" : "全局"}`}>
+													title={`复制到${profile.scope === "global" ? "工作区" : "全局"}`}>
 													<Copy className="w-3 h-3" />
 												</button>
 												{/* 删除按钮 */}
@@ -983,10 +1022,14 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 										<div className="flex items-center justify-between text-xs text-vscode-descriptionForeground">
 											<div className="flex items-center gap-1 truncate flex-1 mr-2">
 												{/* 全局/工作区标识 */}
-												{profile.isGlobal ? (
-													<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局文件" />
+												{profile.scope === "global" ? (
+													<span title="全局文件">
+														<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+													</span>
 												) : (
-													<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区文件" />
+													<span title="工作区文件">
+														<Folder className="w-3 h-3 text-green-400 flex-shrink-0" />
+													</span>
 												)}
 												<span className="truncate">{profile.path}</span>
 											</div>
@@ -1020,20 +1063,20 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 					</div>
 
 					{/* 右栏：TSProfile详情和验证状态 */}
-					<div className="flex-1 pl-4">
+					<div className="flex-1 pl-4 min-w-0">
 						<div className="flex items-center gap-2 mb-3">
 							<FileText className="w-4 h-4" />
 							<h3 className="text-sm font-medium">详情信息</h3>
 						</div>
 
 						{selectedProfile ? (
-							<div className="border border-vscode-widget-border rounded p-3 h-full">
-								<h4 className="text-sm font-medium mb-2">{selectedProfile}</h4>
+							<div className="border border-vscode-widget-border rounded p-3 h-full overflow-y-auto">
+								<h4 className="text-sm font-medium mb-2 break-words">{selectedProfile}</h4>
 								{currentProfile && (
 									<div className="space-y-2 text-xs text-vscode-descriptionForeground">
 										<div>
 											<strong>路径:</strong>{" "}
-											<span className="break-all">{currentProfile.path}</span>
+											<span className="break-all text-wrap">{currentProfile.path}</span>
 										</div>
 										{currentProfile.description && (
 											<div>
@@ -1065,9 +1108,9 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 												<strong>Mixin 状态:</strong> 已关联 Mixin 文件
 												<br />
 												<span className="opacity-80">
-													Mixin 路径: {currentProfile.mixinPath?.split(/[/\\]/).pop()}
-													{currentProfile.mixinPromptsCount &&
-														` (${currentProfile.mixinPromptsCount} 个修改项)`}
+													Mixin 路径: {currentProfile?.mixinPath?.split(/[/\\]/).pop()}
+													{currentProfile.mixinPromptsCount && ` (${currentProfile.mixinPromptsCount} 个修改项)`}
+													{mixinData?.prompts && ` - 已加载 ${mixinData.prompts.length} 个修改项`}
 												</span>
 											</div>
 										) : (
@@ -1260,11 +1303,11 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 								</div>
 								{currentProfile && (
 									<div className="mt-1 space-y-1">
-										<p className="text-xs text-vscode-descriptionForeground">
+										<p className="text-xs text-vscode-descriptionForeground break-all">
 											路径: {currentProfile.path}
 										</p>
 										{currentProfile.hasMixin && (
-											<p className="text-xs text-purple-400">
+											<p className="text-xs text-purple-400 break-all">
 												Mixin路径: {currentProfile.mixinPath?.split(/[/\\]/).pop()}
 											</p>
 										)}
@@ -1698,10 +1741,8 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 										delete newVariables[key]
 										newVariables[e.target.value] = value
 										setCachedStateField("anhTsProfileVariables", newVariables)
-										vscode.postMessage({
-											type: "anhTsProfileVariables",
-											values: newVariables,
-										})
+										setCachedStateField("tsProfilesHasChanges", true)
+										// 不再立即发送给后端，而是等待用户点击保存
 									}}
 									placeholder={t("settings:tsProfile.variableNamePlaceholder")}
 									className="flex-1 px-2 py-1 text-xs bg-vscode-input-background border border-vscode-input-border rounded focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder"

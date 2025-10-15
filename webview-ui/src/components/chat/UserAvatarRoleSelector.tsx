@@ -181,7 +181,11 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 		const allRoleList = [defaultRole, ...workspaceRoleList, ...globalRoleList]
 
 		return allRoleList.sort((a, b) => {
-			const nameComparison = a.name.localeCompare(b.name)
+			// Handle undefined names safely
+			const nameA = a.name || ""
+			const nameB = b.name || ""
+
+			const nameComparison = nameA.localeCompare(nameB)
 			if (nameComparison !== 0) return nameComparison
 
 			// If names are the same, put global version first
@@ -211,7 +215,7 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 			return userAvatarRole
 		}
 
-		return allRoles.find((role) => role.uuid === userAvatarRole.uuid) || userAvatarRole
+		return allRoles.find((role) => role.uuid === userAvatarRole.uuid && role.scope === userAvatarRole.scope) || userAvatarRole
 	}, [userAvatarRole, allRoles, defaultRole])
 
 	// Memoize searchable items for fuzzy search with separate name and description search
@@ -490,10 +494,10 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 								) : (
 									<div className="py-1">
 										{filteredRoles.map((role) => {
-											const isSelected = role.uuid === selectedRole?.uuid
+											const isSelected = role.uuid === selectedRole?.uuid && role.scope === selectedRole?.scope
 											return (
 												<div
-													key={role.uuid}
+													key={`${role.uuid}-${role.scope}`}
 													ref={isSelected ? selectedItemRef : null}
 													onClick={() => handleSelect(role)}
 													className={cn(
@@ -508,11 +512,17 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 														<div className="flex items-center gap-2">
 															{/* Global/Workspace indicator */}
 															{role.uuid === DEFAULT_ASSISTANT_ROLE_UUID ? (
-																<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" title="默认角色" />
+																<span title="默认角色">
+																	<Bot className="w-3 h-3 text-gray-400 flex-shrink-0" />
+																</span>
 															) : role.scope === "global" ? (
-																<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" title="全局角色" />
+																<span title="全局角色">
+																	<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+																</span>
 															) : (
-																<Folder className="w-3 h-3 text-green-400 flex-shrink-0" title="工作区角色" />
+																<span title="工作区角色">
+																	<Folder className="w-3 h-3 text-green-400 flex-shrink-0" />
+																</span>
 															)}
 															<div className="font-bold truncate">{role.name}</div>
 														</div>

@@ -1,6 +1,6 @@
-import React, { HTMLAttributes, useState, useEffect } from "react"
+import React, { HTMLAttributes, useState, useEffect, useMemo, forwardRef, useImperativeHandle } from "react"
 import { useAppTranslation } from "@/i18n/TranslationContext"
-import { BookOpen, FileText, FolderOpen, RefreshCw, Play, Square } from "lucide-react"
+import { BookOpen, FileText, FolderOpen, RefreshCw, Play, Square, Globe, Folder } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { vscode } from "@/utils/vscode"
 
@@ -10,24 +10,54 @@ import { Section } from "./Section"
 interface WorldsetFile {
 	name: string
 	path: string
+	scope?: "global" | "workspace"
 }
 
 interface WorldsetStatus {
 	enabled: boolean
-	enabledWorldsets?: string[]
+	enabledWorldsets?: string[] // 改为存储 "name-scope" 格式
+}
+
+interface CachedWorldsetStatus {
+	enabledWorldsets: string[]
 }
 
 type WorldviewSettingsProps = HTMLAttributes<HTMLDivElement> & {
-	// 可以添加需要的props，比如状态管理相关的
+	// 统一保存系统接口
+	onHasChangesChange?: (hasChanges: boolean) => void;
+	onSaveChanges?: () => Promise<void>;
+	onResetChanges?: () => void;
 }
 
-export const WorldviewSettings = ({ className, ...props }: WorldviewSettingsProps) => {
+export const WorldviewSettings = forwardRef<
+	{ handleSaveChanges: () => Promise<void> },
+	WorldviewSettingsProps
+>(({
+	className,
+	onHasChangesChange,
+	onSaveChanges,
+	onResetChanges,
+	...props
+}, ref) => {
 	const { t } = useAppTranslation()
 	const [worldsetFiles, setWorldsetFiles] = useState<WorldsetFile[]>([])
 	const [selectedWorldset, setSelectedWorldset] = useState<string | null>(null)
+	const [selectedWorldsetScope, setSelectedWorldsetScope] = useState<"global" | "workspace" | null>(null)
 	const [worldsetContent, setWorldsetContent] = useState<string>("")
 	const [worldsetStatus, setWorldsetStatus] = useState<WorldsetStatus>({ enabled: false })
+	const [cachedWorldsetStatus, setCachedWorldsetStatus] = useState<CachedWorldsetStatus>({
+		enabledWorldsets: []
+	})
+	const [originalWorldsetStatus, setOriginalWorldsetStatus] = useState<CachedWorldsetStatus>({
+		enabledWorldsets: []
+	})
 	const [loading, setLoading] = useState(false)
+
+	// 检查是否有变更
+	const hasChanges = useMemo(() => {
+		return JSON.stringify(cachedWorldsetStatus.enabledWorldsets.sort()) !==
+		       JSON.stringify(originalWorldsetStatus.enabledWorldsets.sort())
+	}, [cachedWorldsetStatus.enabledWorldsets, originalWorldsetStatus.enabledWorldsets])
 
 	// 初始化：创建worldset文件夹并加载列表
 	useEffect(() => {
@@ -59,12 +89,21 @@ export const WorldviewSettings = ({ className, ...props }: WorldviewSettingsProp
 					setWorldsetContent(message.worldsetContent || "")
 					setLoading(false)
 					break
-				case "worldsetStatusUpdate":
-					setWorldsetStatus({
+				case "worldsetStatusUpdate": {
+					const serverStatus = {
 						enabled: message.worldsetStatus?.enabled || false,
 						enabledWorldsets: message.worldsetStatus?.enabledWorldsets || []
-					})
+					}
+					setWorldsetStatus(serverStatus)
+					
+					// 只在初始化时同步状态（当原始状态为空时）
+					if (originalWorldsetStatus.enabledWorldsets.length === 0) {
+						const enabledWorldsets = [...serverStatus.enabledWorldsets]
+						setCachedWorldsetStatus({ enabledWorldsets })
+						setOriginalWorldsetStatus({ enabledWorldsets })
+					}
 					break
+				}
 			}
 		}
 
@@ -72,51 +111,120 @@ export const WorldviewSettings = ({ className, ...props }: WorldviewSettingsProp
 		return () => window.removeEventListener("message", handleMessage)
 	}, [])
 
+	// 通知父组件变更状态
+	useEffect(() => {
+		onHasChangesChange?.(hasChanges)
+	}, [hasChanges])
+
 	// 选择世界观文件
-	const handleWorldsetSelect = (fileName: string) => {
+	const handleWorldsetSelect = (fileName: string, scope: "global" | "workspace" = "workspace") => {
 		setSelectedWorldset(fileName)
+		setSelectedWorldsetScope(scope)
 		setLoading(true)
-		vscode.postMessage({ 
-			type: "readWorldsetFile", 
-			worldsetName: fileName
+		vscode.postMessage({
+			type: "readWorldsetFile",
+			worldsetName: fileName,
+			isGlobal: scope === "global"
 		})
 	}
 
-	// 启用世界观
-	const handleEnableWorldset = (fileName: string) => {
-		vscode.postMessage({ 
-			type: "enableWorldset", 
-			worldsetName: fileName
+	// 启用世界观（暂存模式）
+	const handleEnableWorldset = (fileName: string, scope: "global" | "workspace" = "workspace") => {
+		const worldsetKey = `${fileName}-${scope}`
+		setCachedWorldsetStatus(prev => {
+			const newEnabledWorldsets = [...prev.enabledWorldsets, worldsetKey].filter((key, index, arr) => arr.indexOf(key) === index)
+			// 同步更新显示状态
+			setWorldsetStatus(() => ({
+				enabled: true,
+				enabledWorldsets: newEnabledWorldsets
+			}))
+			return {
+				enabledWorldsets: newEnabledWorldsets
+			}
 		})
-		// 更新本地状态 - 添加到已启用列表
-		setWorldsetStatus(prev => ({
-			enabled: true,
-			enabledWorldsets: [...(prev.enabledWorldsets || []), fileName].filter((name, index, arr) => arr.indexOf(name) === index)
-		}))
 	}
 
-	// 禁用世界观
-	const handleDisableWorldset = (fileName?: string) => {
-		if (fileName) {
+	// 禁用世界观（暂存模式）
+	const handleDisableWorldset = (fileName?: string, scope?: "global" | "workspace") => {
+		if (fileName && scope) {
 			// 禁用特定的worldset
-			vscode.postMessage({ 
-				type: "disableWorldset",
-				worldsetName: fileName
-			})
-			// 更新本地状态 - 从已启用列表中移除
-			setWorldsetStatus(prev => {
-				const newEnabledWorldsets = (prev.enabledWorldsets || []).filter(name => name !== fileName)
-				return {
+			const worldsetKey = `${fileName}-${scope}`
+			setCachedWorldsetStatus(prev => {
+				const newEnabledWorldsets = prev.enabledWorldsets.filter(key => key !== worldsetKey)
+				// 同步更新显示状态
+				setWorldsetStatus(() => ({
 					enabled: newEnabledWorldsets.length > 0,
+					enabledWorldsets: newEnabledWorldsets
+				}))
+				return {
 					enabledWorldsets: newEnabledWorldsets
 				}
 			})
 		} else {
 			// 禁用所有worldsets
-			vscode.postMessage({ type: "disableWorldset" })
-			// 更新本地状态
+			setCachedWorldsetStatus({
+				enabledWorldsets: []
+			})
+			// 更新显示状态
 			setWorldsetStatus({ enabled: false, enabledWorldsets: [] })
 		}
+	}
+
+	// 保存更改到后端
+	const handleSaveChanges = async () => {
+		if (!hasChanges) return
+
+		setLoading(true)
+		try {
+			const currentEnabled = new Set(cachedWorldsetStatus.enabledWorldsets)
+			const previousEnabled = new Set(originalWorldsetStatus.enabledWorldsets)
+
+			// 找出需要启用和禁用的worldsets
+			const toEnable = cachedWorldsetStatus.enabledWorldsets.filter(key => !previousEnabled.has(key))
+			const toDisable = originalWorldsetStatus.enabledWorldsets.filter(key => !currentEnabled.has(key))
+
+			// 批量发送更改
+			toEnable.forEach(worldsetKey => {
+				const [worldsetName, scope] = worldsetKey.split('-')
+				vscode.postMessage({
+					type: "enableWorldset",
+					worldsetName,
+					worldsetScope: scope as "global" | "workspace"
+				})
+			})
+
+			toDisable.forEach(worldsetKey => {
+				const [worldsetName, scope] = worldsetKey.split('-')
+				vscode.postMessage({
+					type: "disableWorldset",
+					worldsetName,
+					worldsetScope: scope as "global" | "workspace"
+				})
+			})
+
+			// 如果没有启用的worldsets，发送禁用全部消息
+			if (cachedWorldsetStatus.enabledWorldsets.length === 0) {
+				vscode.postMessage({ type: "disableAllWorldsets" })
+			}
+
+			console.log("Worldview changes saved successfully")
+
+			// 只有在保存成功后才更新原始状态
+			setOriginalWorldsetStatus({ enabledWorldsets: [...cachedWorldsetStatus.enabledWorldsets] })
+		} catch (error) {
+			console.error("Failed to save worldview changes:", error)
+			// 可以在这里添加错误提示给用户
+		} finally {
+			setLoading(false)
+		}
+	}
+
+	// 重置更改
+	const handleResetChanges = () => {
+		// 重置本地缓存状态
+		setCachedWorldsetStatus({
+			enabledWorldsets: [...originalWorldsetStatus.enabledWorldsets]
+		})
 	}
 
 	// 刷新世界观列表
@@ -129,6 +237,11 @@ export const WorldviewSettings = ({ className, ...props }: WorldviewSettingsProp
 	const handleOpenFolder = () => {
 		vscode.postMessage({ type: "openWorldsetFolder" })
 	}
+
+	// 使用useImperativeHandle暴露handleSaveChanges方法给父组件
+	useImperativeHandle(ref, () => ({
+		handleSaveChanges
+	}), [handleSaveChanges]);
 
 	return (
 		<div className={cn("flex flex-col gap-4", className)} {...props}>
@@ -145,40 +258,70 @@ export const WorldviewSettings = ({ className, ...props }: WorldviewSettingsProp
 					<div className="flex items-center gap-2">
 						<div className={cn(
 							"w-2 h-2 rounded-full",
-							worldsetStatus.enabled ? "bg-green-400" : "bg-gray-400"
+							cachedWorldsetStatus.enabledWorldsets.length > 0 ? "bg-green-400" : "bg-gray-400"
 						)} />
 						<span className="text-sm font-medium">
-							{worldsetStatus.enabled ? "已启用" : "未启用"}
+							{cachedWorldsetStatus.enabledWorldsets.length > 0 ? "已启用" : "未启用"}
 						</span>
-						{worldsetStatus.enabled && worldsetStatus.enabledWorldsets && worldsetStatus.enabledWorldsets.length > 0 && (
+						{hasChanges && (
+							<span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-400 ml-2">
+								未保存
+							</span>
+						)}
+						{cachedWorldsetStatus.enabledWorldsets && cachedWorldsetStatus.enabledWorldsets.length > 0 && (
 							<div className="flex flex-wrap gap-1 ml-2">
-								{worldsetStatus.enabledWorldsets.map((worldsetName) => (
-									<span 
-										key={worldsetName}
-										className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 flex items-center gap-1"
-									>
-										{worldsetName}
-										<button
-											className="hover:bg-red-500/30 rounded-full p-0.5"
-											onClick={() => handleDisableWorldset(worldsetName)}
-											title={`禁用 ${worldsetName}`}
+								{cachedWorldsetStatus.enabledWorldsets.map((worldsetKey) => {
+									const [worldsetName, scope] = worldsetKey.split('-')
+									const worldset = worldsetFiles.find(w => w.name === worldsetName && w.scope === scope)
+									return (
+										<span
+											key={worldsetKey}
+											className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 flex items-center gap-1"
 										>
-											<Square className="w-2 h-2" />
-										</button>
-									</span>
-								))}
+											{worldsetName}
+											{/* Scope indicator for both global and workspace */}
+											{scope === "global" ? (
+												<span title="全局">
+													<Globe className="w-2 h-2" />
+												</span>
+											) : (
+												<span title="工作区">
+													<Folder className="w-2 h-2" />
+												</span>
+											)}
+											<button
+												className="hover:bg-red-500/30 rounded-full p-0.5"
+												onClick={() => handleDisableWorldset(worldsetName, scope as "global" | "workspace")}
+												title={`禁用 ${worldsetName} (${scope === "global" ? "全局" : "工作区"})`}
+											>
+												<Square className="w-2 h-2" />
+											</button>
+										</span>
+									)
+								})}
 							</div>
 						)}
 					</div>
-					{worldsetStatus.enabled && (
-						<button
-							className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
-							onClick={() => handleDisableWorldset()}
-						>
-							<Square className="w-3 h-3 inline mr-1" />
-							全部禁用
-						</button>
-					)}
+					<div className="flex gap-2">
+						{cachedWorldsetStatus.enabledWorldsets.length > 0 && (
+							<button
+								className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
+								onClick={() => handleDisableWorldset()}
+							>
+								<Square className="w-3 h-3 inline mr-1" />
+								全部禁用
+							</button>
+						)}
+						{hasChanges && (
+							<button
+								className="px-2 py-1 text-xs bg-gray-500/20 text-gray-400 rounded hover:bg-gray-500/30"
+								onClick={handleResetChanges}
+							>
+								<RefreshCw className="w-3 h-3 inline mr-1" />
+								重置更改
+							</button>
+						)}
+					</div>
 				</div>
 			</Section>
 
@@ -208,20 +351,32 @@ export const WorldviewSettings = ({ className, ...props }: WorldviewSettingsProp
 							) : (
 								worldsetFiles.map((file) => (
 									<div
-										key={file.name}
+										key={`${file.name}-${file.scope || "workspace"}`}
 										className={cn(
 											"p-3 rounded border cursor-pointer transition-colors",
 											"hover:bg-vscode-list-hoverBackground",
-											selectedWorldset === file.name
+											selectedWorldset === file.name && selectedWorldsetScope === (file.scope || "workspace")
 												? "bg-vscode-list-activeSelectionBackground border-vscode-focusBorder"
 												: "border-vscode-widget-border"
 										)}
-										onClick={() => handleWorldsetSelect(file.name)}
+										onClick={() => handleWorldsetSelect(file.name, file.scope || "workspace")}
 									>
 										<div className="flex items-center justify-between mb-1">
-											<h4 className="text-sm font-medium truncate">{file.name}</h4>
+											<div className="flex items-center gap-2">
+												{/* Global/Workspace indicator */}
+												{file.scope === "global" ? (
+													<span title="全局文件">
+														<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+													</span>
+												) : (
+													<span title="工作区文件">
+														<Folder className="w-3 h-3 text-green-400 flex-shrink-0" />
+													</span>
+												)}
+												<h4 className="text-sm font-medium truncate">{file.name}</h4>
+											</div>
 											<div className="flex gap-1">
-												{worldsetStatus.enabled && worldsetStatus.enabledWorldsets?.includes(file.name) ? (
+												{cachedWorldsetStatus.enabledWorldsets?.includes(`${file.name}-${file.scope || "workspace"}`) ? (
 													<>
 														<span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400">
 															已启用
@@ -230,7 +385,7 @@ export const WorldviewSettings = ({ className, ...props }: WorldviewSettingsProp
 															className="text-xs px-2 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30"
 															onClick={(e) => {
 																e.stopPropagation()
-																handleDisableWorldset(file.name)
+																handleDisableWorldset(file.name, file.scope || "workspace")
 															}}
 														>
 															<Square className="w-3 h-3 inline mr-1" />
@@ -242,7 +397,7 @@ export const WorldviewSettings = ({ className, ...props }: WorldviewSettingsProp
 														className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
 														onClick={(e) => {
 															e.stopPropagation()
-															handleEnableWorldset(file.name)
+															handleEnableWorldset(file.name, file.scope || "workspace")
 														}}
 													>
 														<Play className="w-3 h-3 inline mr-1" />
@@ -310,4 +465,4 @@ export const WorldviewSettings = ({ className, ...props }: WorldviewSettingsProp
 			</Section>
 		</div>
 	)
-}
+})

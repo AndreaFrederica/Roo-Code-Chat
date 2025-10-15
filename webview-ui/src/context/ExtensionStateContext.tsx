@@ -29,7 +29,14 @@ import { RouterModels } from "@roo/api"
 import { vscode } from "@src/utils/vscode"
 import { convertTextMateToHljs } from "@src/utils/textMateToHljs"
 
-export interface ExtensionStateContextType extends ExtensionState {
+// 扩展ExtensionState接口以包含内部状态
+interface ExtendedExtensionState extends ExtensionState {
+	_isResetting?: boolean
+	_isSavingTSProfile?: boolean
+	worldsetHasChanges?: boolean
+}
+
+export interface ExtensionStateContextType extends ExtendedExtensionState {
 	historyPreviewCollapsed?: boolean // Add the new state property
 	didHydrateState: boolean
 	showWelcome: boolean
@@ -194,17 +201,56 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setHideRoleDescription: (value: boolean) => void
 	anhExtensionsRuntime?: AnhExtensionRuntimeState[]
 	anhExtensionCapabilityRegistry?: AnhExtensionCapabilityRegistry
-	setAnhExtensionEnabled: (id: string, enabled: boolean) => void
+	setAnhExtensionEnabled: (compositeKey: string, enabled: boolean) => void
 	anhExtensionSettings?: Record<string, Record<string, unknown>>
 	setAnhExtensionSettings: (value: Record<string, Record<string, unknown>>) => void
 	updateAnhExtensionSetting: (id: string, key: string, value: unknown) => void
+	saveAnhExtensionChanges: () => void
+	resetAnhExtensionChanges: () => void
+	tsProfilesHasChanges?: boolean
+	saveTSProfileChanges: () => void
+	resetTSProfileChanges: () => void
+	worldsetHasChanges?: boolean
+	setWorldsetHasChanges: (value: boolean) => void
+	resetWorldsetChanges: () => void
 	memorySystemEnabled?: boolean
 	memoryToolsEnabled?: boolean
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
 
-export const mergeExtensionState = (prevState: ExtensionState, newState: ExtensionState) => {
+export const mergeExtensionState = (prevState: ExtendedExtensionState, newState: ExtensionState) => {
+		// 如果正在重置，只保留重置相关的状态，避免被其他状态更新覆盖
+	if (prevState._isResetting) {
+		const resetState: Partial<ExtendedExtensionState> = {}
+		
+		// 只合并允许在重置期间更新的状态
+		if ('anhExtensionsEnabled' in newState) {
+			resetState.anhExtensionsEnabled = newState.anhExtensionsEnabled
+		}
+		if ('anhExtensionSettings' in newState) {
+			resetState.anhExtensionSettings = newState.anhExtensionSettings
+		}
+		if ('enabledTSProfiles' in newState) {
+			resetState.enabledTSProfiles = newState.enabledTSProfiles
+		}
+		if ('anhTsProfileAutoInject' in newState) {
+			resetState.anhTsProfileAutoInject = newState.anhTsProfileAutoInject
+		}
+		if ('anhTsProfileVariables' in newState) {
+			resetState.anhTsProfileVariables = newState.anhTsProfileVariables
+		}
+		if ('worldsetHasChanges' in newState) {
+			resetState.worldsetHasChanges = newState.worldsetHasChanges as boolean
+		}
+		
+		return {
+			...prevState,
+			...resetState,
+			_isResetting: false, // 清除重置标记
+		} as ExtensionState
+	}
+
 	const { customModePrompts: prevCustomModePrompts, experiments: prevExperiments, ...prevRest } = prevState
 
 	const {
@@ -263,7 +309,7 @@ export const mergeExtensionState = (prevState: ExtensionState, newState: Extensi
 }
 
 export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-	const [state, setState] = useState<ExtensionState>({
+	const [state, setState] = useState<ExtendedExtensionState>({
 		apiConfiguration: {},
 		version: "",
 		clineMessages: [],
@@ -354,8 +400,11 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		anhShowRoleCardOnSwitch: false,
 		anhExtensionsEnabled: {},
 		anhExtensionSettings: {},
+		anhExtensionsHasChanges: false,
 		anhExtensionsRuntime: [],
 		anhExtensionCapabilityRegistry: { systemPrompt: [], tools: [] },
+		tsProfilesHasChanges: false,
+		worldsetHasChanges: false,
 	})
 
 	const [didHydrateState, setDidHydrateState] = useState(false)
@@ -516,6 +565,33 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					}
 					if (message.marketplaceInstalledMetadata !== undefined) {
 						setMarketplaceInstalledMetadata(message.marketplaceInstalledMetadata)
+					}
+					break
+				}
+				case "anhExtensionState": {
+					if (message.payload) {
+						const payload = message.payload as any
+						setState((prevState) => ({
+							...prevState,
+							anhExtensionsEnabled: payload.enabledExtensions || {},
+							anhExtensionSettings: payload.extensionSettings || {},
+							anhExtensionsHasChanges: false,
+							_isResetting: false,
+						}))
+					}
+					break
+				}
+				case "tsProfileState": {
+					if (message.payload) {
+						const payload = message.payload as any
+						setState((prevState) => ({
+							...prevState,
+							enabledTSProfiles: payload.enabledProfiles || [],
+							anhTsProfileAutoInject: payload.autoInject ?? true,
+							anhTsProfileVariables: payload.variables || {},
+							tsProfilesHasChanges: false,
+							_isResetting: false,
+						}))
 					}
 					break
 				}
@@ -736,18 +812,108 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 						[key]: value,
 					},
 				},
+				anhExtensionsHasChanges: true,
 			}
 		})
+		// 不再立即发送给后端，而是等待保存
 	},
-	setAnhExtensionEnabled: (id, enabled) => {
+	setAnhExtensionEnabled: (compositeKey, enabled) => {
 		setState((prevState) => ({
 			...prevState,
 			anhExtensionsEnabled: {
 				...(prevState.anhExtensionsEnabled ?? {}),
-				[id]: enabled,
+				[compositeKey]: enabled,
 			},
+			anhExtensionsHasChanges: true,
 		}))
-		vscode.postMessage({ type: "toggleAnhExtension", text: id, bool: enabled })
+		// 不再立即发送给后端，而是等待保存
+	},
+	saveAnhExtensionChanges: () => {
+		setState((prevState) => {
+			// 批量发送所有更改给后端，使用统一的保存消息
+			const extensionChanges = prevState.anhExtensionsEnabled ?? {}
+			const extensionSettings = prevState.anhExtensionSettings ?? {}
+
+			// 使用统一的保存消息格式
+			vscode.postMessage({
+				type: "saveAnhExtensionChanges",
+				extensionChanges: extensionChanges,
+				extensionSettings: extensionSettings
+			})
+
+			return {
+				...prevState,
+				anhExtensionsHasChanges: false,
+			}
+		})
+	},
+	resetAnhExtensionChanges: () => {
+		// 发送请求获取当前保存的状态，而不是立即清除标记
+		vscode.postMessage({ type: "getAnhExtensionState" })
+		// 标记正在重置，避免被其他状态更新覆盖
+		setState((prevState) => ({
+			...prevState,
+			_isResetting: true,
+		}))
+	},
+	tsProfilesHasChanges: state.tsProfilesHasChanges ?? false,
+	saveTSProfileChanges: () => {
+		setState((prevState) => {
+			// 设置loading状态，防止重复保存
+			if (prevState._isSavingTSProfile) {
+				console.log("TSProfile save already in progress, skipping...")
+				return prevState
+			}
+
+			// 批量发送所有更改给后端
+			const enabledProfiles = prevState.enabledTSProfiles ?? []
+			const autoInject = prevState.anhTsProfileAutoInject ?? true
+			const variables = prevState.anhTsProfileVariables ?? {}
+
+			try {
+				// 发送启用状态更改
+				vscode.postMessage({
+					type: "saveTSProfileChanges",
+					enabledProfiles,
+					autoInject,
+					variables
+				})
+
+				console.log("TSProfile changes saved successfully")
+
+				return {
+					...prevState,
+					tsProfilesHasChanges: false,
+					_isSavingTSProfile: false,
+				}
+			} catch (error) {
+				console.error("Failed to save TSProfile changes:", error)
+				return {
+					...prevState,
+					_isSavingTSProfile: false,
+				}
+			}
+		})
+	},
+	resetTSProfileChanges: () => {
+		// 发送请求获取当前保存的状态，而不是立即清除标记
+		vscode.postMessage({ type: "getTSProfileState" })
+		// 标记正在重置，避免被其他状态更新覆盖
+		setState((prevState) => ({
+			...prevState,
+			_isResetting: true,
+		}))
+	},
+	worldsetHasChanges: (state as ExtendedExtensionState).worldsetHasChanges ?? false,
+	setWorldsetHasChanges: (value: boolean) => setState((prevState) => ({ ...prevState, worldsetHasChanges: value })),
+	resetWorldsetChanges: () => {
+		// 发送请求获取当前保存的世界观状态
+		vscode.postMessage({ type: "getWorldsetStatus" })
+		// 标记正在重置，避免被其他状态更新覆盖
+		setState((prevState) => ({
+			...prevState,
+			_isResetting: true,
+		}))
 	},
 	memorySystemEnabled: state.memorySystemEnabled ?? true,
 	memoryToolsEnabled: state.memoryToolsEnabled ?? true,

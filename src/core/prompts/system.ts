@@ -108,34 +108,69 @@ function extractMainProfileName(mixinFileName: string): string {
 }
 
 /**
- * Load available TSProfiles from the workspace
+ * Load available TSProfiles from both workspace and global storage
  */
 async function loadTsProfiles(): Promise<any[]> {
 	try {
-		// Get workspace path
+		const allProfiles: any[] = []
+
+		// Load workspace profiles
 		const workspaceFolders = vscode.workspace.workspaceFolders
-		if (!workspaceFolders || workspaceFolders.length === 0) {
-			debugLog("TSProfile: No workspace path found")
-			return []
+		if (workspaceFolders && workspaceFolders.length > 0) {
+			const workspacePath = workspaceFolders[0].uri.fsPath
+			const profileDir = path.join(workspacePath, "novel-helper", ".anh-chat", "tsprofile")
+			debugLog(`TSProfile: Workspace profile directory: ${profileDir}`)
+
+			// Check if profile directory exists
+			try {
+				await fs.access(profileDir)
+				debugLog(`TSProfile: Workspace directory exists: ${profileDir}`)
+			} catch {
+				// Directory doesn't exist, create it
+				debugLog(`TSProfile: Creating workspace directory: ${profileDir}`)
+				await fs.mkdir(profileDir, { recursive: true })
+			}
+
+			const workspaceProfiles = await loadProfilesFromDirectory(profileDir, "workspace")
+			allProfiles.push(...workspaceProfiles)
 		}
 
-		const workspacePath = workspaceFolders[0].uri.fsPath
-		const profileDir = path.join(workspacePath, "novel-helper", ".anh-chat", "tsprofile")
-		debugLog(`TSProfile: Profile directory: ${profileDir}`)
+		// Load global profiles
+		try {
+			// Skip global loading for now since context is not available in this function
+			// Global TSProfile loading should be handled in the main generatePrompt function
+			debugLog("TSProfile: Skipping global profile loading in loadTsProfiles function")
+		} catch (error) {
+			console.warn("Failed to load global TSProfiles:", error)
+		}
 
-		// Check if profile directory exists
+		return allProfiles.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0))
+	} catch (error) {
+		console.error("Error loading TSProfiles:", error)
+		return []
+	}
+}
+
+/**
+ * Load TSProfiles from a specific directory
+ */
+async function loadProfilesFromDirectory(profileDir: string, scope: "workspace" | "global"): Promise<any[]> {
+	const profiles: any[] = []
+
+	try {
+		// Check if directory exists
 		try {
 			await fs.access(profileDir)
-			debugLog(`TSProfile: Directory exists: ${profileDir}`)
+			debugLog(`TSProfile: Directory exists: ${profileDir} (${scope})`)
 		} catch {
 			// Directory doesn't exist, create it
-			debugLog(`TSProfile: Creating directory: ${profileDir}`)
+			debugLog(`TSProfile: Creating directory: ${profileDir} (${scope})`)
 			await fs.mkdir(profileDir, { recursive: true })
 			return []
 		}
 
 		const files = await fs.readdir(profileDir, { withFileTypes: true })
-		debugLog(`TSProfile: Found ${files.length} files in directory`)
+		debugLog(`TSProfile: Found ${files.length} files in ${scope} directory`)
 
 		// 分离主 profile 文件和 mixin 文件
 		const mainProfileFiles: string[] = []
@@ -151,9 +186,7 @@ async function loadTsProfiles(): Promise<any[]> {
 			}
 		}
 
-		debugLog(`TSProfile: Found ${mainProfileFiles.length} main profiles and ${mixinFiles.length} mixin files`)
-
-		const profiles: any[] = []
+		debugLog(`TSProfile: ${scope} - Found ${mainProfileFiles.length} main profiles and ${mixinFiles.length} mixin files`)
 
 		// 处理主 profile 文件
 		for (const fileName of mainProfileFiles) {
@@ -184,7 +217,7 @@ async function loadTsProfiles(): Promise<any[]> {
 					const mixinData = JSON.parse(mixinContent)
 					hasMixin = true
 					mixinPromptsCount = mixinData.prompts?.length || 0
-					debugLog(`TSProfile: Found mixin for ${fileName}: ${mixinFileName}`)
+					debugLog(`TSProfile: ${scope} - Found mixin for ${fileName}: ${mixinFileName}`)
 				} catch {
 					// 没有找到 mixin 文件或 mixin 文件无效，这是正常情况
 				}
@@ -200,13 +233,14 @@ async function loadTsProfiles(): Promise<any[]> {
 					promptsCount,
 					enabledCount,
 					lastModified: stats.mtime.getTime(),
+					scope, // 添加 scope 字段
 					// 添加 mixin 信息到 profile
 					hasMixin,
 					mixinPromptsCount,
 					mixinPath: hasMixin ? mixinFilePath : undefined,
 				})
 			} catch (error) {
-				console.warn(`Failed to load profile ${fileName}:`, error)
+				console.warn(`Failed to load ${scope} profile ${fileName}:`, error)
 			}
 		}
 
@@ -222,7 +256,7 @@ async function loadTsProfiles(): Promise<any[]> {
 					const mixinData = await fs.readFile(filePath, "utf-8")
 					const parsed = JSON.parse(mixinData)
 
-					debugLog(`TSProfile: Found orphan mixin file: ${mixinFileName}`)
+					debugLog(`TSProfile: ${scope} - Found orphan mixin file: ${mixinFileName}`)
 
 					profiles.push({
 						name: `${mixinFileName} (孤立mixin)`,
@@ -231,18 +265,19 @@ async function loadTsProfiles(): Promise<any[]> {
 						promptsCount: parsed.prompts?.length || 0,
 						enabledCount: parsed.prompts?.filter((p: any) => p.enabled !== false).length || 0,
 						lastModified: stats.mtime.getTime(),
+						scope, // 添加 scope 字段
 						isOrphanMixin: true,
 						expectedMainProfile: mainProfileName,
 					})
 				} catch (error) {
-					console.warn(`Failed to load orphan mixin ${mixinFileName}:`, error)
+					console.warn(`Failed to load ${scope} orphan mixin ${mixinFileName}:`, error)
 				}
 			}
 		}
 
-		return profiles.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0))
+		return profiles
 	} catch (error) {
-		console.error("Error loading TSProfiles:", error)
+		console.error(`Error loading TSProfiles from ${profileDir}:`, error)
 		return []
 	}
 }
@@ -286,6 +321,7 @@ async function applyTsProfilePreprocessing(
 	anhTsProfileAutoInject: boolean = true,
 	anhTsProfileVariables: Record<string, any> = {},
 	userAvatarRole?: Role,
+	context?: vscode.ExtensionContext, // Add context parameter for global loading
 ): Promise<Role> {
 	try {
 		// Debug: Log TSProfile state
@@ -305,7 +341,24 @@ async function applyTsProfilePreprocessing(
 		console.log(`[SystemPrompt] Applying TSProfile preprocessing for ${enabledTSProfiles.length} profiles`)
 
 		// Load all available profiles
-		const allProfiles = await loadTsProfiles()
+		let allProfiles = await loadTsProfiles()
+
+		// Load global profiles if context is available
+		if (context) {
+			try {
+				const { getGlobalStorageService } = require("../../services/storage/GlobalStorageService")
+				const globalStorageService = await getGlobalStorageService(context)
+				const globalProfileDir = globalStorageService.getGlobalTsProfilesPath()
+				debugLog(`TSProfile: Global profile directory: ${globalProfileDir}`)
+
+				const globalProfiles = await loadProfilesFromDirectory(globalProfileDir, "global")
+				allProfiles.push(...globalProfiles)
+				console.log(`[SystemPrompt] Loaded ${globalProfiles.length} global TSProfiles for processing`)
+			} catch (error) {
+				console.warn("Failed to load global TSProfiles for STProfile processing:", error)
+			}
+		}
+
 		let processedRole = { ...role }
 
 		// If role doesn't have system_prompt, generate basic "You are..." introduction first
@@ -1575,14 +1628,56 @@ async function generatePrompt(
 				maxRecursionDepth: 10,
 			}
 
-			for (const worldsetName of enabledWorldsets) {
-				const worldsetPath = path.join(cwd, "novel-helper", ".anh-chat", "worldset", worldsetName)
+			// Import GlobalStorageService to get global worldsets
+			const { getGlobalStorageService } = require("../../services/storage/GlobalStorageService")
+			const globalStorageService = await getGlobalStorageService(context)
 
-				if (fs.existsSync(worldsetPath)) {
-					const worldsetContent = fs.readFileSync(worldsetPath, "utf-8")
+			for (const worldsetKey of enabledWorldsets) {
+				let worldsetContent = ""
+				let source = ""
+				let worldsetName = worldsetKey
+				let worldsetScope = "workspace"
+
+				// Parse worldset key to extract name and scope
+				const lastDashIndex = worldsetKey.lastIndexOf('-')
+				if (lastDashIndex > 0) {
+					const possibleScope = worldsetKey.substring(lastDashIndex + 1)
+					if (possibleScope === 'global' || possibleScope === 'workspace') {
+						worldsetName = worldsetKey.substring(0, lastDashIndex)
+						worldsetScope = possibleScope
+					}
+				}
+
+				// Try to load from workspace first
+				if (worldsetScope === 'workspace') {
+					const workspaceWorldsetPath = path.join(cwd, "novel-helper", ".anh-chat", "worldset", worldsetName)
+					if (fs.existsSync(workspaceWorldsetPath)) {
+						worldsetContent = fs.readFileSync(workspaceWorldsetPath, "utf-8")
+						source = "workspace"
+					}
+				}
+
+				// If not found in workspace or scope is global, try global storage
+				if (!worldsetContent) {
+					try {
+						const globalWorldsetData = await globalStorageService.loadGlobalWorldset(worldsetName)
+						if (globalWorldsetData) {
+							worldsetContent = globalWorldsetData.content || JSON.stringify(globalWorldsetData)
+							source = "global"
+						}
+					} catch (error) {
+						console.warn(`[SystemPrompt] Failed to load global worldset ${worldsetName}:`, error)
+					}
+				}
+
+				// If worldset content was found, process and add it
+				if (worldsetContent) {
 					// Process template variables in worldset content
 					const processedWorldsetContent = processLiquidTemplateVariables(worldsetContent, templateOptions)
-					worldsetContents.push(`## ${worldsetName}\n\n${processedWorldsetContent.processedText}`)
+					const sourceLabel = source === "global" ? " (Global)" : " (Workspace)"
+					worldsetContents.push(`## ${worldsetName}${sourceLabel}\n\n${processedWorldsetContent.processedText}`)
+				} else {
+					console.warn(`[SystemPrompt] Worldset not found: ${worldsetName} (scope: ${worldsetScope}, original key: ${worldsetKey})`)
 				}
 			}
 
@@ -1827,6 +1922,7 @@ export const SYSTEM_PROMPT = async (
 			anhTsProfileAutoInject ?? true,
 			anhTsProfileVariables ?? {},
 			userAvatarRole,
+			context,
 		)
 
 		// Update rolePromptData with the processed role

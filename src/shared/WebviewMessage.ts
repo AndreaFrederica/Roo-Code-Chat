@@ -251,12 +251,22 @@ export interface WebviewMessage {
 		| "anhShowRoleCardOnSwitch"
 		| "updateAnhExtensionSettings"
 		| "toggleAnhExtension"
+		| "getAnhExtensionState"
+		| "anhExtensionState"
+		| "saveSillyTavernWorldBookChanges"
+	| "saveWorldviewChanges"
+	| "saveAnhExtensionChanges"
+		| "resetAnhExtensionChanges"
+		| "saveTSProfileChanges"
+		| "getTSProfileState"
+		| "tsProfileState"
 		| "createWorldsetFolder"
 		| "getWorldsetList"
 		| "getWorldsetFiles"
 		| "readWorldsetFile"
 		| "enableWorldset"
 		| "disableWorldset"
+		| "disableAllWorldsets"
 		| "getWorldsetStatus"
 		| "openWorldsetFolder"
 		| "loadTsProfiles"
@@ -407,11 +417,13 @@ export interface WebviewMessage {
 		enabled: boolean
 		currentWorldset?: string
 	}
+	worldsetScope?: "global" | "workspace"
 	// STWordBook-related properties
 	worldBookFilePath?: string // For worldbook file path operations
 	worldBookEnabled?: boolean // For toggling worldbook enabled state
 	worldBookConfig?: any // For worldbook configuration (WorldBookConfig)
 	worldBookFileName?: string // For global worldbook file name operations
+	worldBookScope?: "global" | "workspace" // For worldbook scope-aware operations
 	// Memory management-related properties
 	data?: any // For memory management messages
 	mixinData?: any // For saveTsProfileMixin
@@ -439,6 +451,10 @@ export interface WebviewMessage {
 	sourceExtensionPath?: string // For copyExtensionToGlobal
 	extensionName?: string // For copyExtensionToGlobal
 	roleUuids?: string[] // For listGlobalRoleMemories
+	extensionId?: string // For extension operations
+	extensionEnabled?: boolean // For extension toggle operations
+	extensionSettings?: Record<string, any> // For extension settings operations
+	extensionChanges?: Record<string, any> // For extension changes operations
 	// Additional missing properties
 	tsProfileFilePath?: string // For tsProfile operations
 	sourceProfile?: any // For copyTsProfile operations
@@ -447,6 +463,10 @@ export interface WebviewMessage {
 	worldBookMixin?: any // For getWorldBookMixin
 	entryUid?: number | string // For updateWorldBookEntryMixin and removeWorldBookEntryMixin
 	mixinUpdates?: any // For updateWorldBookEntryMixin
+	// TSProfile-related properties
+	enabledProfiles?: string[] // For saveTSProfileChanges
+	autoInject?: boolean // For saveTSProfileChanges
+	variables?: Record<string, string> // For saveTSProfileChanges
 }
 
 export const checkoutDiffPayloadSchema = z.object({

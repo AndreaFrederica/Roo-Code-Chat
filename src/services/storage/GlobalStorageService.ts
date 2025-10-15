@@ -6,9 +6,11 @@ import { v4 as uuidv4 } from "uuid"
 
 import { Package } from "../../shared/package"
 import { getStorageBasePath } from "../../utils/storage"
-import { type HistoryItem, type Role } from "@roo-code/types"
+import { type HistoryItem, type Role, type RoleSummary } from "@roo-code/types"
 import { safeWriteJson } from "../../utils/safeWriteJson"
 import { fileExistsAtPath } from "../../utils/fs"
+import { SillyTavernParser } from "../../utils/sillytavern-parser"
+import { debugLog } from "../../utils/debug"
 
 /**
  * 全局存储服务，用于存储不依赖工作区的数据
@@ -175,6 +177,28 @@ export class GlobalStorageService {
 	async getGlobalRoles(): Promise<Role[]> {
 		await this.ensureInitialized()
 		return Array.from(this.globalRolesCache.values())
+	}
+
+	/**
+	 * 获取全局角色摘要列表
+	 */
+	async getGlobalRoleSummaries(): Promise<RoleSummary[]> {
+		await this.ensureInitialized()
+		const summaries: RoleSummary[] = []
+
+		for (const role of this.globalRolesCache.values()) {
+			const summary: RoleSummary = {
+				uuid: role.uuid,
+				name: role.name,
+				type: role.type,
+				scope: "global" as const,
+				packagePath: role.packagePath || "",
+				lastUpdatedAt: role.updatedAt || Date.now()
+			}
+			summaries.push(summary)
+		}
+
+		return summaries
 	}
 
 	/**
@@ -430,12 +454,26 @@ export class GlobalStorageService {
 		await this.ensureInitialized()
 
 		try {
+			// 检查目录是否存在
+			try {
+				await fs.access(this.globalWorldBooksPath)
+			} catch (error) {
+				console.warn(`Global WorldBooks directory does not exist: ${this.globalWorldBooksPath}`)
+				// 如果目录不存在，创建它
+				await fs.mkdir(this.globalWorldBooksPath, { recursive: true })
+				console.log(`Created Global WorldBooks directory: ${this.globalWorldBooksPath}`)
+			}
+
 			const files = await fs.readdir(this.globalWorldBooksPath)
-			return files.filter(file =>
+			const filteredFiles = files.filter(file =>
 				file.endsWith('.json') || file.endsWith('.jsonl')
 			)
+
+			console.log(`Found ${filteredFiles.length} global WorldBook files in ${this.globalWorldBooksPath}: ${filteredFiles.join(', ')}`)
+			return filteredFiles
 		} catch (error) {
 			console.error("Failed to read global WorldBooks directory:", error)
+			console.error("Directory path:", this.globalWorldBooksPath)
 			return []
 		}
 	}
@@ -508,7 +546,7 @@ export class GlobalStorageService {
 		try {
 			const files = await fs.readdir(this.globalWorldsetsPath)
 			return files.filter(file =>
-				file.endsWith('.json') || file.endsWith('.jsonc')
+				file.endsWith('.md') || file.endsWith('.json') || file.endsWith('.jsonc')
 			)
 		} catch (error) {
 			console.error("Failed to read global Worldsets directory:", error)
@@ -530,7 +568,12 @@ export class GlobalStorageService {
 
 		try {
 			const data = await fs.readFile(filePath, "utf8")
-			return JSON.parse(data)
+			// 如果是.md文件，直接返回文本内容；如果是.json文件，解析JSON
+			if (fileName.endsWith('.md')) {
+				return { content: data, type: 'markdown' }
+			} else {
+				return JSON.parse(data)
+			}
 		} catch (error) {
 			console.error(`Failed to load global Worldset ${fileName}:`, error)
 			return null
@@ -573,6 +616,14 @@ export class GlobalStorageService {
 	 */
 	getGlobalWorldBookMixinsPath(): string {
 		return path.join(this.globalWorldBooksPath, "mixins")
+	}
+
+	/**
+	 * 获取全局世界书Mixin路径（别名方法，用于兼容）
+	 */
+	async getGlobalWorldBookMixinPath(): Promise<string> {
+		await this.ensureInitialized()
+		return this.getGlobalWorldBookMixinsPath()
 	}
 
 	/**
@@ -1005,9 +1056,86 @@ export class GlobalStorageService {
 				}
 			}
 
+			// 自动检测并导入同目录下的SillyTavern PNG卡片
+			await this.autoDetectGlobalSillyTavernCards()
+
 			console.log(`Loaded ${this.globalRolesCache.size} global roles`)
 		} catch (error) {
 			console.error("Failed to load global roles:", error)
+		}
+	}
+
+	/**
+	 * 自动检测并导入全局目录下的SillyTavern PNG卡片
+	 */
+	private async autoDetectGlobalSillyTavernCards() {
+		try {
+			debugLog(`Scanning for SillyTavern PNG files in global roles directory: ${this.globalRolesPath}`)
+
+			// 扫描全局角色目录下的PNG文件
+			const files = await fs.readdir(this.globalRolesPath)
+			const pngFiles = files.filter(file => file.toLowerCase().endsWith('.png'))
+
+			debugLog(`Found ${pngFiles.length} PNG files in global directory: ${pngFiles.join(', ')}`)
+
+			for (const pngFile of pngFiles) {
+				const pngPath = path.join(this.globalRolesPath, pngFile)
+				debugLog(`Processing global PNG file: ${pngPath}`)
+
+				try {
+					// 获取PNG文件的修改时间
+					const pngStats = await fs.stat(pngPath)
+					const pngModifiedTime = pngStats.mtime.getTime()
+
+					// 尝试解析PNG文件
+					const parseResult = await SillyTavernParser.parseFromPngFile(pngPath)
+					debugLog(`Parse result for global ${pngFile}:`, parseResult.success ? 'SUCCESS' : 'FAILED', parseResult.error || '')
+
+					if (parseResult.success && parseResult.role) {
+						const role = parseResult.role
+
+						// 检查是否已经存在相同名称的角色
+						const existingRole = Array.from(this.globalRolesCache.values())
+							.find(existing => existing.name === role.name)
+
+						if (!existingRole) {
+							// 使用转换器将SillyTavern角色转换为完整的anh格式
+							// parseResult.role 已经是通过 SillyTavernParser.convertToRole 转换后的完整anh角色
+							const anhRole: Role = {
+								...role,
+								// 标记为SillyTavern类型
+								type: "SillyTavernRole",
+								// 确保必要的anh字段存在
+								profile: role.profile || {
+									greeting: role.first_mes || `Hello, I'm ${role.name}.`,
+									appearance: role.description || "",
+									personality: role.personality || "",
+									background: role.scenario || "",
+									relationships: [],
+									skills: [],
+									equipment: []
+								},
+								modeOverrides: role.modeOverrides || {},
+								scope: "global" as const, // 标记为全局角色
+								createdAt: role.createdAt || pngModifiedTime,
+								updatedAt: role.updatedAt || pngModifiedTime
+							}
+
+							// 将PNG角色添加到全局缓存（内存中，不写入文件）
+							this.globalRolesCache.set(anhRole.uuid, anhRole)
+
+							debugLog(`Auto-imported global SillyTavern card: ${anhRole.name} from ${pngFile} (memory only, converted to anh format)`)
+						} else {
+							debugLog(`Skipped global ${pngFile}: role ${role.name} already exists`)
+						}
+					}
+				} catch (parseError) {
+					// 如果解析失败，可能不是有效的SillyTavern PNG，跳过
+					debugLog(`Skipped global ${pngFile}: parsing failed -`, parseError)
+				}
+			}
+		} catch (error) {
+			console.error("Error during global SillyTavern card auto-detection:", error)
 		}
 	}
 

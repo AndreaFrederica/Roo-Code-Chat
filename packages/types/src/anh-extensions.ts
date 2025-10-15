@@ -264,6 +264,7 @@ export interface AnhExtensionContext {
 	manifest: AnhExtensionManifest
 	extensionPath: string
 	basePath: string
+	scope: 'global' | 'workspace'
 	logger: AnhExtensionContextLogger
 	settings: Readonly<AnhExtensionSettingsValues>
 	modules: Readonly<Partial<AnhExtensionModuleMap>>

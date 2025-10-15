@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { VSCodeButton } from '@vscode/webview-ui-toolkit/react';
 import { VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react';
 import { Globe, Folder, Trash2, Settings, RefreshCw, Copy, Edit3, Eye, EyeOff } from 'lucide-react';
@@ -17,11 +17,11 @@ interface WorldBookListProps {
   error: string | null;
   currentScope: 'all' | 'workspace' | 'global';
   onScopeChange: (scope: 'all' | 'workspace' | 'global') => void;
-  onWorldBookToggle: (filePath: string, enabled: boolean) => void;
+  onWorldBookToggle: (worldBookKey: string, enabled: boolean) => void;
   onWorldBookDelete: (worldBook: WorldBookInfo) => void;
-  onWorldBookReload: (filePath: string) => void;
+  onWorldBookReload: (worldBookKey: string) => void;
   onWorldBookBrowse: () => void;
-  onWorldBookValidate: (filePath: string) => void;
+  onWorldBookValidate: (worldBookKey: string) => void;
   onCopyToGlobal: (filePath: string) => void;
   onCopyFromGlobal: (fileName: string) => void;
   onOpenMixinManager: (worldBook: WorldBookInfo) => void;
@@ -49,37 +49,37 @@ export const WorldBookList: React.FC<WorldBookListProps> = ({
   const [validatingFile, setValidatingFile] = useState<string | null>(null);
 
   // 过滤世界书
-  const getFilteredWorldBooks = () => {
+  const filteredWorldBooks = useMemo(() => {
     let filtered = [...worldBooks];
 
     if (currentScope === 'workspace') {
-      filtered = filtered.filter(wb => !wb.isGlobal);
+      filtered = filtered.filter(wb => wb.scope !== 'global');
     } else if (currentScope === 'global') {
-      filtered = filtered.filter(wb => wb.isGlobal);
+      filtered = filtered.filter(wb => wb.scope === 'global');
     }
 
     return filtered.sort((a, b) => a.name.localeCompare(b.name));
-  };
+  }, [worldBooks, currentScope]);
 
-  const filteredWorldBooks = getFilteredWorldBooks();
-
-  const handleDeleteWorldBook = async (worldBook: WorldBookInfo) => {
-    setDeletingWorldBook(worldBook.path);
+  const handleDeleteWorldBook = useCallback(async (worldBook: WorldBookInfo) => {
+    const worldBookKey = `${worldBook.path}-${worldBook.scope === 'global' ? 'global' : 'workspace'}`;
+    setDeletingWorldBook(worldBookKey);
     try {
       await onWorldBookDelete(worldBook);
     } finally {
       setDeletingWorldBook(null);
     }
-  };
+  }, [onWorldBookDelete]);
 
-  const handleValidateFile = async (filePath: string) => {
-    setValidatingFile(filePath);
+  const handleValidateFile = useCallback(async (worldBook: WorldBookInfo) => {
+    const worldBookKey = `${worldBook.path}-${worldBook.scope === 'global' ? 'global' : 'workspace'}`;
+    setValidatingFile(worldBookKey);
     try {
-      await onWorldBookValidate(filePath);
+      await onWorldBookValidate(worldBookKey);
     } finally {
       setValidatingFile(null);
     }
-  };
+  }, [onWorldBookValidate]);
 
   return (
     <div className="worldbook-list">
@@ -88,6 +88,7 @@ export const WorldBookList: React.FC<WorldBookListProps> = ({
         <div className="worldbook-scope-filter">
           <label>范围:</label>
           <select
+            aria-label="筛选世界书范围"
             value={currentScope}
             onChange={(e) => onScopeChange(e.target.value as 'all' | 'workspace' | 'global')}
             className="worldbook-scope-select"
@@ -133,23 +134,25 @@ export const WorldBookList: React.FC<WorldBookListProps> = ({
           </VSCodeButton>
         </div>
       ) : (
-        <div className="worldbook-items">
+        <div className="space-y-3">
           {filteredWorldBooks.map((worldBook) => {
-            const isEnabled = worldBookConfig.enabledFiles.includes(worldBook.path);
-            const isDeleting = deletingWorldBook === worldBook.path;
-            const isValidating = validatingFile === worldBook.path;
+            // 使用路径+scope作为唯一标识
+            const worldBookKey = `${worldBook.path}-${worldBook.scope === 'global' ? 'global' : 'workspace'}`;
+            const isEnabled = worldBookConfig.enabledFiles.includes(worldBookKey);
+            const isDeleting = deletingWorldBook === worldBookKey;
+            const isValidating = validatingFile === worldBookKey;
 
             return (
-              <div key={worldBook.path} className={`worldbook-item ${isEnabled ? 'enabled' : 'disabled'}`}>
+              <div key={worldBookKey} className={`border border-vscode-panel-border rounded-md bg-vscode-sideBarSectionHeader-background/40 px-3 py-3 ${isEnabled ? 'enabled' : 'disabled'}`}>
                 <div className="worldbook-header">
                   <div className="worldbook-info">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <h5 style={{ margin: 0 }}>{worldBook.name}</h5>
-                      {worldBook.isGlobal ? (
+                      {worldBook.scope === 'global' ? (
                         <Globe className="w-4 h-4 text-blue-400" />
                       ) : (
                         <Folder className="w-4 h-4 text-green-400" />
                       )}
+                      <h5 style={{ margin: 0 }}>{worldBook.name}</h5>
                     </div>
                     <p className="worldbook-path">{worldBook.path}</p>
                     <div className="worldbook-stats">
@@ -160,7 +163,7 @@ export const WorldBookList: React.FC<WorldBookListProps> = ({
                   <div className="worldbook-controls">
                     <VSCodeCheckbox
                       checked={isEnabled}
-                      onChange={(e: any) => onWorldBookToggle(worldBook.path, e.target.checked)}
+                      onChange={(e: any) => onWorldBookToggle(worldBookKey, e.target.checked)}
                     >
                       启用
                     </VSCodeCheckbox>
@@ -175,7 +178,7 @@ export const WorldBookList: React.FC<WorldBookListProps> = ({
                   <div className="worldbook-actions-group">
                     <VSCodeButton
                       appearance="icon"
-                      onClick={() => handleValidateFile(worldBook.path)}
+                      onClick={() => handleValidateFile(worldBook)}
                       disabled={isValidating}
                       title="验证文件"
                     >
@@ -184,7 +187,7 @@ export const WorldBookList: React.FC<WorldBookListProps> = ({
 
                     <VSCodeButton
                       appearance="icon"
-                      onClick={() => onWorldBookReload(worldBook.path)}
+                      onClick={() => onWorldBookReload(worldBookKey)}
                       title="重新加载"
                     >
                       <RefreshCw className="w-4 h-4" />
@@ -207,7 +210,7 @@ export const WorldBookList: React.FC<WorldBookListProps> = ({
                       <Settings className="w-4 h-4" />
                     </VSCodeButton>
 
-                    {worldBook.isGlobal ? (
+                    {worldBook.scope === 'global' ? (
                       <VSCodeButton
                         appearance="icon"
                         onClick={() => onCopyFromGlobal(worldBook.name)}
@@ -247,7 +250,10 @@ export const WorldBookList: React.FC<WorldBookListProps> = ({
           <span>总数: {filteredWorldBooks.length}</span>
         </div>
         <div className="stats-item">
-          <span>已启用: {filteredWorldBooks.filter(wb => worldBookConfig.enabledFiles.includes(wb.path)).length}</span>
+          <span>已启用: {filteredWorldBooks.filter(wb => {
+            const worldBookKey = `${wb.path}-${wb.scope === 'global' ? 'global' : 'workspace'}`;
+            return worldBookConfig.enabledFiles.includes(worldBookKey);
+          }).length}</span>
         </div>
         <div className="stats-item">
           <span>总词条: {filteredWorldBooks.reduce((sum, wb) => sum + wb.entryCount, 0)}</span>

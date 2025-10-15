@@ -2275,9 +2275,11 @@ export class ClineProvider
 			anhExtensionsEnabled: anhExtensionsEnabled ?? {},
 			anhExtensionsRuntime: anhExtensions,
 			anhExtensionCapabilityRegistry,
+			anhExtensionsHasChanges: false, // Default to false for backend state
 			enabledTSProfiles: enabledTSProfiles ?? [],
 			anhTsProfileAutoInject: anhTsProfileAutoInject ?? true,
 			anhTsProfileVariables: anhTsProfileVariables ?? {},
+			tsProfilesHasChanges: false, // Default to false for backend state
 			sillyTavernWorldBookState: this.anhChatServices?.worldBookService
 				? this.anhChatServices.worldBookService.getState()
 				: {
@@ -2541,9 +2543,11 @@ export class ClineProvider
 			enabledWorldsets: stateValues.enabledWorldsets,
 			anhExtensionsEnabled: stateValues.anhExtensionsEnabled ?? {},
 			anhExtensionSettings: stateValues.anhExtensionSettings ?? {},
+			anhExtensionsHasChanges: false, // Default to false for backend state
 			enabledTSProfiles: stateValues.enabledTSProfiles ?? [],
 			anhTsProfileAutoInject: stateValues.anhTsProfileAutoInject ?? true,
 			anhTsProfileVariables: stateValues.anhTsProfileVariables ?? {},
+			tsProfilesHasChanges: false, // Default to false for backend state
 			sillyTavernWorldBookState: this.anhChatServices?.worldBookService
 				? this.anhChatServices.worldBookService.getState()
 				: {

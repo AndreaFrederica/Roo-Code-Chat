@@ -12,6 +12,7 @@ export interface ProfileInfo {
 	promptsCount?: number
 	enabledCount?: number
 	lastModified?: number
+	scope?: "global" | "workspace"
 }
 
 export interface ValidationResult {

@@ -41,6 +41,7 @@ export interface Command {
 export interface WorldsetFile {
 	name: string
 	path: string
+	scope?: "global" | "workspace"
 }
 
 // Type for marketplace installed metadata
@@ -187,9 +188,11 @@ export interface ExtensionMessage {
 		| "globalExtensionDeleted"
 		| "globalRoleMemoryLoaded"
 	| "saveGlobalRoleMemory"
-		| "worldBookMixinLoaded"
-		| "worldBookEntryMixinUpdated"
-		| "worldBookEntryMixinRemoved"
+	| "worldBookMixinLoaded"
+	| "worldBookEntryMixinUpdated"
+	| "worldBookEntryMixinRemoved"
+	| "anhExtensionState"
+	| "tsProfileState"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -321,6 +324,8 @@ export interface ExtensionMessage {
 	sourceProfile?: any // For copyTsProfile operations
 	profile?: any // For deleteTsProfile operations
 	globalWorldBooks?: any[] // For STWordBookGetGlobalResponse
+	globalWorldBooksPath?: string // For STWordBookGetGlobalResponse
+	globalWorldBooksWithInfo?: any[] // For STWordBookGetGlobalResponse - detailed info with entry counts
 	tsProfileFilePath?: string // For tsProfile operations
 	memory?: any // For globalRoleMemory operations
 	stats?: any // For globalRoleMemoryLoaded
@@ -423,6 +428,8 @@ export type ExtensionState = Pick<
 	| "enabledWorldsets"
 	| "anhExtensionsEnabled"
 	| "anhExtensionSettings"
+	| "anhExtensionsHasChanges"
+	| "tsProfilesHasChanges"
 	| "memorySystemEnabled"
 	| "memoryToolsEnabled"
 > & {
@@ -525,6 +532,7 @@ export type ExtensionState = Pick<
 		configs: Record<string, any>
 		lastUpdated: number
 	}
+	globalWorldBooksPath?: string // Global world books directory path
 }
 
 export interface ClineSayTool {

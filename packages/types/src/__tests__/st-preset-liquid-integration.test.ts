@@ -38,6 +38,7 @@ function createTestRole(overrides: Partial<Role> = {}): Role {
     character_book: { name: "", entries: [] },
     spec: 'chara_card_v2',
     spec_version: '2.0',
+    scope: 'workspace', // 添加必需的scope属性
     ...overrides
   }
 }

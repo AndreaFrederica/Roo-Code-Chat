@@ -30,6 +30,7 @@
 		"glama",
 		"huggingface",
 		"isodate",
+		"isotime",
 		"litellm",
 		"lmstudio",
 		"ollama",

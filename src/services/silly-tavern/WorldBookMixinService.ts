@@ -69,10 +69,13 @@ export class WorldBookMixinService {
 	/**
 	 * 获取世界书的Mixin文件路径
 	 */
-	private getMixinFilePath(worldBookPath: string, isGlobal: boolean): string {
+	private async getMixinFilePath(worldBookPath: string, isGlobal: boolean): Promise<string> {
 		const fileName = `${path.basename(worldBookPath, path.extname(worldBookPath))}.mixin.json`
 		if (isGlobal) {
-			return path.join(path.dirname(worldBookPath), "mixins", fileName)
+			// 对于全局世界书，使用全局存储服务提供的路径
+			const globalStorageService = await this.globalStorageService
+			const globalMixinPath = await globalStorageService.getGlobalWorldBookMixinPath()
+			return path.join(globalMixinPath, fileName)
 		} else {
 			const workspacePath = this.getWorkspacePath()
 			if (!workspacePath) {
@@ -98,7 +101,7 @@ export class WorldBookMixinService {
 	 */
 	async loadWorldBookMixin(worldBookPath: string, isGlobal: boolean): Promise<WorldBookMixin | null> {
 		try {
-			const mixinPath = this.getMixinFilePath(worldBookPath, isGlobal)
+			const mixinPath = await this.getMixinFilePath(worldBookPath, isGlobal)
 			console.log(`[WorldBookMixinService] Loading mixin from path: ${mixinPath}`)
 
 			const mixinData = await safeReadJson<WorldBookMixin>(mixinPath)
@@ -122,7 +125,7 @@ export class WorldBookMixinService {
 	 */
 	async saveWorldBookMixin(mixin: WorldBookMixin): Promise<void> {
 		try {
-			const mixinPath = this.getMixinFilePath(mixin.worldBookPath, mixin.isGlobal)
+			const mixinPath = await this.getMixinFilePath(mixin.worldBookPath, mixin.isGlobal)
 			console.log(`[WorldBookMixinService] Saving mixin to path: ${mixinPath}`)
 
 			// 确保目录存在
@@ -148,7 +151,7 @@ export class WorldBookMixinService {
 	 */
 	async deleteWorldBookMixin(worldBookPath: string, isGlobal: boolean): Promise<boolean> {
 		try {
-			const mixinPath = this.getMixinFilePath(worldBookPath, isGlobal)
+			const mixinPath = await this.getMixinFilePath(worldBookPath, isGlobal)
 
 			// 检查文件是否存在
 			try {
@@ -343,7 +346,7 @@ export class WorldBookMixinService {
 			return null
 		}
 
-		const mixinPath = this.getMixinFilePath(worldBookPath, isGlobal)
+		const mixinPath = await this.getMixinFilePath(worldBookPath, isGlobal)
 		const modifiedEntryCount = mixin.entries.length
 		const enabledEntryCount = mixin.entries.filter((e: WorldBookEntryMixin) => e.enabled !== false && e.disabled !== true).length
 		const disabledEntryCount = modifiedEntryCount - enabledEntryCount

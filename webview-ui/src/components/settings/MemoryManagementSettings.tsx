@@ -679,13 +679,18 @@ export const MemoryManagementSettings: React.FC<MemoryManagementSettingsProps> =
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="settings-section">
+			<h3>记忆系统设置</h3>
+			<p className="settings-description">
+				管理AI角色的记忆系统，允许记录和回忆对话中的重要信息。
+			</p>
+
 			{/* 全局开关 */}
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Settings className="h-5 w-5" />
-						记忆系统设置
+						全局设置
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">

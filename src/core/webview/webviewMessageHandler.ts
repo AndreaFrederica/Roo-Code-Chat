@@ -1736,8 +1736,9 @@ export const webviewMessageHandler = async (
 		}
 		case "browseWorldBookFile": {
 			try {
-				provider.log("[WorldBook] Browsing for world book file...")
 				const isGlobal = message.isGlobal || false
+				const scopeInfo = isGlobal ? "global" : "workspace"
+				provider.log(`[WorldBook] Browsing for world book file (${scopeInfo})...`)
 				const extendedService = await getExtendedWorldBookService(provider.context)
 				const filePath = await extendedService.browseWorldBookFile(isGlobal)
 
@@ -1886,12 +1887,20 @@ export const webviewMessageHandler = async (
 			// No need to call postStateToWebview here as the UI already updated optimistically
 			break
 		case "updateAnhExtensionSettings":
-			await updateGlobalState(
-				"anhExtensionSettings",
-				(message.values as Record<string, Record<string, unknown>>) ?? {},
-			)
-			await provider.refreshAnhExtensions()
-			await provider.postStateToWebview()
+			if (message.text && message.values) {
+				const current = getGlobalState("anhExtensionSettings") ?? {}
+				const extensionId = message.text as string
+				const updatedSettings = {
+					...current,
+					[extensionId]: {
+						...(current[extensionId] ?? {}),
+						...(message.values as Record<string, unknown>),
+					},
+				}
+				await updateGlobalState("anhExtensionSettings", updatedSettings)
+				await provider.refreshAnhExtensions()
+				await provider.postStateToWebview()
+			}
 			break
 		case "toggleAnhExtension":
 			if (typeof message.text === "string") {
@@ -1902,6 +1911,188 @@ export const webviewMessageHandler = async (
 				await provider.postStateToWebview()
 			}
 			break
+		case "getAnhExtensionState": {
+			try {
+				const enabledExtensions = getGlobalState("anhExtensionsEnabled") ?? {}
+				const extensionSettings = getGlobalState("anhExtensionSettings") ?? {}
+
+				await provider.postMessageToWebview({
+					type: "anhExtensionState",
+					text: "anhExtensionState",
+					payload: {
+						enabledExtensions,
+						extensionSettings
+					}
+				})
+			} catch (error) {
+				provider.log(`Error getting anh extension state: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "anhExtensionState",
+					text: "anhExtensionState",
+					payload: {
+						enabledExtensions: {},
+						extensionSettings: {}
+					}
+				})
+			}
+			break
+		}
+		case "saveSillyTavernWorldBookChanges": {
+			try {
+				provider.log("Saving SillyTavern WorldBook changes...")
+				// WorldBook设置的保存逻辑在SillyTavernWorldBookSettings组件内部处理
+				// 这里主要是触发状态同步
+				await provider.postStateToWebview()
+				vscode.window.showInformationMessage("世界书设置已保存")
+			} catch (error) {
+				provider.log(`Error saving worldbook changes: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("保存世界书设置失败")
+			}
+			break
+		}
+		case "saveWorldviewChanges": {
+			try {
+				provider.log("Saving Worldview changes...")
+				// Worldview设置的保存逻辑在WorldviewSettings组件内部处理
+				// 这里主要是触发状态同步
+				await provider.postStateToWebview()
+				vscode.window.showInformationMessage("世界观设置已保存")
+			} catch (error) {
+				provider.log(`Error saving worldview changes: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("保存世界观设置失败")
+			}
+			break
+		}
+		case "saveAnhExtensionChanges": {
+			try {
+				console.log("[Extension] Saving ANH extension changes...")
+				
+				// 消息应该包含 extensionChanges 和 extensionSettings
+				const extensionChanges = message.extensionChanges as Record<string, boolean> || {}
+				const extensionSettings = message.extensionSettings as Record<string, Record<string, unknown>> || {}
+
+				console.log("[Extension] Saving changes:", {
+					extensionChanges: Object.keys(extensionChanges).length,
+					extensionSettings: Object.keys(extensionSettings).length
+				})
+
+				// 保存启用状态更改
+				if (Object.keys(extensionChanges).length > 0) {
+					const currentEnabled = getGlobalState("anhExtensionsEnabled") ?? {}
+					const updatedEnabled = { ...currentEnabled, ...extensionChanges }
+					await updateGlobalState("anhExtensionsEnabled", updatedEnabled)
+				}
+
+				// 保存设置更改
+				if (Object.keys(extensionSettings).length > 0) {
+					const currentSettings = getGlobalState("anhExtensionSettings") ?? {}
+					const updatedSettings = { ...currentSettings, ...extensionSettings }
+					await updateGlobalState("anhExtensionSettings", updatedSettings)
+				}
+
+				// 清除变更标志
+				await updateGlobalState("anhExtensionsHasChanges", false)
+
+				// 刷新扩展状态
+				await provider.refreshAnhExtensions()
+				await provider.postStateToWebview()
+
+				provider.log(`Saved ${Object.keys(extensionChanges).length} extension enabled changes and ${Object.keys(extensionSettings).length} extension settings changes`)
+				vscode.window.showInformationMessage("扩展设置已保存")
+			} catch (error) {
+				provider.log(`Error saving anh extension changes: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("保存扩展设置失败")
+			}
+			break
+		}
+		case "resetAnhExtensionChanges": {
+			try {
+				// 发送当前状态给前端，让前端重置到当前状态
+				const enabledExtensions = getGlobalState("anhExtensionsEnabled") ?? {}
+				const extensionSettings = getGlobalState("anhExtensionSettings") ?? {}
+
+				await provider.postMessageToWebview({
+					type: "anhExtensionState",
+					text: "anhExtensionState",
+					payload: {
+						enabledExtensions,
+						extensionSettings
+					}
+				})
+
+				provider.log("Reset anh extension changes to current state")
+			} catch (error) {
+				provider.log(`Error resetting anh extension changes: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
+		case "saveTSProfileChanges": {
+			try {
+				console.log("[TSProfile] Saving TSProfile changes...")
+				
+				// 消息应该包含 enabledProfiles, autoInject, variables
+				const enabledProfiles = message.enabledProfiles as string[] || []
+				const autoInject = message.autoInject as boolean ?? true
+				const variables = message.variables as Record<string, string> || {}
+
+				console.log("[TSProfile] Saving settings:", {
+					enabledProfiles,
+					autoInject,
+					variables: Object.keys(variables).length
+				})
+
+				// 保存启用状态更改
+				await updateGlobalState("enabledTSProfiles", enabledProfiles)
+
+				// 保存自动注入设置
+				await updateGlobalState("anhTsProfileAutoInject", autoInject)
+
+				// 保存变量设置
+				await updateGlobalState("anhTsProfileVariables", variables)
+
+				// 清除变更标志
+				await updateGlobalState("tsProfilesHasChanges", false)
+
+				// 刷新状态
+				await provider.postStateToWebview()
+
+				provider.log(`Saved TSProfile changes: ${enabledProfiles.length} enabled profiles, autoInject: ${autoInject}, ${Object.keys(variables).length} variables`)
+				vscode.window.showInformationMessage("TSProfile设置已保存")
+			} catch (error) {
+				provider.log(`Error saving TSProfile changes: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage("保存TSProfile设置失败")
+			}
+			break
+		}
+		case "getTSProfileState": {
+			try {
+				const enabledProfiles = getGlobalState("enabledTSProfiles") ?? []
+				const autoInject = getGlobalState("anhTsProfileAutoInject") ?? true
+				const variables = getGlobalState("anhTsProfileVariables") ?? {}
+
+				await provider.postMessageToWebview({
+					type: "tsProfileState",
+					text: "tsProfileState",
+					payload: {
+						enabledProfiles,
+						autoInject,
+						variables
+					}
+				})
+			} catch (error) {
+				provider.log(`Error getting TSProfile state: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "tsProfileState",
+					text: "tsProfileState",
+					payload: {
+						enabledProfiles: [],
+						autoInject: true,
+						variables: {}
+					}
+				})
+			}
+			break
+		}
 		case "toggleApiConfigPin":
 			if (message.text) {
 				const currentPinned = getGlobalState("pinnedApiConfigs") ?? {}
@@ -2981,8 +3172,9 @@ export const webviewMessageHandler = async (
 		}
 		case "browseTsProfile": {
 			try {
-				provider.log("[TSProfile] Browsing for TSProfile file...")
 				const isGlobal = message.isGlobal || false
+				const scopeInfo = isGlobal ? "global" : "workspace"
+				provider.log(`[TSProfile] Browsing for TSProfile file (${scopeInfo})...`)
 				const extendedService = await getExtendedTSProfileService(provider.context)
 				const filePath = await extendedService.browseTsProfile(isGlobal)
 
@@ -3096,7 +3288,11 @@ export const webviewMessageHandler = async (
 			break
 		}
 		case "enableTSProfile": {
+			// 已废弃：现在由 saveTSProfileChanges 处理
+			// 保留此代码以防有其他地方仍在使用
 			if (message.tsProfileName) {
+				provider.log("[TSProfile] Warning: enableTSProfile is deprecated, use saveTSProfileChanges instead")
+				// 暂时仍然处理此消息以确保兼容性
 				const currentProfiles = (provider.contextProxy.getValue("enabledTSProfiles") as string[]) || []
 				const newProfiles = [...currentProfiles, message.tsProfileName].filter(
 					(name, index, arr) => arr.indexOf(name) === index,
@@ -3107,6 +3303,9 @@ export const webviewMessageHandler = async (
 			break
 		}
 		case "disableTSProfile": {
+			// 已废弃：现在由 saveTSProfileChanges 处理
+			// 保留此代码以防有其他地方仍在使用
+			provider.log("[TSProfile] Warning: disableTSProfile is deprecated, use saveTSProfileChanges instead")
 			const currentProfiles = (provider.contextProxy.getValue("enabledTSProfiles") as string[]) || []
 			if (message.tsProfileName) {
 				// 禁用特定的TSProfile
@@ -3120,11 +3319,17 @@ export const webviewMessageHandler = async (
 			break
 		}
 		case "anhTsProfileAutoInject": {
+			// 已废弃：现在由 saveTSProfileChanges 处理
+			// 保留此代码以防有其他地方仍在使用
+			provider.log("[TSProfile] Warning: anhTsProfileAutoInject is deprecated, use saveTSProfileChanges instead")
 			await updateGlobalState("anhTsProfileAutoInject", message.bool ?? true)
 			await provider.postStateToWebview()
 			break
 		}
 		case "anhTsProfileVariables": {
+			// 已废弃：现在由 saveTSProfileChanges 处理
+			// 保留此代码以防有其他地方仍在使用
+			provider.log("[TSProfile] Warning: anhTsProfileVariables is deprecated, use saveTSProfileChanges instead")
 			await updateGlobalState("anhTsProfileVariables", message.values ?? {})
 			await provider.postStateToWebview()
 			break
@@ -3583,15 +3788,10 @@ export const webviewMessageHandler = async (
 		case "getGlobalAnhRoles": {
 			try {
 				const globalService = await getGlobalStorageService(provider.context)
-				const globalRoles = await globalService.getGlobalRoles()
-				// Add lastUpdatedAt property to match RoleSummary interface
-				const globalRolesWithTimestamp = globalRoles.map(role => ({
-					...role,
-					lastUpdatedAt: Date.now() // Use current time as fallback
-				}))
+				const globalRoleSummaries = await globalService.getGlobalRoleSummaries()
 				await provider.postMessageToWebview({
 					type: "anhGlobalRolesLoaded",
-					globalRoles: globalRolesWithTimestamp,
+					globalRoles: globalRoleSummaries,
 				})
 			} catch (error) {
 				provider.log(`Error loading global ANH roles: ${error instanceof Error ? error.message : String(error)}`)
@@ -3701,22 +3901,43 @@ export const webviewMessageHandler = async (
 					break
 				}
 
-				const { RoleRegistry } = await import("../../services/anh-chat")
-				const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-				if (!workspaceRoot) {
-					throw new Error("No workspace folder found")
+				let role: Role | undefined
+
+				// First try to load from workspace
+				try {
+					const { RoleRegistry } = await import("../../services/anh-chat")
+					const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+					if (workspaceRoot) {
+						const registry = await RoleRegistry.create(workspaceRoot)
+						role = await registry.loadRole(targetUuid)
+						if (role) {
+							provider.log(`User Avatar role loaded from workspace: ${role.name}`)
+						}
+					}
+				} catch (error) {
+					provider.log(`Error loading User Avatar role from workspace: ${error instanceof Error ? error.message : String(error)}`)
 				}
-				const registry = await RoleRegistry.create(workspaceRoot)
-				const role = await registry.loadRole(targetUuid)
+
+				// If not found in workspace, try to load from global storage
+				if (!role) {
+					try {
+						const globalService = await getGlobalStorageService(provider.context)
+						role = await globalService.getGlobalRole(targetUuid)
+						if (role) {
+							provider.log(`User Avatar role loaded from global storage: ${role.name}`)
+						}
+					} catch (error) {
+						provider.log(`Error loading User Avatar role from global storage: ${error instanceof Error ? error.message : String(error)}`)
+					}
+				}
 
 				if (role) {
-					provider.log(`User Avatar role loaded successfully: ${role.name}`)
 					await provider.postMessageToWebview({
 						type: "userAvatarRoleLoaded",
 						role,
 					})
 				} else {
-					provider.log(`User Avatar role not found: ${targetUuid}`)
+					provider.log(`User Avatar role not found in workspace or global storage: ${targetUuid}`)
 					await provider.postMessageToWebview({
 						type: "userAvatarRoleLoaded",
 						role: undefined,
@@ -3995,40 +4216,61 @@ export const webviewMessageHandler = async (
 
 		case "getWorldsetList": {
 			try {
+				const worldsetFiles: any[] = []
+
+				// Load workspace worldsets
 				const workspacePath = getWorkspacePath()
-				if (!workspacePath) {
-					provider.postMessageToWebview({
-						type: "worldsetList",
-						worldsetList: [],
-					})
-					break
+				if (workspacePath) {
+					const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
+
+					// Check if worldset directory exists
+					if (
+						await fs
+							.access(worldsetDir)
+							.then(() => true)
+							.catch(() => false)
+					) {
+						// Read all .md files in worldset directory
+						const files = await fs.readdir(worldsetDir)
+						const mdFiles = files.filter((file) => file.endsWith(".md"))
+
+						// Convert to WorldsetFile objects with name, path, and scope
+						const workspaceWorldsetFiles = mdFiles.map((fileName) => ({
+							name: fileName,
+							path: `worldset/${fileName}`,
+							scope: "workspace" as const,
+						}))
+						worldsetFiles.push(...workspaceWorldsetFiles)
+					}
 				}
 
-				const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
+				// Load global worldsets
+				try {
+					const globalStorageService = await getGlobalStorageService(provider.context)
+					const globalWorldsetDir = globalStorageService.getGlobalWorldsetsPath()
 
-				// Check if worldset directory exists
-				if (
-					!(await fs
-						.access(worldsetDir)
-						.then(() => true)
-						.catch(() => false))
-				) {
-					await provider.postMessageToWebview({
-						type: "worldsetList",
-						worldsetFiles: [],
-					})
-					break
+					// Check if global worldset directory exists
+					if (
+						await fs
+							.access(globalWorldsetDir)
+							.then(() => true)
+							.catch(() => false)
+					) {
+						// Read all .md files in global worldset directory
+						const files = await fs.readdir(globalWorldsetDir)
+						const mdFiles = files.filter((file) => file.endsWith(".md"))
+
+						// Convert to WorldsetFile objects with name, path, and scope
+						const globalWorldsetFiles = mdFiles.map((fileName) => ({
+							name: fileName,
+							path: path.join(globalWorldsetDir, fileName),
+							scope: "global" as const,
+						}))
+						worldsetFiles.push(...globalWorldsetFiles)
+					}
+				} catch (error) {
+					provider.log(`Error loading global worldsets: ${error}`)
 				}
-
-				// Read all .md files in worldset directory
-				const files = await fs.readdir(worldsetDir)
-				const mdFiles = files.filter((file) => file.endsWith(".md"))
-
-				// Convert to WorldsetFile objects with name and path
-				const worldsetFiles = mdFiles.map((fileName) => ({
-					name: fileName,
-					path: `worldset/${fileName}`,
-				}))
 
 				await provider.postMessageToWebview({
 					type: "worldsetList",
@@ -4096,25 +4338,32 @@ export const webviewMessageHandler = async (
 		case "readWorldsetFile": {
 			try {
 				const worldsetName = message.worldsetName
+				const isGlobal = message.isGlobal || false
 				if (!worldsetName) {
 					break
 				}
 
-				const workspacePath = getWorkspacePath()
-				if (!workspacePath) {
-					await provider.postMessageToWebview({
-						type: "worldsetContent",
-						worldsetName: worldsetName,
-						worldsetContent: "",
-					})
-					break
+				const scopeInfo = isGlobal ? "global" : "workspace"
+				provider.log(`[Worldset] Reading worldset file: ${worldsetName} (${scopeInfo})`)
+
+				let content = ""
+
+				if (isGlobal) {
+					// Load from global storage
+					const globalStorageService = await getGlobalStorageService(provider.context)
+					const worldsetData = await globalStorageService.loadGlobalWorldset(worldsetName)
+					if (worldsetData) {
+						content = worldsetData.content || JSON.stringify(worldsetData, null, 2)
+					}
+				} else {
+					// Load from workspace
+					const workspacePath = getWorkspacePath()
+					if (workspacePath) {
+						const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
+						const worldsetPath = path.join(worldsetDir, worldsetName)
+						content = await fs.readFile(worldsetPath, "utf8")
+					}
 				}
-
-				const worldsetDir = path.join(workspacePath, "novel-helper", ".anh-chat", "worldset")
-				const worldsetPath = path.join(worldsetDir, worldsetName)
-
-				// Read the worldset file content
-				const content = await fs.readFile(worldsetPath, "utf8")
 
 				await provider.postMessageToWebview({
 					type: "worldsetContent",
@@ -4137,21 +4386,25 @@ export const webviewMessageHandler = async (
 		case "enableWorldset": {
 			try {
 				const worldsetName = message.worldsetName
+				const worldsetScope = message.worldsetScope || "workspace"
 				if (!worldsetName) {
 					break
 				}
+
+				// Create scope-aware key
+				const worldsetKey = `${worldsetName}-${worldsetScope}`
 
 				// Get current enabled worldsets
 				const currentEnabledWorldsets = getGlobalState("enabledWorldsets") || []
 
 				// Add the worldset if not already enabled
-				if (!currentEnabledWorldsets.includes(worldsetName)) {
-					const updatedWorldsets = [...currentEnabledWorldsets, worldsetName]
+				if (!currentEnabledWorldsets.includes(worldsetKey)) {
+					const updatedWorldsets = [...currentEnabledWorldsets, worldsetKey]
 					await updateGlobalState("enabledWorldsets", updatedWorldsets)
 
-					provider.log(`Enabled worldset: ${worldsetName}`)
+					provider.log(`Enabled worldset: ${worldsetKey}`)
 				} else {
-					provider.log(`Worldset already enabled: ${worldsetName}`)
+					provider.log(`Worldset already enabled: ${worldsetKey}`)
 				}
 
 				// Send status update
@@ -4172,18 +4425,22 @@ export const webviewMessageHandler = async (
 		case "disableWorldset": {
 			try {
 				const worldsetName = message.worldsetName
+				const worldsetScope = message.worldsetScope || "workspace"
 				if (!worldsetName) {
 					break
 				}
+
+				// Create scope-aware key
+				const worldsetKey = `${worldsetName}-${worldsetScope}`
 
 				// Get current enabled worldsets
 				const currentEnabledWorldsets = getGlobalState("enabledWorldsets") || []
 
 				// Remove the worldset if currently enabled
-				const updatedWorldsets = currentEnabledWorldsets.filter((name) => name !== worldsetName)
+				const updatedWorldsets = currentEnabledWorldsets.filter((key) => key !== worldsetKey)
 				await updateGlobalState("enabledWorldsets", updatedWorldsets)
 
-				provider.log(`Disabled worldset: ${worldsetName}`)
+				provider.log(`Disabled worldset: ${worldsetKey}`)
 
 				// Send status update
 				await provider.postMessageToWebview({
@@ -4195,6 +4452,27 @@ export const webviewMessageHandler = async (
 				})
 			} catch (error) {
 				provider.log(`Error disabling worldset: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
+			}
+			break
+		}
+
+		case "disableAllWorldsets": {
+			try {
+				// Clear all enabled worldsets
+				await updateGlobalState("enabledWorldsets", [])
+
+				provider.log("Disabled all worldsets")
+
+				// Send status update
+				await provider.postMessageToWebview({
+					type: "worldsetStatusUpdate",
+					worldsetStatus: {
+						enabled: false,
+						enabledWorldsets: [],
+					},
+				})
+			} catch (error) {
+				provider.log(`Error disabling all worldsets: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`)
 			}
 			break
 		}
@@ -4257,16 +4535,20 @@ export const webviewMessageHandler = async (
 			try {
 				const filePath = message.worldBookFilePath
 				const enabled = message.worldBookEnabled
+				const worldBookScope = message.worldBookScope || "workspace"
 
 				if (!filePath || typeof enabled !== "boolean") {
 					vscode.window.showErrorMessage("Invalid worldbook toggle parameters")
 					break
 				}
 
-				const success = await provider.anhChatServices?.worldBookService.toggleWorldBook(filePath, enabled)
+				// Create scope-aware key for the worldbook
+				const worldBookKey = `${filePath}-${worldBookScope}`
+
+				const success = await provider.anhChatServices?.worldBookService.toggleWorldBook(worldBookKey, enabled)
 				if (success) {
 					await provider.postStateToWebview()
-					provider.log(`WorldBook ${enabled ? "enabled" : "disabled"}: ${filePath}`)
+					provider.log(`WorldBook ${enabled ? "enabled" : "disabled"}: ${filePath} (${worldBookScope})`)
 				} else {
 					vscode.window.showErrorMessage(`Failed to ${enabled ? "enable" : "disable"} worldbook`)
 				}
@@ -4280,16 +4562,21 @@ export const webviewMessageHandler = async (
 		case "STWordBookAdd": {
 			try {
 				const config = message.worldBookConfig as WorldBookConfig
+				const worldBookScope = message.worldBookScope || "workspace"
 
 				if (!config || !config.filePath) {
 					vscode.window.showErrorMessage("Invalid worldbook configuration")
 					break
 				}
 
-				const success = await provider.anhChatServices?.worldBookService.addWorldBookConfig(config)
+				// Create scope-aware key for the worldbook
+				const worldBookKey = `${config.filePath}-${worldBookScope}`
+				const scopedConfig = { ...config, scope: worldBookScope, key: worldBookKey }
+
+				const success = await provider.anhChatServices?.worldBookService.addWorldBookConfig(scopedConfig)
 				if (success) {
 					await provider.postStateToWebview()
-					provider.log(`WorldBook added: ${config.filePath}`)
+					provider.log(`WorldBook added: ${config.filePath} (${worldBookScope})`)
 				} else {
 					vscode.window.showErrorMessage("Failed to add worldbook")
 				}
@@ -4303,16 +4590,20 @@ export const webviewMessageHandler = async (
 		case "STWordBookRemove": {
 			try {
 				const filePath = message.worldBookFilePath
+				const worldBookScope = message.worldBookScope || "workspace"
 
 				if (!filePath) {
 					vscode.window.showErrorMessage("Invalid worldbook file path")
 					break
 				}
 
-				const success = await provider.anhChatServices?.worldBookService.removeWorldBookConfig(filePath)
+				// Create scope-aware key for the worldbook
+				const worldBookKey = `${filePath}-${worldBookScope}`
+
+				const success = await provider.anhChatServices?.worldBookService.removeWorldBookConfig(worldBookKey)
 				if (success) {
 					await provider.postStateToWebview()
-					provider.log(`WorldBook removed: ${filePath}`)
+					provider.log(`WorldBook removed: ${filePath} (${worldBookScope})`)
 				} else {
 					vscode.window.showErrorMessage("Failed to remove worldbook")
 				}
@@ -4327,18 +4618,22 @@ export const webviewMessageHandler = async (
 			try {
 				const filePath = message.worldBookFilePath
 				const config = message.worldBookConfig as WorldBookConfig
+				const worldBookScope = message.worldBookScope || "workspace"
 
 				if (!filePath || !config) {
 					vscode.window.showErrorMessage("Invalid worldbook update parameters")
 					break
 				}
 
-				// Update the config by removing the old one and adding the new one
-				await provider.anhChatServices?.worldBookService.removeWorldBookConfig(filePath)
-				const success = await provider.anhChatServices?.worldBookService.addWorldBookConfig(config)
+				// Create scope-aware keys for the worldbook
+				const oldWorldBookKey = `${filePath}-${worldBookScope}`
+				const scopedConfig = { ...config, scope: worldBookScope, key: oldWorldBookKey }
+
+				// Use the service's update method to avoid race conditions
+				const success = await provider.anhChatServices?.worldBookService.updateWorldBookConfig(oldWorldBookKey, scopedConfig)
 				if (success) {
 					await provider.postStateToWebview()
-					provider.log(`WorldBook updated: ${filePath}`)
+					provider.log(`WorldBook updated: ${filePath} (${worldBookScope})`)
 				} else {
 					vscode.window.showErrorMessage("Failed to update worldbook")
 				}
@@ -4352,16 +4647,20 @@ export const webviewMessageHandler = async (
 		case "STWordBookReload": {
 			try {
 				const filePath = message.worldBookFilePath
+				const worldBookScope = message.worldBookScope || "workspace"
 
 				if (!filePath) {
 					vscode.window.showErrorMessage("Invalid worldbook file path")
 					break
 				}
 
-				const success = await provider.anhChatServices?.worldBookService.reloadWorldBook(filePath)
+				// Create scope-aware key for the worldbook
+				const worldBookKey = `${filePath}-${worldBookScope}`
+
+				const success = await provider.anhChatServices?.worldBookService.reloadWorldBook(worldBookKey)
 				if (success) {
 					await provider.postStateToWebview()
-					provider.log(`WorldBook reloaded: ${filePath}`)
+					provider.log(`WorldBook reloaded: ${filePath} (${worldBookScope})`)
 				} else {
 					vscode.window.showErrorMessage("Failed to reload worldbook")
 				}
@@ -4399,6 +4698,7 @@ export const webviewMessageHandler = async (
 		case "STWordBookValidate": {
 			try {
 				const filePath = message.worldBookFilePath
+				const worldBookScope = message.worldBookScope || "workspace"
 
 				if (!filePath) {
 					await provider.postMessageToWebview({
@@ -4409,7 +4709,10 @@ export const webviewMessageHandler = async (
 					break
 				}
 
-				const validation = await provider.anhChatServices?.worldBookService.validateWorldBookFile(filePath)
+				// Create scope-aware key for the worldbook
+				const worldBookKey = `${filePath}-${worldBookScope}`
+
+				const validation = await provider.anhChatServices?.worldBookService.validateWorldBookFile(worldBookKey)
 				await provider.postMessageToWebview({
 					type: "STWordBookValidateResponse",
 					worldBookValid: validation?.valid,
@@ -4431,17 +4734,58 @@ export const webviewMessageHandler = async (
 		case "STWordBookGetGlobal": {
 			try {
 				const globalService = await getGlobalStorageService(provider.context)
+				const globalPath = globalService.getGlobalWorldBooksPath()
+				provider.log(`Global WorldBooks path: ${globalPath}`)
+
 				const globalFiles = await globalService.getGlobalWorldBooks()
+				provider.log(`Global WorldBooks found: ${globalFiles.length} files: ${globalFiles.join(', ')}`)
+
+				// 使用WorldBookConverter获取每个文件的详细信息，包括词条数
+				const { WorldBookConverter } = await import("../../../packages/types/src/silly-tavern-worldbook-converter")
+				const converter = new WorldBookConverter()
+				
+				const globalWorldBooksWithInfo = []
+				for (const fileName of globalFiles) {
+					try {
+						const filePath = path.join(globalPath, fileName)
+						const info = await converter.getWorldBookInfo(filePath)
+						globalWorldBooksWithInfo.push({
+							fileName,
+							entryCount: info.entryCount,
+							name: info.name,
+							fileSize: info.fileSize,
+							lastModified: info.lastModified,
+							loaded: info.loaded,
+							error: info.error
+						})
+					} catch (error) {
+						provider.log(`Error getting info for ${fileName}: ${error instanceof Error ? error.message : String(error)}`)
+						globalWorldBooksWithInfo.push({
+							fileName,
+							entryCount: 0,
+							name: fileName.replace(/\.(json|jsonl)$/, ''),
+							fileSize: 0,
+							lastModified: 0,
+							loaded: false,
+							error: error instanceof Error ? error.message : String(error)
+						})
+					}
+				}
 
 				await provider.postMessageToWebview({
 					type: "STWordBookGetGlobalResponse",
 					globalWorldBooks: globalFiles,
+					globalWorldBooksPath: globalPath,
+					globalWorldBooksWithInfo,
 				})
 			} catch (error) {
 				provider.log(`Error getting global worldbooks: ${error instanceof Error ? error.message : String(error)}`)
+				provider.log(`Error stack: ${error instanceof Error ? error.stack : 'No stack available'}`)
 				await provider.postMessageToWebview({
 					type: "STWordBookGetGlobalResponse",
 					globalWorldBooks: [],
+					globalWorldBooksPath: "",
+					globalWorldBooksWithInfo: [],
 					error: error instanceof Error ? error.message : String(error),
 				})
 			}
@@ -4509,7 +4853,7 @@ export const webviewMessageHandler = async (
 		// World Book Mixin management cases
 		case "getWorldBookMixin": {
 			try {
-				const { worldBookPath, isGlobal = false } = message
+				const { worldBookPath, isGlobal = false, worldBookScope } = message
 
 				if (!worldBookPath) {
 					await provider.postMessageToWebview({
@@ -4520,7 +4864,8 @@ export const webviewMessageHandler = async (
 					break
 				}
 
-				provider.log(`[WorldBookMixin] Loading mixin for: ${worldBookPath} (global: ${isGlobal})`)
+				const scopeInfo = worldBookScope || (isGlobal ? "global" : "workspace")
+				provider.log(`[WorldBookMixin] Loading mixin for: ${worldBookPath} (${scopeInfo})`)
 
 				// Load the world book service
 				const { WorldBookConverter } = await import('../../../packages/types/src/silly-tavern-worldbook-converter')
@@ -4603,14 +4948,15 @@ export const webviewMessageHandler = async (
 
 		case "updateWorldBookEntryMixin": {
 			try {
-				const { worldBookPath, entryUid, mixinUpdates, isGlobal = false } = message
+				const { worldBookPath, entryUid, mixinUpdates, isGlobal = false, worldBookScope } = message
 
 				if (!worldBookPath || entryUid === undefined || !mixinUpdates) {
 					vscode.window.showErrorMessage("Missing required parameters for updating entry mixin")
 					break
 				}
 
-				provider.log(`[WorldBookMixin] Updating entry ${entryUid} for: ${worldBookPath}`)
+				const scopeInfo = worldBookScope || (isGlobal ? "global" : "workspace")
+				provider.log(`[WorldBookMixin] Updating entry ${entryUid} for: ${worldBookPath} (${scopeInfo})`)
 
 				// Get the mixin service
 				const { WorldBookMixinService } = await import('../../services/silly-tavern/WorldBookMixinService')
@@ -4632,7 +4978,7 @@ export const webviewMessageHandler = async (
 				})
 
 				vscode.window.showInformationMessage(`条目Mixin已更新`)
-				provider.log(`[WorldBookMixin] Successfully updated entry ${entryUid}`)
+				provider.log(`[WorldBookMixin] Successfully updated entry ${entryUid} (${isGlobal ? 'global' : 'workspace'})`)
 			} catch (error) {
 				provider.log(`Error updating world book entry mixin: ${error instanceof Error ? error.message : String(error)}`)
 				vscode.window.showErrorMessage("更新条目Mixin失败: " + (error instanceof Error ? error.message : String(error)))
@@ -4642,14 +4988,15 @@ export const webviewMessageHandler = async (
 
 		case "removeWorldBookEntryMixin": {
 			try {
-				const { worldBookPath, entryUid, isGlobal = false } = message
+				const { worldBookPath, entryUid, isGlobal = false, worldBookScope } = message
 
 				if (!worldBookPath || entryUid === undefined) {
 					vscode.window.showErrorMessage("Missing required parameters for removing entry mixin")
 					break
 				}
 
-				provider.log(`[WorldBookMixin] Removing entry ${entryUid} for: ${worldBookPath}`)
+				const scopeInfo = worldBookScope || (isGlobal ? "global" : "workspace")
+				provider.log(`[WorldBookMixin] Removing entry ${entryUid} for: ${worldBookPath} (${scopeInfo})`)
 
 				// Get the mixin service
 				const { WorldBookMixinService } = await import('../../services/silly-tavern/WorldBookMixinService')
@@ -4664,7 +5011,7 @@ export const webviewMessageHandler = async (
 				})
 
 				vscode.window.showInformationMessage(`条目Mixin已删除`)
-				provider.log(`[WorldBookMixin] Successfully removed entry ${entryUid}`)
+				provider.log(`[WorldBookMixin] Successfully removed entry ${entryUid} (${scopeInfo})`)
 			} catch (error) {
 				provider.log(`Error removing world book entry mixin: ${error instanceof Error ? error.message : String(error)}`)
 				vscode.window.showErrorMessage("删除条目Mixin失败: " + (error instanceof Error ? error.message : String(error)))

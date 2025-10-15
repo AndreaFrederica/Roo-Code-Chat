@@ -30,7 +30,7 @@
 		"contextManagement": "Context",
 		"terminal": "Terminal",
 		"assistantRole": "Assistant Role",
-		"tsProfile": "TSProfile",
+		"tsProfile": "SillyTavern Profile",
 		"userAvatar": "User Avatar",
 		"prompts": "Prompts",
 		"ui": "UI",
@@ -59,10 +59,10 @@
 		"noProfile": "This role does not define any profile fields."
 	},
 	"tsProfile": {
-		"title": "TSProfile Configuration",
-		"description": "Configure Tavern Style Profile files for role preprocessing during system prompt generation. This allows using complex prompt templates and variable replacement.",
-		"enableLabel": "Enable TSProfile",
-		"enableTooltip": "When enabled, the system will use Profile files to preprocess roles during prompt generation.",
+		"title": "SillyTavern Profile Configuration",
+		"description": "Configure SillyTavern Profile files for role preprocessing during system prompt generation. This allows using complex prompt templates and variable replacement.",
+		"enableLabel": "Enable SillyTavern Profile",
+		"enableTooltip": "When enabled, the system will use SillyTavern Profile files to preprocess roles during prompt generation.",
 		"autoInjectLabel": "Auto Inject",
 		"autoInjectTooltip": "Automatically inject compiled system prompts from Profile into the role's system_prompt field.",
 		"selectLabel": "Select Profile File",

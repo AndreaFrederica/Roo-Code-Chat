@@ -141,9 +141,19 @@ export class WorldBookService {
    */
   async addWorldBookConfig(config: WorldBookConfig): Promise<boolean> {
     try {
-      // 使用绝对路径作为key，确保一致性
-      const absolutePath = path.resolve(config.filePath);
-      const key = absolutePath;
+      // 如果 config 中包含 scope 信息，使用 scope-aware 的 key
+      let key: string;
+      let absolutePath: string;
+
+      if ((config as any).scope && (config as any).key) {
+        // 使用 scope-aware 的 key
+        key = (config as any).key;
+        absolutePath = path.resolve(config.filePath);
+      } else {
+        // 兼容旧版本，使用文件路径作为 key
+        absolutePath = path.resolve(config.filePath);
+        key = absolutePath;
+      }
 
       // 验证文件是否存在 - 处理可能包含空格的路径
       try {
@@ -162,13 +172,14 @@ export class WorldBookService {
       // 如果启用，设置文件监听
       if (config.enabled) {
         if (config.autoReload) {
-          this.setupFileWatcher(key);
+          this.setupFileWatcher(absolutePath);
         }
       }
 
       await this.saveConfigs();
 
-      this.outputChannel.appendLine(`[WorldBook] 添加世界书配置: ${absolutePath}`);
+      const scopeInfo = (config as any).scope ? ` (${(config as any).scope})` : '';
+      this.outputChannel.appendLine(`[WorldBook] 添加世界书配置: ${absolutePath}${scopeInfo}`);
       return true;
 
     } catch (error) {
@@ -180,25 +191,27 @@ export class WorldBookService {
   /**
    * 移除世界书配置
    */
-  async removeWorldBookConfig(filePath: string): Promise<boolean> {
+  async removeWorldBookConfig(worldBookKey: string): Promise<boolean> {
     try {
-      // 使用绝对路径作为key
+      // 解析 scope-aware 的 key
+      const { filePath } = this.parseWorldBookKey(worldBookKey);
       const absolutePath = path.resolve(filePath);
-      const key = absolutePath;
 
-      delete this.state.configs[key];
+      // 使用传入的 scope-aware key 来查找配置
+      delete this.state.configs[worldBookKey];
 
       // 刷新激活列表，确保与configs.enabled状态同步
       this.refreshActiveWorldBooks();
 
       // 清理监听器和定时器
-      this.cleanupFileWatcher(key);
-      this.cleanupReloadTimer(key);
+      this.cleanupFileWatcher(absolutePath);
+      this.cleanupReloadTimer(absolutePath);
 
       this.state.lastUpdated = Date.now();
       await this.saveConfigs();
 
-      this.outputChannel.appendLine(`[WorldBook] 移除世界书配置: ${absolutePath}`);
+      const scopeInfo = worldBookKey.endsWith('-global') ? ' (global)' : ' (workspace)';
+      this.outputChannel.appendLine(`[WorldBook] 移除世界书配置: ${absolutePath}${scopeInfo}`);
       return true;
 
     } catch (error) {
@@ -208,17 +221,60 @@ export class WorldBookService {
   }
 
   /**
+   * 更新世界书配置
+   */
+  async updateWorldBookConfig(worldBookKey: string, newConfig: WorldBookConfig): Promise<boolean> {
+    try {
+      // 解析 scope-aware 的 key
+      const { filePath, scope } = this.parseWorldBookKey(worldBookKey);
+      const absolutePath = path.resolve(filePath);
+
+      // 验证文件是否存在
+      try {
+        await fsPromises.access(absolutePath, fs.constants.F_OK);
+      } catch (accessError) {
+        this.outputChannel.appendLine(`[WorldBook] 文件访问失败: ${absolutePath} - ${accessError instanceof Error ? accessError.message : String(accessError)}`);
+        throw accessError;
+      }
+
+      // 更新配置
+      this.state.configs[worldBookKey] = { ...newConfig, filePath: absolutePath };
+      this.state.lastUpdated = Date.now();
+
+      // 刷新激活列表，确保与configs.enabled状态同步
+      this.refreshActiveWorldBooks();
+
+      // 重新设置文件监听（如果需要）
+      if (newConfig.enabled && newConfig.autoReload) {
+        this.setupFileWatcher(absolutePath);
+      } else {
+        this.cleanupFileWatcher(absolutePath);
+      }
+
+      await this.saveConfigs();
+
+      this.outputChannel.appendLine(`[WorldBook] 更新世界书配置: ${absolutePath} (${scope})`);
+      return true;
+
+    } catch (error) {
+      this.outputChannel.appendLine(`[WorldBook] 更新配置失败: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  /**
    * 启用/禁用世界书
    */
-  async toggleWorldBook(filePath: string, enabled: boolean): Promise<boolean> {
+  async toggleWorldBook(worldBookKey: string, enabled: boolean): Promise<boolean> {
     try {
-      // 使用绝对路径作为key
+      // 解析 scope-aware 的 key
+      const { filePath, scope } = this.parseWorldBookKey(worldBookKey);
       const absolutePath = path.resolve(filePath);
-      const key = absolutePath;
-      const config = this.state.configs[key];
+
+      const config = this.state.configs[worldBookKey];
 
       if (!config) {
-        this.outputChannel.appendLine(`[WorldBook] 世界书配置不存在: ${absolutePath}`);
+        this.outputChannel.appendLine(`[WorldBook] 世界书配置不存在: ${worldBookKey} (${absolutePath})`);
         // 调试信息：列出所有可用的配置key
         const availableKeys = Object.keys(this.state.configs);
         this.outputChannel.appendLine(`[WorldBook] 可用的配置keys: ${availableKeys.join(', ')}`);
@@ -233,15 +289,15 @@ export class WorldBookService {
 
       if (enabled) {
         if (config.autoReload) {
-          this.setupFileWatcher(key);
+          this.setupFileWatcher(absolutePath);
         }
       } else {
-        this.cleanupFileWatcher(key);
+        this.cleanupFileWatcher(absolutePath);
       }
 
       await this.saveConfigs();
 
-      this.outputChannel.appendLine(`[WorldBook] ${enabled ? '启用' : '禁用'} 世界书: ${filePath}`);
+      this.outputChannel.appendLine(`[WorldBook] ${enabled ? '启用' : '禁用'} 世界书: ${absolutePath} (${scope})`);
       return true;
 
     } catch (error) {
@@ -334,13 +390,18 @@ export class WorldBookService {
   /**
    * 验证世界书文件
    */
-  async validateWorldBookFile(filePath: string): Promise<{ valid: boolean; info?: WorldBookInfo; error?: string }> {
+  async validateWorldBookFile(worldBookKey: string): Promise<{ valid: boolean; info?: WorldBookInfo; error?: string }> {
     try {
+      // 解析 scope-aware 的 key
+      const { filePath, scope } = this.parseWorldBookKey(worldBookKey);
+
       const info = await this.converter.getWorldBookInfo(filePath);
 
       if (info.loaded && info.entryCount > 0) {
+        this.outputChannel.appendLine(`[WorldBook] 验证成功: ${filePath} (${info.entryCount} 词条) (${scope})`);
         return { valid: true, info };
       } else {
+        this.outputChannel.appendLine(`[WorldBook] 验证失败: ${filePath} (${scope}) - ${info.error || '文件格式无效或没有找到词条'}`);
         return {
           valid: false,
           error: info.error || '文件格式无效或没有找到词条'
@@ -348,9 +409,11 @@ export class WorldBookService {
       }
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.outputChannel.appendLine(`[WorldBook] 验证异常 ${worldBookKey}: ${errorMessage}`);
       return {
         valid: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: errorMessage
       };
     }
   }
@@ -358,14 +421,15 @@ export class WorldBookService {
   /**
    * 重新加载世界书
    */
-  async reloadWorldBook(filePath: string): Promise<boolean> {
+  async reloadWorldBook(worldBookKey: string): Promise<boolean> {
     try {
-      // 使用绝对路径作为key
+      // 解析 scope-aware 的 key
+      const { filePath, scope } = this.parseWorldBookKey(worldBookKey);
       const absolutePath = path.resolve(filePath);
-      const key = absolutePath;
-      const config = this.state.configs[key];
 
+      const config = this.state.configs[worldBookKey];
       if (!config) {
+        this.outputChannel.appendLine(`[WorldBook] 世界书配置不存在: ${worldBookKey}`);
         return false;
       }
 
@@ -381,14 +445,14 @@ export class WorldBookService {
         }
 
         this.state.lastUpdated = Date.now();
-        this.outputChannel.appendLine(`[WorldBook] 重新加载: ${path.basename(absolutePath)} (${info.entryCount} 词条)`);
+        this.outputChannel.appendLine(`[WorldBook] 重新加载: ${path.basename(absolutePath)} (${info.entryCount} 词条) (${scope})`);
         return true;
       }
 
       return false;
 
     } catch (error) {
-      this.outputChannel.appendLine(`[WorldBook] 重新加载失败 ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+      this.outputChannel.appendLine(`[WorldBook] 重新加载失败 ${worldBookKey}: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -435,6 +499,37 @@ export class WorldBookService {
   }
 
   /* ------------------ 私有方法 ------------------ */
+
+  /**
+   * 解析 scope-aware 的世界书 key
+   * 支持格式: "path-scope" 或直接是 "path"
+   */
+  private parseWorldBookKey(key: string): { filePath: string; scope: string } {
+    if (key.endsWith('-global')) {
+      return {
+        filePath: key.slice(0, -7), // 移除 "-global"
+        scope: 'global'
+      };
+    } else if (key.endsWith('-workspace')) {
+      return {
+        filePath: key.slice(0, -10), // 移除 "-workspace"
+        scope: 'workspace'
+      };
+    } else {
+      // 如果没有 scope 后缀，默认为 workspace
+      return {
+        filePath: key,
+        scope: 'workspace'
+      };
+    }
+  }
+
+  /**
+   * 创建 scope-aware 的世界书 key
+   */
+  private createWorldBookKey(filePath: string, scope: string): string {
+    return `${filePath}-${scope}`;
+  }
 
   /**
    * 同步扫描到的世界书文件与配置
