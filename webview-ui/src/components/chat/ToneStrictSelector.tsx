@@ -34,14 +34,12 @@ export const ToneStrictSelector: React.FC<ToneStrictSelectorProps> = ({
 				onClick={handleToggle}
 				disabled={disabled}
 				className={cn(
-					"relative inline-flex items-center justify-center gap-1.5",
-					"bg-transparent border border-vscode-button-border",
-					"rounded-md px-2 py-1.5 min-h-[28px]",
-					"transition-all duration-150",
-					!disabled && "hover:bg-vscode-button-hoverBackground",
-					!disabled && "cursor-pointer",
-					disabled && "opacity-40 cursor-not-allowed",
-					"focus:outline-none focus-visible:ring-1 focus-visible:ring-vscode-focusBorder",
+					"inline-flex items-center gap-1.5 relative whitespace-nowrap px-1.5 py-1 text-xs",
+					"bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md text-vscode-foreground",
+					"transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-vscode-focusBorder focus-visible:ring-inset",
+					disabled
+						? "opacity-50 cursor-not-allowed"
+						: "opacity-90 hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)] cursor-pointer",
 					className,
 				)}
 				aria-label={value ? t("chat:toneStrict.strict") : t("chat:toneStrict.friendly")}>

@@ -1810,7 +1810,7 @@ ${processedWorldBookContent.processedText}
 	]
 
 	if (isPureChatMode) {
-		// Pure chat mode - minimal sections, focus on conversation
+		// Pure chat mode - conversational focus but with essential tools available
 		const chatObjectiveSection = `====
 
 OBJECTIVE
@@ -1819,7 +1819,9 @@ You are engaging in conversation with the user as your character. Focus on:
 1. Maintaining your character's personality and speaking style
 2. Responding naturally to the user's questions and comments
 3. Providing helpful and engaging conversation
-4. Avoiding technical programming discussions unless specifically requested`
+4. Using memory tools to remember important information from conversations
+5. Asking questions when you need clarification to better help the user
+6. Avoiding technical programming discussions unless specifically requested`
 
 		// Add natural conversation guidance when ask tool is disabled
 		const conversationGuidance =
@@ -1837,6 +1839,7 @@ RULES
 
 - Be natural and conversational in your responses
 - Feel free to use friendly greetings and expressions like "好的", "当然", "很高兴" etc.
+- Use memory tools to remember important information shared in conversations
 - You can ask questions to better understand the user or to continue the conversation
 - Focus on building a good conversational experience
 - Do not call the attempt_completion tool to end casual conversations. Only use it when executing a clearly defined task or subtask.
@@ -1848,6 +1851,42 @@ RULES
 			chatObjectiveSection,
 			"",
 			chatRulesSection,
+			"",
+			// Add essential tools for chat mode: memory tools and ask tool
+			// Create a filtered tool descriptions for chat mode
+			getToolDescriptionsForMode(
+				mode,
+				cwd,
+				supportsComputerUse,
+				codeIndexManager,
+				effectiveDiffStrategy,
+				browserViewportSize,
+				shouldIncludeMcp ? mcpHub : undefined,
+				customModeConfigs,
+				experiments,
+				partialReadsEnabled,
+				settings,
+				enableMcpServerCreation,
+				modelId,
+				anhUseAskTool === false, // Disable ask tool when anhUseAskTool is false
+				extensionToolDescriptions
+			).split('\n\n').filter(section => {
+				// Only include memory and ask tools in chat mode
+				if (section.includes('## ask_followup_question') ||
+					section.includes('## add_') ||
+					section.includes('## search_') ||
+					section.includes('## get_') ||
+					section.includes('## update_') ||
+					section.includes('## cleanup_') ||
+					section.includes('## recent_') ||
+					section.includes('🧠 Memory Tools')) {
+					return true
+				}
+				// Keep headers and tool descriptions that match our criteria
+				return section.startsWith('# Tools') ||
+					   section.includes('Memory Tools') ||
+					   section.includes('Memory System')
+			}).join('\n\n'),
 			"",
 		])
 	} else {
@@ -1870,7 +1909,7 @@ RULES
 				enableMcpServerCreation,
 				modelId,
 				anhUseAskTool === false, // Disable ask tool when anhUseAskTool is false
-				extensionToolDescriptions,
+				extensionToolDescriptions
 			),
 			"",
 			getToolUseGuidelinesSection(codeIndexManager),

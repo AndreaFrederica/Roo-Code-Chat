@@ -158,23 +158,24 @@ export const WorkspaceContextDropdown = ({
 					asChild
 					disabled={disabled}
 					className={cn(
-						"flex items-center gap-1 px-2 py-1.5 rounded-md text-sm min-w-[32px] text-ellipsis",
-						"bg-transparent border-none cursor-pointer",
-						disabled && "opacity-50 cursor-not-allowed",
+						"inline-flex items-center gap-1.5 relative whitespace-nowrap px-1.5 py-1 text-xs",
+						"bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md text-vscode-foreground",
+						"transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-vscode-focusBorder focus-visible:ring-inset",
+						disabled
+							? "opacity-50 cursor-not-allowed"
+							: "opacity-90 hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)] cursor-pointer",
 						triggerClassName,
 					)}>
 					<button
 						className={cn(
-							"relative inline-flex items-center justify-center gap-1",
-							"bg-transparent border-none px-2 py-1",
-							"rounded-md text-sm font-medium",
-							"text-vscode-foreground opacity-85",
-							"transition-all duration-150",
-							"hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)]",
-							"focus:outline-none focus-visible:ring-1 focus-visible:ring-vscode-focusBorder",
-							"active:bg-[rgba(255,255,255,0.1)]",
+							"inline-flex items-center gap-1.5 relative whitespace-nowrap px-1.5 py-1 text-xs",
+							"bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md text-vscode-foreground",
+							"transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-vscode-focusBorder focus-visible:ring-inset",
+							disabled
+								? "opacity-50 cursor-not-allowed"
+								: "opacity-90 hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)] cursor-pointer",
 						)}>
-						<Layers className="w-4 h-4" />
+						<Layers className="w-3 h-3" />
 						<span className="truncate min-w-0">{summaryLabel}</span>
 					</button>
 				</PopoverTrigger>

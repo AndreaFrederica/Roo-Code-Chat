@@ -2172,6 +2172,8 @@ export class ClineProvider
 			anhTsProfileAutoInject,
 			anhTsProfileVariables,
 			allowNoToolsInChatMode,
+			memorySystemEnabled,
+			memoryToolsEnabled,
 		} = await this.getState()
 
 		const resolvedUserAvatarVisibility =
@@ -2646,6 +2648,8 @@ export class ClineProvider
 			anhTsProfileVariables: stateValues.anhTsProfileVariables ?? {},
 			tsProfilesHasChanges: false, // Default to false for backend state
 			allowNoToolsInChatMode: stateValues.allowNoToolsInChatMode ?? false,
+			memorySystemEnabled: stateValues.memorySystemEnabled ?? true,
+			memoryToolsEnabled: stateValues.memoryToolsEnabled ?? true,
 			sillyTavernWorldBookState: this.anhChatServices?.worldBookService
 				? this.anhChatServices.worldBookService.getState()
 				: {

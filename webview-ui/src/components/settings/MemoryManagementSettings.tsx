@@ -668,16 +668,7 @@ export const MemoryManagementSettings: React.FC<MemoryManagementSettingsProps> =
 		)
 	}
 
-	if (!memorySystemEnabled) {
-		return (
-			<div className="flex flex-col items-center justify-center py-12 text-center">
-				<Brain className="h-12 w-12 text-gray-400 mb-4" />
-				<h3 className="text-lg font-medium text-gray-900 mb-2">记忆系统已禁用</h3>
-				<p className="text-gray-500 mb-4">请先在设置中启用记忆系统功能</p>
-			</div>
-		)
-	}
-
+	
 	return (
 		<div className="settings-section">
 			<h3>记忆系统设置</h3>
