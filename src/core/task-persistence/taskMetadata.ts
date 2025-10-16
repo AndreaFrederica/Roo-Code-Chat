@@ -26,6 +26,7 @@ export type TaskMetadataOptions = {
 	anhRoleUuid?: string
 	anhPersonaMode?: RolePersona
 	anhLastMessage?: string  // 缓存值，避免重复过滤
+	scope?: "global" | "workspace"  // 任务范围，根据选中的角色范围确定
 }
 
 export async function taskMetadata({
@@ -41,6 +42,7 @@ export async function taskMetadata({
 	anhRoleUuid,
 	anhPersonaMode,
 	anhLastMessage,
+	scope = "workspace",  // 默认为工作区范围
 }: TaskMetadataOptions) {
 	const taskDir = await getTaskDirectoryPath(globalStoragePath, id)
 
@@ -117,6 +119,7 @@ export async function taskMetadata({
 		anhRoleName,
 		anhRoleUuid,
 		anhLastMessage: finalAnhLastMessage,
+		scope,
 	}
 
 	return { historyItem, tokenUsage }

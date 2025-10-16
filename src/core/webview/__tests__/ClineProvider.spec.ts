@@ -1723,6 +1723,7 @@ describe("ClineProvider", () => {
 				tokensIn: 0,
 				tokensOut: 0,
 				totalCost: 0,
+				scope: "workspace" as const,
 			}
 
 			// Initialize with history item
@@ -1792,6 +1793,7 @@ describe("ClineProvider", () => {
 				tokensIn: 0,
 				tokensOut: 0,
 				totalCost: 0,
+				scope: "workspace" as const,
 			}
 
 			// Initialize with history item
@@ -1844,6 +1846,7 @@ describe("ClineProvider", () => {
 				tokensIn: 0,
 				tokensOut: 0,
 				totalCost: 0,
+				scope: "workspace" as const,
 			}
 
 			// Initialize with history item
@@ -1875,6 +1878,7 @@ describe("ClineProvider", () => {
 				tokensIn: 0,
 				tokensOut: 0,
 				totalCost: 0,
+				scope: "workspace" as const,
 			}
 
 			// Initialize with history item
@@ -1925,6 +1929,7 @@ describe("ClineProvider", () => {
 				tokensIn: 0,
 				tokensOut: 0,
 				totalCost: 0,
+				scope: "workspace" as const,
 			}
 
 			// Initialize with history item - should not throw

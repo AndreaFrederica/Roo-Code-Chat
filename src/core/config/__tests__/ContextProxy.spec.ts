@@ -135,6 +135,7 @@ describe("ContextProxy", () => {
 					tokensIn: 1,
 					tokensOut: 1,
 					totalCost: 1,
+					scope: "workspace" as const,
 				},
 			]
 
@@ -167,6 +168,7 @@ describe("ContextProxy", () => {
 					tokensIn: 1,
 					tokensOut: 1,
 					totalCost: 1,
+					scope: "workspace" as const,
 				},
 			]
 

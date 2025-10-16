@@ -670,7 +670,6 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		anhChatModeHideTaskCompletion,
 		anhShowRoleCardOnSwitch,
 		hideRoleDescription,
-		allowNoToolsInChatMode,
 		cachedAnhExtensionSettings,
 		setContextAnhExtensionSettings,
 		setHideRoleDescription,
@@ -1207,8 +1206,6 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							}
 							setOpenRouterImageApiKey={setOpenRouterImageApiKey}
 							setImageGenerationSelectedModel={setImageGenerationSelectedModel}
-							allowNoToolsInChatMode={allowNoToolsInChatMode}
-							setAllowNoToolsInChatMode={(value) => setCachedStateField("allowNoToolsInChatMode", value)}
 						/>
 					)}
 

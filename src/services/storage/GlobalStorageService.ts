@@ -136,7 +136,7 @@ export class GlobalStorageService {
 			id: uuidv4(),
 			ts: Date.now(),
 			number: this.globalHistoryCache.length + 1,
-			isGlobal: true, // 标记为全局记录
+			scope: "global", // 标记为全局记录
 		}
 
 		this.globalHistoryCache.push(historyItem)
@@ -1022,7 +1022,7 @@ export class GlobalStorageService {
 				const history: HistoryItem[] = JSON.parse(data)
 				this.globalHistoryCache = history.map(item => ({
 					...item,
-					isGlobal: true // 确保所有记录都标记为全局
+					scope: "global" // 确保所有记录都标记为全局
 				}))
 				console.log(`Loaded ${this.globalHistoryCache.length} global history items`)
 			} else {

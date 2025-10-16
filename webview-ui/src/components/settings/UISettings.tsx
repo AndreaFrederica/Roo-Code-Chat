@@ -14,11 +14,10 @@ interface UISettingsProps extends HTMLAttributes<HTMLDivElement> {
 	anhChatModeHideTaskCompletion: boolean
 	anhShowRoleCardOnSwitch: boolean
 	hideRoleDescription: boolean
-	allowNoToolsInChatMode: boolean
 	setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType>
 }
 
-export const UISettings = ({ reasoningBlockCollapsed, anhChatModeHideTaskCompletion, anhShowRoleCardOnSwitch, hideRoleDescription, allowNoToolsInChatMode, setCachedStateField, ...props }: UISettingsProps) => {
+export const UISettings = ({ reasoningBlockCollapsed, anhChatModeHideTaskCompletion, anhShowRoleCardOnSwitch, hideRoleDescription, setCachedStateField, ...props }: UISettingsProps) => {
 	const { t } = useAppTranslation()
 
 	const handleReasoningBlockCollapsedChange = (value: boolean) => {
@@ -57,15 +56,7 @@ export const UISettings = ({ reasoningBlockCollapsed, anhChatModeHideTaskComplet
 		})
 	}
 
-	const handleAllowNoToolsInChatModeChange = (value: boolean) => {
-		setCachedStateField("allowNoToolsInChatMode", value)
-
-		// Track telemetry event
-		telemetryClient.capture("ui_settings_allow_no_tools_in_chat_mode_changed", {
-			enabled: value,
-		})
-	}
-
+	
 	return (
 		<div {...props}>
 			<SectionHeader>
@@ -126,19 +117,6 @@ export const UISettings = ({ reasoningBlockCollapsed, anhChatModeHideTaskComplet
 						</VSCodeCheckbox>
 						<div className="text-vscode-descriptionForeground text-sm ml-5 mt-1">
 							{t("settings:ui.hideRoleDescription.description")}
-						</div>
-					</div>
-
-					{/* Allow No Tools In Chat Mode Setting */}
-					<div className="flex flex-col gap-1">
-						<VSCodeCheckbox
-							checked={allowNoToolsInChatMode}
-							onChange={(e: any) => handleAllowNoToolsInChatModeChange(e.target.checked)}
-							data-testid="allow-no-tools-in-chat-mode-checkbox">
-							<span className="font-medium">{t("settings:ui.allowNoToolsInChatMode.label")}</span>
-						</VSCodeCheckbox>
-						<div className="text-vscode-descriptionForeground text-sm ml-5 mt-1">
-							{t("settings:ui.allowNoToolsInChatMode.description")}
 						</div>
 					</div>
 				</div>

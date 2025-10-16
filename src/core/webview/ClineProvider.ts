@@ -2987,29 +2987,34 @@ export class ClineProvider
 		}
 
 		const history = this.getGlobalState("taskHistory") ?? []
-		const workspaceTasks: HistoryItem[] = []
+		const relevantTasks: HistoryItem[] = []
 
 		for (const item of history) {
-			if (!item.ts || !item.task || item.workspace !== this.cwd) {
+			if (!item.ts || !item.task) {
 				continue
 			}
 
-			workspaceTasks.push(item)
+			// Include tasks if they are:
+			// 1. Workspace tasks that match the current workspace
+			// 2. Global tasks (scope === "global")
+			if (item.scope === "global" || item.workspace === this.cwd) {
+				relevantTasks.push(item)
+			}
 		}
 
-		if (workspaceTasks.length === 0) {
+		if (relevantTasks.length === 0) {
 			this.recentTasksCache = []
 			return this.recentTasksCache
 		}
 
-		workspaceTasks.sort((a, b) => b.ts - a.ts)
+		relevantTasks.sort((a, b) => b.ts - a.ts)
 		let recentTaskIds: string[] = []
 
-		if (workspaceTasks.length >= 100) {
+		if (relevantTasks.length >= 100) {
 			// If we have at least 100 tasks, return tasks from the last 7 days.
 			const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
 
-			for (const item of workspaceTasks) {
+			for (const item of relevantTasks) {
 				// Stop when we hit tasks older than 7 days.
 				if (item.ts < sevenDaysAgo) {
 					break
@@ -3019,7 +3024,7 @@ export class ClineProvider
 			}
 		} else {
 			// Otherwise, return the most recent 100 tasks (or all if less than 100).
-			recentTaskIds = workspaceTasks.slice(0, Math.min(100, workspaceTasks.length)).map((item) => item.id)
+			recentTaskIds = relevantTasks.slice(0, Math.min(100, relevantTasks.length)).map((item) => item.id)
 		}
 
 		this.recentTasksCache = recentTaskIds

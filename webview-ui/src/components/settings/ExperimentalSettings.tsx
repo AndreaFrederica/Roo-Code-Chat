@@ -2,6 +2,7 @@ import { HTMLAttributes } from "react"
 import { FlaskConical } from "lucide-react"
 
 import type { Experiments } from "@roo-code/types"
+import { VSCodeCheckbox } from "@vscode/webview-ui-toolkit/react"
 
 import { EXPERIMENT_IDS, experimentConfigsMap } from "@roo/experiments"
 
@@ -23,6 +24,8 @@ type ExperimentalSettingsProps = HTMLAttributes<HTMLDivElement> & {
 	openRouterImageGenerationSelectedModel?: string
 	setOpenRouterImageApiKey?: (apiKey: string) => void
 	setImageGenerationSelectedModel?: (model: string) => void
+	allowNoToolsInChatMode?: boolean
+	setAllowNoToolsInChatMode?: (value: boolean) => void
 }
 
 export const ExperimentalSettings = ({
@@ -34,6 +37,8 @@ export const ExperimentalSettings = ({
 	openRouterImageGenerationSelectedModel,
 	setOpenRouterImageApiKey,
 	setImageGenerationSelectedModel,
+	allowNoToolsInChatMode,
+	setAllowNoToolsInChatMode,
 	className,
 	...props
 }: ExperimentalSettingsProps) => {
@@ -49,6 +54,21 @@ export const ExperimentalSettings = ({
 			</SectionHeader>
 
 			<Section>
+				{/* Allow No Tools In Chat Mode Setting */}
+				{allowNoToolsInChatMode !== undefined && setAllowNoToolsInChatMode && (
+					<div className="flex flex-col gap-1 mb-6">
+						<VSCodeCheckbox
+							checked={allowNoToolsInChatMode}
+							onChange={(e: any) => setAllowNoToolsInChatMode(e.target.checked)}
+							data-testid="allow-no-tools-in-chat-mode-checkbox">
+							<span className="font-medium">{t("settings:ui.allowNoToolsInChatMode.label")}</span>
+						</VSCodeCheckbox>
+						<div className="text-vscode-descriptionForeground text-sm ml-5 mt-1">
+							{t("settings:ui.allowNoToolsInChatMode.description")}
+						</div>
+					</div>
+				)}
+
 				{Object.entries(experimentConfigsMap)
 					.filter(([key]) => key in EXPERIMENT_IDS)
 					.map((config) => {

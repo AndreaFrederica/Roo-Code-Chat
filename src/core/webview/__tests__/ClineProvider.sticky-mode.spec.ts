@@ -430,6 +430,7 @@ describe("ClineProvider - Sticky Mode", () => {
 				cacheReads: 0,
 				totalCost: 0.001,
 				mode: "architect", // Saved mode
+				scope: "workspace" as const,
 			}
 
 			// Mock updateGlobalState to track mode updates
@@ -462,6 +463,7 @@ describe("ClineProvider - Sticky Mode", () => {
 				cacheWrites: 0,
 				cacheReads: 0,
 				totalCost: 0.001,
+				scope: "workspace" as const,
 				// No mode field
 			}
 
@@ -662,6 +664,7 @@ describe("ClineProvider - Sticky Mode", () => {
 				cacheReads: 0,
 				totalCost: 0.001,
 				mode: null as any, // Invalid mode
+				scope: "workspace" as const,
 			}
 
 			// Mock getTaskWithId
@@ -715,6 +718,7 @@ describe("ClineProvider - Sticky Mode", () => {
 				cacheReads: 0,
 				totalCost: 0.001,
 				mode: "architect", // Task was created in architect mode
+				scope: "workspace" as const,
 			}
 
 			// Restore the task from history
@@ -744,6 +748,7 @@ describe("ClineProvider - Sticky Mode", () => {
 				cacheReads: 0,
 				totalCost: 0.001,
 				mode: "deleted-mode", // Mode that doesn't exist
+				scope: "workspace" as const,
 			}
 
 			// Mock getModeBySlug to return undefined for deleted mode
@@ -1147,6 +1152,7 @@ describe("ClineProvider - Sticky Mode", () => {
 				cacheReads: 0,
 				totalCost: 0.001,
 				mode: "architect",
+				scope: "workspace" as const,
 			}
 
 			// Mock getTaskWithId to be slow

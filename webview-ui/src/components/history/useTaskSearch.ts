@@ -30,10 +30,10 @@ export const useTaskSearch = () => {
 		// 根据筛选条件过滤任务
 		if (showGlobalOnly) {
 			// 只显示全局对话
-			tasks = tasks.filter((item) => item.isGlobal === true)
+			tasks = tasks.filter((item) => item.scope === "global")
 		} else if (!showAllWorkspaces) {
-			// 只显示当前工作区的对话（非全局）
-			tasks = tasks.filter((item) => item.workspace === cwd && item.isGlobal !== true)
+			// 只显示当前工作区的对话和全局对话
+			tasks = tasks.filter((item) => item.workspace === cwd || item.scope === "global")
 		}
 		// showAllWorkspaces 为 true 时显示所有对话（包括全局和工作区）
 

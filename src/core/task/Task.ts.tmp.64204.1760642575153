@@ -916,15 +916,12 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		}
 
 		// Wait for askResponse to be set.
-		console.log(`[Task] ask method waiting: askResponse=${this.askResponse !== undefined ? 'set' : 'not set'}, lastMessageTs=${this.lastMessageTs}, askTs=${askTs}`)
 		await pWaitFor(() => this.askResponse !== undefined || this.lastMessageTs !== askTs, { interval: 100 })
 
-		console.log(`[Task] ask method wait completed: askResponse=${this.askResponse !== undefined ? 'set' : 'not set'}, lastMessageTs=${this.lastMessageTs}, askTs=${askTs}`)
 		if (this.lastMessageTs !== askTs) {
 			// Could happen if we send multiple asks in a row i.e. with
 			// command_output. It's important that when we know an ask could
 			// fail, it is handled gracefully.
-			console.log(`[Task] ERROR: ask promise was ignored! lastMessageTs=${this.lastMessageTs} !== askTs=${askTs}`)
 			throw new Error("Current ask promise was ignored")
 		}
 
@@ -953,7 +950,6 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	}
 
 	handleWebviewAskResponse(askResponse: ClineAskResponse, text?: string, images?: string[]) {
-		console.log(`[Task] handleWebviewAskResponse called: askResponse="${askResponse}", text="${text?.slice(0, 50)}...", images=${images?.length || 0}`)
 		this.askResponse = askResponse
 		this.askResponseText = text
 		this.askResponseImages = images
@@ -977,10 +973,11 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			}
 			console.log(`[Task] Added user message to userMessageContent: text="${text?.slice(0, 50)}...", images=${images?.length || 0}, total content blocks=${this.userMessageContent.length}`)
 
-			// CRITICAL FIX: Don't immediately display user feedback during resume prompts
-			// This would interfere with the ask method waiting logic by changing lastMessageTs
-			// Instead, let the resumeTaskFromHistory method handle the display
-			console.log(`[Task] Skipping immediate user_feedback display during resume to avoid interfering with ask wait logic`)
+			// CRITICAL FIX: Display user message in chat interface immediately
+			// This ensures user messages are visible regardless of mode or tool usage
+			this.say("user_feedback", text, images).catch((error) => {
+				console.error("Failed to display user message:", error)
+			})
 		}
 
 		// Mark the last follow-up question as answered
@@ -1456,33 +1453,49 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		let responseImages: string[] | undefined
 
 		if (response === "messageResponse") {
-			console.log(`[Task] Received messageResponse during resume: text="${text?.slice(0, 50)}...", images=${images?.length || 0}`)
 			await this.say("user_feedback", text, images)
 			responseText = text
 			responseImages = images
-			console.log(`[Task] Set responseText="${responseText?.slice(0, 50)}...", responseImages=${responseImages?.length || 0}`)
+		}
 
-			// CRITICAL FIX: Clear userMessageContent since the message was already processed via messageResponse
-			// This prevents duplicate processing and ensures clean state
-			if (this.userMessageContent.length > 0) {
-				console.log(`[Task] Clearing ${this.userMessageContent.length} pending messages after messageResponse`)
-				this.userMessageContent = []
+			// CRITICAL FIX: Check if user sent messages while waiting for resume prompt
+		// If user sent messages but didn't include them in the resume response, add them
+		// But avoid double-displaying messages that were already shown via user_feedback
+		if (this.userMessageContent.length > 0 && response === "yesButtonClicked" && !responseText && !responseImages) {
+			console.log(`[Task] User clicked resume button but also sent ${this.userMessageContent.length} messages, adding them to response`)
+
+			// Extract the first user message as continuation
+			const firstMessage = this.userMessageContent[0]
+			if (firstMessage.type === "text") {
+				responseText = firstMessage.text
 			}
 
-			// CRITICAL FIX: User sent message instead of clicking resume button
-			// This should auto-continue the task without adding any resume prompt message
-			console.log(`[Task] AUTO-RESUME: User sent message during resume prompt, continuing immediately`)
-		} else if (response === "yesButtonClicked") {
-			console.log(`[Task] Received yesButtonClicked during resume: text="${text?.slice(0, 50)}...", images=${images?.length || 0}`)
-			responseText = text
-			responseImages = images
-			console.log(`[Task] Set responseText="${responseText?.slice(0, 50)}...", responseImages=${responseImages?.length || 0}`)
+			// Collect any images
+			const imageMessages = this.userMessageContent.filter(msg => msg.type === "image")
+			if (imageMessages.length > 0) {
+				responseImages = imageMessages.map(msg => msg.source.data)
+			}
 
-			// If user provided text/images with the resume button click, include them
-			if (responseText || responseImages) {
-				console.log(`[Task] User provided additional content with resume button`)
+			// Clear the processed messages
+			this.userMessageContent = []
+
+			// Check if we're in chat mode with allowNoToolsInChatMode enabled
+			const state = await this.providerRef.deref()?.getState()
+			const allowNoToolsInChatMode = state?.allowNoToolsInChatMode ?? false
+			const currentMode = state?.mode ?? defaultModeSlug
+
+			if (allowNoToolsInChatMode && currentMode === "chat") {
+				// In chat mode with allowNoToolsInChatMode enabled, we want to process user messages normally
+				// This includes both text and images that were sent during the interruption
+				console.log(`[Task] Chat mode with allowNoToolsInChatMode enabled, processing user messages (text: ${responseText ? 'yes' : 'no'}, images: ${responseImages ? responseImages.length : 0})`)
+				// Keep responseText and responseImages as they are to be processed normally
 			} else {
-				console.log(`[Task] User clicked resume button without additional content`)
+				// In non-chat mode or when allowNoToolsInChatMode is disabled,
+				// avoid double-displaying messages that were already shown via user_feedback
+				// This is the original behavior
+				console.log(`[Task] User messages already displayed via user_feedback, will not add to conversation history (original behavior)`)
+				responseText = undefined
+				responseImages = undefined
 			}
 		}
 
@@ -1630,7 +1643,6 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		})()
 
 		if (responseText) {
-			console.log(`[Task] Adding user message to newUserContent: "${responseText.slice(0, 50)}..."`)
 			newUserContent.push({
 				type: "text",
 				text: `\n\nNew instructions for task continuation:\n<user_message>\n${responseText}\n</user_message>`,
@@ -1638,11 +1650,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		}
 
 		if (responseImages && responseImages.length > 0) {
-			console.log(`[Task] Adding ${responseImages.length} images to newUserContent`)
 			newUserContent.push(...formatResponse.imageBlocks(responseImages))
 		}
-
-		console.log(`[Task] Final newUserContent length: ${newUserContent.length}, starting task loop`)
 
 		// Ensure we have at least some content to send to the API.
 		// If newUserContent is empty, add a minimal resumption message.
@@ -1905,26 +1914,19 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 					// CRITICAL FIX: In chat mode, don't exit the loop. Instead, wait for new user messages
 					this.emit(RooCodeEventName.TaskIdle, this.taskId)
 
-					// Wait for new user messages to be added via handleWebviewAskResponse or message queue
-					console.log("[Task] Chat mode: Waiting for new user messages or queue messages...")
-					await pWaitFor(() => this.userMessageContent.length > 0 || !this.messageQueueService.isEmpty() || this.abort, { interval: 100 })
+					// Wait for new user messages to be added via handleWebviewAskResponse
+					console.log("[Task] Chat mode: Waiting for new user messages...")
+					await pWaitFor(() => this.userMessageContent.length > 0 || this.abort, { interval: 100 })
 
 					if (this.abort) {
 						break
 					}
 
-					// CRITICAL FIX: Process both direct messages and queued messages in chat mode
-					// First, check if there are queued messages to process
-					if (!this.messageQueueService.isEmpty()) {
-						console.log("[Task] Chat mode: Processing queued messages")
-						this.processQueuedMessages()
-					}
-
-					// Then process direct user messages
+					// Process the new user messages
 					nextUserContent = [...this.userMessageContent]
 					this.userMessageContent = [] // Clear after consuming
-					console.log(`[Task] Chat mode: Processing ${nextUserContent.length} direct user messages`)
-					// Continue the loop to process the messages
+					console.log(`[Task] Chat mode: Processing ${nextUserContent.length} new user messages`)
+					// Continue the loop to process the new messages
 				} else {
 					nextUserContent = [{ type: "text", text: formatResponse.noToolsUsed() }]
 					this.consecutiveMistakeCount++
@@ -3545,24 +3547,11 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			if (!this.messageQueueService.isEmpty()) {
 				const queued = this.messageQueueService.dequeueMessage()
 				if (queued) {
-					console.log(`[Task] Processing queued message: "${queued.text?.slice(0, 50)}...", images=${queued.images?.length || 0}`)
-
-					// CRITICAL FIX: Ensure queued messages are displayed with user name and chat bubble
-					// First, display the message in the chat interface
-					this.say("user_feedback", queued.text, queued.images).catch((error) => {
-						console.error("Failed to display queued user message:", error)
-					})
-
-					// Then, add the message content to userMessageContent for processing
-					if (queued.text && queued.text.trim()) {
-						this.userMessageContent.push({ type: "text", text: queued.text.trim() })
-					}
-					if (queued.images && queued.images.length > 0) {
-						const imageBlocks = formatResponse.imageBlocks(queued.images)
-						this.userMessageContent.push(...imageBlocks)
-					}
-
-					console.log(`[Task] Added queued message to userMessageContent: total blocks=${this.userMessageContent.length}`)
+					setTimeout(() => {
+						this.submitUserMessage(queued.text, queued.images).catch((err) =>
+							console.error(`[Task] Failed to submit queued message:`, err),
+						)
+					}, 0)
 				}
 			}
 		} catch (e) {
