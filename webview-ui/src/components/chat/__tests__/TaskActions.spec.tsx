@@ -73,6 +73,7 @@ describe("TaskActions", () => {
 		tokensOut: 200,
 		totalCost: 0.01,
 		size: 1024,
+		scope: "workspace",
 	}
 
 	beforeEach(() => {

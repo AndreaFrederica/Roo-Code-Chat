@@ -98,7 +98,7 @@ const TaskItem = ({
 					{/* Show workspace or global indicator */}
 					{showWorkspace && (
 						<div className="flex flex-row gap-1 text-vscode-descriptionForeground text-xs mt-1">
-							{item.isGlobal ? (
+							{item.scope === "global" ? (
 								<>
 									<span className="codicon codicon-globe scale-80" />
 									<span>全局对话</span>
@@ -113,7 +113,7 @@ const TaskItem = ({
 					)}
 
 					{/* Always show global indicator for global conversations */}
-					{item.isGlobal && !showWorkspace && (
+					{item.scope === "global" && !showWorkspace && (
 						<div className="flex flex-row gap-1 text-vscode-charts-blue text-xs mt-1">
 							<span className="codicon codicon-globe scale-80" />
 							<span>全局</span>

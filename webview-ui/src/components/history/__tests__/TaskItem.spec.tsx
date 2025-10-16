@@ -24,6 +24,7 @@ const mockTask = {
 	tokensOut: 50,
 	totalCost: 0.002,
 	workspace: "/test/workspace",
+	scope: "workspace" as const,
 }
 
 describe("TaskItem", () => {

@@ -49,6 +49,7 @@ describe("ShareButton", () => {
 		tokensIn: 100,
 		tokensOut: 50,
 		totalCost: 0.01,
+		scope: "workspace" as const,
 	}
 
 	beforeEach(() => {

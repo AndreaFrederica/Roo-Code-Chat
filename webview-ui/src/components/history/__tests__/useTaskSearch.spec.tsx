@@ -26,6 +26,7 @@ const mockTaskHistory: HistoryItem[] = [
 		tokensOut: 50,
 		totalCost: 0.01,
 		workspace: "/workspace/project1",
+		scope: "workspace",
 	},
 	{
 		id: "task-2",
@@ -38,6 +39,7 @@ const mockTaskHistory: HistoryItem[] = [
 		cacheWrites: 25,
 		cacheReads: 10,
 		workspace: "/workspace/project1",
+		scope: "workspace",
 	},
 	{
 		id: "task-3",
@@ -48,6 +50,7 @@ const mockTaskHistory: HistoryItem[] = [
 		tokensOut: 75,
 		totalCost: 0.05,
 		workspace: "/workspace/project2",
+		scope: "workspace",
 	},
 ]
 
