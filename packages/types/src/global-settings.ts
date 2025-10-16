@@ -206,6 +206,7 @@ export const globalSettingsSchema = z.object({
 	anhUseAskTool: z.boolean().optional(),
 	anhChatModeHideTaskCompletion: z.boolean().optional(),
 	anhShowRoleCardOnSwitch: z.boolean().optional(),
+	allowNoToolsInChatMode: z.boolean().optional(),
 	anhExtensionsEnabled: z.record(z.string(), z.boolean()).optional(),
 	anhExtensionSettings: z
 		.record(z.string(), z.record(z.string(), z.any()))
@@ -420,6 +421,7 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 	anhToneStrict: true,
 	anhUseAskTool: true,
 	anhChatModeHideTaskCompletion: true,
+	allowNoToolsInChatMode: false,
 	displayMode: "coding",
 	mcpEnabled: false,
 	enableUserAvatar: false,

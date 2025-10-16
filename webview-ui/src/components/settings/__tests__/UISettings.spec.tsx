@@ -8,6 +8,7 @@ describe("UISettings", () => {
 		hideRoleDescription: false,
 		anhChatModeHideTaskCompletion: false,
 		anhShowRoleCardOnSwitch: false,
+		allowNoToolsInChatMode: false,
 		setCachedStateField: vi.fn(),
 	}
 

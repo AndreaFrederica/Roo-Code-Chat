@@ -980,6 +980,16 @@ export async function presentAssistantMessage(cline: Task) {
 			// continue on and all potential content blocks be presented.
 			// Last block is complete and it is finished executing
 			cline.userMessageContentReady = true // Will allow `pWaitFor` to continue.
+			console.debug(
+				"[Task] userMessageContentReady set true",
+				JSON.stringify({
+					taskId: cline.taskId,
+					instanceId: cline.instanceId,
+					blockType: block.type,
+					didRejectTool: cline.didRejectTool,
+					didAlreadyUseTool: cline.didAlreadyUseTool,
+				}),
+			)
 		}
 
 		// Call next block if it exists (if not then read stream will call it

@@ -223,6 +223,8 @@ export interface ExtensionStateContextType extends ExtendedExtensionState {
 	setUserAvatarRole: (value: Role | undefined) => void
 	hideRoleDescription?: boolean
 	setHideRoleDescription: (value: boolean) => void
+	allowNoToolsInChatMode?: boolean
+	setAllowNoToolsInChatMode: (value: boolean) => void
 	anhExtensionsRuntime?: AnhExtensionRuntimeState[]
 	anhExtensionCapabilityRegistry?: AnhExtensionCapabilityRegistry
 	setAnhExtensionEnabled: (compositeKey: string, enabled: boolean) => void
@@ -289,6 +291,7 @@ export const mergeExtensionState = (prevState: ExtendedExtensionState, newState:
 	const experiments = { ...prevExperiments, ...newExperiments }
 	const rest = { ...prevRest, ...newRest }
 	const workspaceContextSettings = normalizeWorkspaceContextSettings(rest.workspaceContextSettings)
+	console.debug("[WorkspaceContext] hydrate state", workspaceContextSettings)
 	rest.workspaceContextSettings = workspaceContextSettings
 
 	const resolveVisibility = (): UserAvatarVisibility => {
@@ -424,6 +427,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		userAvatarHideFullData: false,
 		userAvatarRole: undefined,
 		hideRoleDescription: false,
+		allowNoToolsInChatMode: false,
 		anhShowRoleCardOnSwitch: false,
 		anhExtensionsEnabled: {},
 		anhExtensionSettings: {},
@@ -516,6 +520,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update anhShowRoleCardOnSwitch if present in state message
 					if ((newState as any).anhShowRoleCardOnSwitch !== undefined) {
 						setState((prevState) => ({ ...prevState, anhShowRoleCardOnSwitch: (newState as any).anhShowRoleCardOnSwitch }))
+					}
+					// Update allowNoToolsInChatMode if present in state message
+					if ((newState as any).allowNoToolsInChatMode !== undefined) {
+						setState((prevState) => ({ ...prevState, allowNoToolsInChatMode: (newState as any).allowNoToolsInChatMode }))
 					}
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {
@@ -742,6 +750,7 @@ const contextValue: ExtensionStateContextType = {
 					[key]: value,
 					}),
 			}))
+			console.debug("[WorkspaceContext] setWorkspaceContextSetting", { key, value })
 			vscode.postMessage({ type: "setWorkspaceContextSetting", workspaceContextKey: key, bool: value })
 		},
 		setAllWorkspaceContextSettings: (value) => {
@@ -750,6 +759,7 @@ const contextValue: ExtensionStateContextType = {
 				return acc
 			}, { ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS })
 			setState((prevState) => ({ ...prevState, workspaceContextSettings: next }))
+			console.debug("[WorkspaceContext] setAllWorkspaceContextSettings", next)
 			vscode.postMessage({ type: "setWorkspaceContextSettings", workspaceContextSettings: next })
 		},
 		setBrowserToolEnabled: (value) => setState((prevState) => ({ ...prevState, browserToolEnabled: value })),
@@ -846,6 +856,8 @@ const contextValue: ExtensionStateContextType = {
 		setUserAvatarRole: (value) => setState((prevState) => ({ ...prevState, userAvatarRole: value })),
 	hideRoleDescription: state.hideRoleDescription ?? false,
 	setHideRoleDescription: (value) => setState((prevState) => ({ ...prevState, hideRoleDescription: value })),
+	allowNoToolsInChatMode: state.allowNoToolsInChatMode ?? false,
+	setAllowNoToolsInChatMode: (value) => setState((prevState) => ({ ...prevState, allowNoToolsInChatMode: value })),
 	anhExtensionSettings: state.anhExtensionSettings ?? {},
 	setAnhExtensionSettings: (value) => setState((prevState) => ({ ...prevState, anhExtensionSettings: value })),
 	updateAnhExtensionSetting: (id, key, value) => {

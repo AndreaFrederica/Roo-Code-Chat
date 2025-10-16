@@ -284,6 +284,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		enableUserAvatar,
 		userAvatarVisibility,
 		hideRoleDescription,
+		allowNoToolsInChatMode,
 		enabledTSProfiles,
 		anhTsProfileAutoInject,
 		anhTsProfileVariables,
@@ -522,6 +523,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({ type: "anhChatModeHideTaskCompletion", bool: anhChatModeHideTaskCompletion ?? true })
 			vscode.postMessage({ type: "anhShowRoleCardOnSwitch", bool: anhShowRoleCardOnSwitch ?? false })
 			vscode.postMessage({ type: "hideRoleDescription", bool: hideRoleDescription ?? false })
+			vscode.postMessage({ type: "allowNoToolsInChatMode", bool: allowNoToolsInChatMode ?? false })
 			vscode.postMessage({ type: "updateAnhExtensionSettings", values: cachedAnhExtensionSettings ?? {} })
 			setContextAnhExtensionSettings?.(cachedAnhExtensionSettings ?? {})
 			setHideRoleDescription?.(hideRoleDescription ?? false)
@@ -668,6 +670,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		anhChatModeHideTaskCompletion,
 		anhShowRoleCardOnSwitch,
 		hideRoleDescription,
+		allowNoToolsInChatMode,
 		cachedAnhExtensionSettings,
 		setContextAnhExtensionSettings,
 		setHideRoleDescription,
@@ -1141,6 +1144,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							anhChatModeHideTaskCompletion={anhChatModeHideTaskCompletion ?? true}
 							anhShowRoleCardOnSwitch={anhShowRoleCardOnSwitch ?? false}
 							hideRoleDescription={hideRoleDescription ?? false}
+							allowNoToolsInChatMode={allowNoToolsInChatMode ?? false}
 							setCachedStateField={setCachedStateField}
 						/>
 					)}

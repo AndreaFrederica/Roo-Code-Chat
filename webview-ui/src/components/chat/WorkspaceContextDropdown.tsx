@@ -112,16 +112,19 @@ export const WorkspaceContextDropdown = ({
 	const handleToggle = React.useCallback(
 		(key: WorkspaceContextSettingKey) => {
 			const current = workspaceContextSettings[key]
+			console.debug("[WorkspaceContext] dropdown toggle", { key, next: !current })
 			setWorkspaceContextSetting(key, !current)
 		},
 		[workspaceContextSettings, setWorkspaceContextSetting],
 	)
 
 	const handleSelectAll = React.useCallback(() => {
+		console.debug("[WorkspaceContext] dropdown select all")
 		setAllWorkspaceContextSettings(true)
 	}, [setAllWorkspaceContextSettings])
 
 	const handleSelectNone = React.useCallback(() => {
+		console.debug("[WorkspaceContext] dropdown select none")
 		setAllWorkspaceContextSettings(false)
 	}, [setAllWorkspaceContextSettings])
 
@@ -238,4 +241,3 @@ export const WorkspaceContextDropdown = ({
 		</Popover>
 	)
 }
-

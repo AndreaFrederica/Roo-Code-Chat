@@ -7,6 +7,7 @@ import {
 	SECRET_STATE_KEYS,
 	GLOBAL_STATE_KEYS,
 	GLOBAL_SECRET_KEYS,
+	DEFAULT_WORKSPACE_CONTEXT_SETTINGS,
 	type ProviderSettings,
 	type GlobalSettings,
 	type SecretState,
@@ -59,6 +60,21 @@ export class ContextProxy {
 				this.stateCache[key] = this.originalContext.globalState.get(key)
 			} catch (error) {
 				logger.error(`Error loading global ${key}: ${error instanceof Error ? error.message : String(error)}`)
+			}
+		}
+
+		const workspaceContextSettings = this.stateCache.workspaceContextSettings
+
+		if (!workspaceContextSettings || typeof workspaceContextSettings !== "object") {
+			const defaults = { ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS }
+			this.stateCache.workspaceContextSettings = defaults
+
+			try {
+				await this.originalContext.globalState.update("workspaceContextSettings", defaults)
+			} catch (error) {
+				logger.error(
+					`Error initializing workspaceContextSettings: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 		}
 

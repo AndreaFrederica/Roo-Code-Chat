@@ -433,6 +433,7 @@ export type ExtensionState = Pick<
 	| "tsProfilesHasChanges"
 	| "memorySystemEnabled"
 	| "memoryToolsEnabled"
+	| "allowNoToolsInChatMode"
 > & {
 	enabledTSProfiles?: string[]
 	anhTsProfileAutoInject?: boolean

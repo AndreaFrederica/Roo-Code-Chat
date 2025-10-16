@@ -21,7 +21,7 @@ import { formatResponse } from "../prompts/responses"
 import { Task } from "../task/Task"
 import { formatReminderSection } from "./reminder"
 
-export async function getEnvironmentDetails(cline: Task, includeFileDetails: boolean = false) {
+export async function getEnvironmentDetails(cline: Task, includeFileDetails: boolean = true) {
 	let details = ""
 
 	const clineProvider = cline.providerRef.deref()
@@ -33,11 +33,14 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 		maxOpenTabsContext,
 	} = state ?? {}
 
-	const workspaceContextSettings = {
-		...DEFAULT_WORKSPACE_CONTEXT_SETTINGS,
-		...(state?.workspaceContextSettings ?? {}),
-	} as Record<WorkspaceContextSettingKey, boolean>
-	const isContextEnabled = (key: WorkspaceContextSettingKey) => workspaceContextSettings[key] === true
+	// Workspace context settings
+	const workspaceContextSettings = state?.workspaceContextSettings
+	const mergedWorkspaceContextSettings = workspaceContextSettings 
+		? { ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS, ...workspaceContextSettings }
+		: DEFAULT_WORKSPACE_CONTEXT_SETTINGS
+	console.log(`[WorkspaceContext] getEnvironmentDetails workspaceContextSettings:`, workspaceContextSettings)
+	console.log(`[WorkspaceContext] getEnvironmentDetails mergedWorkspaceContextSettings:`, mergedWorkspaceContextSettings)
+	const isContextEnabled = (key: WorkspaceContextSettingKey) => mergedWorkspaceContextSettings[key] === true
 
 	// It could be useful for cline to know if the user went from one or no
 	// file to another between messages, so we always include this context.
@@ -62,6 +65,8 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 	}
 
 	if (isContextEnabled("openTabs")) {
+		details += "\n\n# VSCode Open Tabs"
+		
 		const maxTabs = maxOpenTabsContext ?? 20
 		const openTabPaths = vscode.window.tabGroups.all
 			.flatMap((group) => group.tabs)

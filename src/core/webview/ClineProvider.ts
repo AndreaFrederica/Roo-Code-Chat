@@ -2171,6 +2171,7 @@ export class ClineProvider
 			enabledTSProfiles,
 			anhTsProfileAutoInject,
 			anhTsProfileVariables,
+			allowNoToolsInChatMode,
 		} = await this.getState()
 
 		const resolvedUserAvatarVisibility =
@@ -2358,6 +2359,7 @@ export class ClineProvider
 			anhTsProfileAutoInject: anhTsProfileAutoInject ?? true,
 			anhTsProfileVariables: anhTsProfileVariables ?? {},
 			tsProfilesHasChanges: false, // Default to false for backend state
+			allowNoToolsInChatMode: allowNoToolsInChatMode ?? false,
 			sillyTavernWorldBookState: this.anhChatServices?.worldBookService
 				? this.anhChatServices.worldBookService.getState()
 				: {
@@ -2402,6 +2404,7 @@ export class ClineProvider
 		}
 
 		stateValues.workspaceContextSettings = workspaceContextSettings
+		this.log(`[WorkspaceContext] getState normalized: ${JSON.stringify(workspaceContextSettings)}`)
 		const customModes = await this.customModesManager.getCustomModes()
 
 		// Determine apiProvider with the same logic as before.
@@ -2634,6 +2637,7 @@ export class ClineProvider
 			})(),
 			hideRoleDescription: stateValues.hideRoleDescription,
 			enabledWorldsets: stateValues.enabledWorldsets,
+			workspaceContextSettings: stateValues.workspaceContextSettings,
 			anhExtensionsEnabled: stateValues.anhExtensionsEnabled ?? {},
 			anhExtensionSettings: stateValues.anhExtensionSettings ?? {},
 			anhExtensionsHasChanges: false, // Default to false for backend state
@@ -2641,6 +2645,7 @@ export class ClineProvider
 			anhTsProfileAutoInject: stateValues.anhTsProfileAutoInject ?? true,
 			anhTsProfileVariables: stateValues.anhTsProfileVariables ?? {},
 			tsProfilesHasChanges: false, // Default to false for backend state
+			allowNoToolsInChatMode: stateValues.allowNoToolsInChatMode ?? false,
 			sillyTavernWorldBookState: this.anhChatServices?.worldBookService
 				? this.anhChatServices.worldBookService.getState()
 				: {

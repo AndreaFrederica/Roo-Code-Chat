@@ -1818,8 +1818,41 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				// the user hits max requests and denies resetting the count.
 				break
 			} else {
-				nextUserContent = [{ type: "text", text: formatResponse.noToolsUsed() }]
-				this.consecutiveMistakeCount++
+				// Check if we should skip noToolsUsed validation in chat mode
+				const state = await this.providerRef.deref()?.getState()
+				const allowNoToolsInChatMode = state?.allowNoToolsInChatMode ?? false
+				const currentMode = state?.mode ?? defaultModeSlug
+				this.providerRef.deref()?.log(
+					`[Task] allowNoToolsInChatMode=${allowNoToolsInChatMode} mode=${currentMode} didAlreadyUseTool=${this.didAlreadyUseTool} didRejectTool=${this.didRejectTool}`,
+				)
+				
+				// Skip noToolsUsed validation if in chat mode and setting is enabled
+				if (allowNoToolsInChatMode && currentMode === "chat") {
+					// In chat mode with allowNoToolsInChatMode enabled, we don't show the noToolsUsed error
+					// Instead, we break the loop to allow the conversation to continue naturally
+					
+					// Mark stream as complete and finalize any partial content blocks
+					this.didCompleteReadingStream = true
+					const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
+					partialBlocks.forEach((block) => (block.partial = false))
+					
+					// Finalize content blocks and present the message to set userMessageContentReady
+					this.assistantMessageParser.finalizeContentBlocks()
+					this.assistantMessageContent = this.assistantMessageParser.getContentBlocks()
+					
+					if (partialBlocks.length > 0 || this.assistantMessageContent.length > 0) {
+						presentAssistantMessage(this)
+					} else {
+						// If no content to present, directly set userMessageContentReady
+						this.userMessageContentReady = true
+					}
+					this.userMessageContent = []
+					this.emit(RooCodeEventName.TaskIdle, this.taskId)
+					break
+				} else {
+					nextUserContent = [{ type: "text", text: formatResponse.noToolsUsed() }]
+					this.consecutiveMistakeCount++
+				}
 			}
 		}
 	}
@@ -1828,6 +1861,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		userContent: Anthropic.Messages.ContentBlockParam[],
 		includeFileDetails: boolean = false,
 	): Promise<boolean> {
+		// Reset userMessageContentReady at the start of each request cycle
+		this.userMessageContentReady = false
+		
 		interface StackItem {
 			userContent: Anthropic.Messages.ContentBlockParam[]
 			includeFileDetails: boolean
@@ -2430,6 +2466,12 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 					// chooses not to call a tool. Forcing another turn here caused the UI
 					// to appear "stuck" even after the model finished responding.
 
+					this.providerRef
+						.deref()
+						?.log(
+							`[Task] post-response userMessageContent length=${this.userMessageContent.length} didAlreadyUseTool=${this.didAlreadyUseTool} didRejectTool=${this.didRejectTool}`,
+						)
+
 					if (this.userMessageContent.length > 0) {
 						stack.push({
 							userContent: [...this.userMessageContent], // Create a copy to avoid mutation issues
@@ -2438,6 +2480,15 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 						// Add periodic yielding to prevent blocking
 						await new Promise((resolve) => setImmediate(resolve))
+					}
+					const currentState = await this.providerRef.deref()?.getState()
+					const allowNoTools = currentState?.allowNoToolsInChatMode ?? false
+					const currentMode = currentState?.mode ?? defaultModeSlug
+					if (allowNoTools && currentMode === "chat" && this.userMessageContent.length === 0) {
+						this.providerRef
+							.deref()
+							?.log("[Task] allowNoToolsInChatMode returning early without tool usage")
+						return false
 					}
 					// Continue to next iteration instead of setting didEndLoop from recursive call
 					continue

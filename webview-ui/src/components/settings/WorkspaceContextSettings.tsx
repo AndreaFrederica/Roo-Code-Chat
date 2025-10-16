@@ -120,6 +120,7 @@ export const WorkspaceContextSettings = ({
 		
 		// 使用缓存机制，与AutoApproveSettings保持一致
 		setCachedStateField("workspaceContextSettings", settings)
+		console.debug("[WorkspaceContext] handleToggleAll", settings)
 		
 		vscode.postMessage({
 			type: "setWorkspaceContextSettings",
@@ -134,6 +135,7 @@ export const WorkspaceContextSettings = ({
 			[key]: value
 		}
 		setCachedStateField("workspaceContextSettings", updatedSettings)
+		console.debug("[WorkspaceContext] handleToggleOption", { key, value, updatedSettings })
 		
 		vscode.postMessage({
 			type: "setWorkspaceContextSetting",

@@ -1745,14 +1745,17 @@ export const webviewMessageHandler = async (
 			break
 		}
 
-		const currentSettings =
-			(getGlobalState("workspaceContextSettings") as Record<WorkspaceContextSettingKey, boolean> | undefined) ?? {}
+		const currentSettings: Record<WorkspaceContextSettingKey, boolean> =
+			(getGlobalState("workspaceContextSettings") as Record<WorkspaceContextSettingKey, boolean> | undefined) ?? {} as Record<WorkspaceContextSettingKey, boolean>
 
 		const updatedSettings = {
 			...currentSettings,
 			[key]: message.bool ?? false,
 		}
 
+		provider.log(
+			`[WorkspaceContext] setWorkspaceContextSetting ${key} -> ${updatedSettings[key]} | before=${JSON.stringify(currentSettings)}`,
+		)
 		await updateGlobalState("workspaceContextSettings", updatedSettings)
 		await provider.postStateToWebview()
 		break
@@ -1763,6 +1766,7 @@ export const webviewMessageHandler = async (
 			break
 		}
 
+		provider.log(`[WorkspaceContext] setWorkspaceContextSettings bulk=${JSON.stringify(settings)}`)
 		await updateGlobalState("workspaceContextSettings", settings as Record<WorkspaceContextSettingKey, boolean>)
 		await provider.postStateToWebview()
 		break
@@ -2016,10 +2020,14 @@ export const webviewMessageHandler = async (
 			// No need to call postStateToWebview here as the UI already updated optimistically
 			break
 		case "hideRoleDescription":
-			await updateGlobalState("hideRoleDescription", message.bool ?? false)
-			// No need to call postStateToWebview here as the UI already updated optimistically
-			break
-		case "updateAnhExtensionSettings":
+		await updateGlobalState("hideRoleDescription", message.bool ?? false)
+		// No need to call postStateToWebview here as the UI already updated optimistically
+		break
+	case "allowNoToolsInChatMode":
+		await updateGlobalState("allowNoToolsInChatMode", message.bool ?? false)
+		// No need to call postStateToWebview here as the UI already updated optimistically
+		break
+	case "updateAnhExtensionSettings":
 			if (message.text && message.values) {
 				const current = getGlobalState("anhExtensionSettings") ?? {}
 				const extensionId = message.text as string

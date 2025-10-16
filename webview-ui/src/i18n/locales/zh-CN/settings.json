@@ -959,6 +959,10 @@
 			"label": "隐藏角色描述",
 			"description": "启用后，角色描述将在界面中被隐藏"
 		},
+		"allowNoToolsInChatMode": {
+			"label": "聊天模式下允许不使用工具",
+			"description": "启用后，在聊天模式下即使没有使用工具也不会显示警告提示"
+		},
 		"anhHistoryDisplayMode": {
 			"label": "历史记录显示模式",
 			"description": "选择在侧边栏中如何显示任务历史记录"

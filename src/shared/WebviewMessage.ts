@@ -282,6 +282,7 @@ export interface WebviewMessage {
 		| "anhTsProfileAutoInject"
 		| "anhTsProfileVariables"
 		| "hideRoleDescription"
+		| "allowNoToolsInChatMode"
 		| "STWordBookToggle"
 		| "STWordBookAdd"
 		| "STWordBookRemove"
