@@ -29,6 +29,27 @@
 
 ---
 
+### 相关项目（小说助手）
+
+通过小说助手 将您的Code变成专业的小说IDE
+
+https://github.com/AndreaFrederica/andrea-novel-helper
+
+https://marketplace.visualstudio.com/items?itemName=andreafrederica.andrea-novel-helper
+
+https://open-vsx.org/extension/andreafrederica/andrea-novel-helper
+
+## 为什么要写Anh Chat 
+
+怎么说呢 当时做这个东西是想写小说的时候和小说里的角色能对话 
+后面就先加入酒馆兼容性的支持了
+不过对完备的Profile和插件系统尚未做兼容就是了
+目前世界书 角色卡（V2）还是能用的 
+
+比起酒馆注重聊天能力 Anh Chat（下文称Chat）更注重保留Agent能力的基础上增加聊天能力 
+
+最后就莫名其妙的续写能力和写作辅助能力比较强 但是聊天能力也还不错这样了 
+
 ## Anh Chat 能为您做什么？
 
 ### 🎭 角色聊天系统
@@ -104,12 +125,47 @@ Anh Chat 继承了 Roo Code 的强大模式系统，并在此基础上增强了�
 └── novel-helper/
     └── .anh-chat/
         ├── roles/
+        │   ├── [SillyTavern].png             # 示例角色卡
         │   ├── index.json          # 角色索引文件
-        │   └── [角色UUID].json     # 具体角色配置文件
-        ├── conversations/          # 对话历史
+        │   └── [角色UUID].json      # 具体角色配置文件
+        ├── tsprofile/               # SillyTavern 预设
+        │   └── [预设名称].json
+        ├── worldbooks/              # SillyTavern 世界书
+        │   └── [世界书名称].json
+        ├── Worldset/                # Anh Chat 世界设定集
+        │   └── [设置名称].md
+        ├── extension                # js扩展
+        │   └── [扩展名称]
+        │       ├── index.mjs
+        │       └── extension.json
         ├── memory/                 # 记忆存储
-        ├── storylines/            # 故事线
-        └── timelines/             # 时间线
+        ├── storylines/             # 故事线
+        └── timelines/              # 时间线
+```
+
+或者 可以使用全局配置目录（适用于所有项目）：
+
+```
+用户主目录/
+└── .anh-chat/
+    ├── roles/
+    │   ├── [SillyTavern].png   # 示例角色卡
+    │   ├── index.json          # 角色索引文件
+    │   └── [角色UUID].json      # 具体角色配置文件
+    ├── tsprofile/               # SillyTavern 预设
+    │   └── [预设名称].json
+    ├── worldbooks/              # SillyTavern 世界书
+    │   └── [世界书名称].json
+    ├── Worldset/                # Anh Chat 世界设定集
+    │   └── [设置名称].md
+    ├── extension                # js扩展
+    │   └── [扩展名称]
+    │       ├── index.mjs
+    │       └── extension.json
+    ├── memory/                 # 记忆存储
+    ├── storylines/             # 故事线
+    └── timelines/              # 时间线
+    
 ```
 
 ### 🎭 角色配置文件格式
@@ -199,9 +255,9 @@ Anh Chat 继承了 Roo Code 的强大模式系统，并在此基础上增强了�
 
 ## 社区讨论
 
-<div align="center">
-
-📝 **[GitHub Discussions](https://github.com/AndreaFrederica/andrea-novel-helper/discussions)** 
+**[GitHub Discussions](https://github.com/AndreaFrederica/andrea-novel-helper/discussions)** 
+**[Discord 频道](https://discord.gg/YeVAXeKX)**
+**[QQ群 小说助手用户反馈与交流](https://qm.qq.com/q/SG5A3XLoSQ)**
 
 在这里您可以：
 - 💬 参与社区讨论
@@ -210,7 +266,6 @@ Anh Chat 继承了 Roo Code 的强大模式系统，并在此基础上增强了�
 - 🐛 报告问题和获取帮助
 - 📚 查看常见问题解答
 
-</div>
 
 ## 资源
 
@@ -290,13 +345,13 @@ pnpm install:vsix [-y] [--editor=<command>]
 
 ## 免责声明
 
-**请注意** Roo Code, Inc ,Andrea Frederica **不对**与 Anh Chat、任何相关第三方工具或任何结果输出相关提供或提供的任何代码、模型或其他工具做出任何陈述或保证。您承担与使用任何此类工具或输出相关的**所有风险**；此类工具按**"原样"**和**"可用"**基础提供。此类风险可能包括但不限于知识产权侵权、网络漏洞或攻击、偏见、不准确、错误、缺陷、病毒、停机、财产损失或损坏和/或人身伤害。您对使用任何此类工具或输出（包括但不限于其合法性、适当性和结果）承担全部责任。
+**请注意** Roo Code, Inc ,Andrea Frederica **不对**与 Anh Chat、任何相关第三方工具或任何结果输出相关提供或提供的任何代码、模型或其他工具做出**任何陈述或保证**。您承担与使用任何此类工具或输出相关的**所有风险**；此类工具按 **"原样"** 和 **"可用"** 基础提供。此类风险可能包括但不限于 **知识产权侵权** 、**网络漏洞或攻击** 、**偏见** 、**不准确** 、**错误** 、**缺陷** 、**病毒** 、**停机** 、**财产损失或损坏** 和/或 **人身伤害** 。您对使用任何此类工具或输出（包括但不限于其合法性、适当性和结果）**承担全部责任**。
 
 ---
 
 ## 贡献
 
-我们喜欢社区贡献！通过阅读我们的 [CONTRIBUTING.md](CONTRIBUTING.md) 开始。
+我们喜欢社区贡献！通过阅读我们的 [CONTRIBUTING.md](CONTRIBUTING.md) 开始。 
 **文本尚未更新，如果您要贡献聊天组件部分 请勿提交到上游的 Roo Code 仓库，为 Roo Code 项目造成困扰**
 
 ---
