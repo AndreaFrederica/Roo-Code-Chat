@@ -158,6 +158,8 @@ export async function presentAssistantMessage(cline: Task) {
 		// content block and are ready to continue to next request.
 		if (cline.didCompleteReadingStream) {
 			cline.userMessageContentReady = true
+			// Notify frontend that user message content is ready
+			await cline.providerRef.deref()?.postStateToWebview()
 		}
 
 		cline.presentAssistantMessageLocked = false
@@ -980,6 +982,8 @@ export async function presentAssistantMessage(cline: Task) {
 			// continue on and all potential content blocks be presented.
 			// Last block is complete and it is finished executing
 			cline.userMessageContentReady = true // Will allow `pWaitFor` to continue.
+			// Notify frontend that user message content is ready
+			await cline.providerRef.deref()?.postStateToWebview()
 			console.debug(
 				"[Task] userMessageContentReady set true",
 				JSON.stringify({
@@ -1009,6 +1013,22 @@ export async function presentAssistantMessage(cline: Task) {
 	// Block is partial, but the read stream may have finished.
 	if (cline.presentAssistantMessageHasPendingUpdates) {
 		presentAssistantMessage(cline)
+	} else {
+		// 🔧 NEW: In chat mode, if stream is complete and no more content, ensure userMessageContentReady
+		const state = await cline.providerRef.deref()?.getState()
+		const allowNoToolsInChatMode = state?.allowNoToolsInChatMode ?? false
+		const currentMode = state?.mode ?? defaultModeSlug
+
+		if (allowNoToolsInChatMode &&
+			currentMode === "chat" &&
+			cline.didCompleteReadingStream &&
+			cline.currentStreamingContentIndex >= cline.assistantMessageContent.length &&
+			!cline.userMessageContentReady) {
+			cline.userMessageContentReady = true
+			cline.providerRef.deref()?.log("[Task] Chat mode: Stream complete, setting userMessageContentReady")
+			// Notify frontend that user message content is ready
+			await cline.providerRef.deref()?.postStateToWebview()
+		}
 	}
 }
 

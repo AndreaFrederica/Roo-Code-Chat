@@ -219,6 +219,11 @@
 				"command": "anh-cline.testMemoryRetrieval",
 				"title": "ANH Chat: Test Memory Retrieval",
 				"category": "%configuration.title%"
+			},
+			{
+				"command": "anh-cline.forceExitTask",
+				"title": "ANH Chat: Force Exit Task",
+				"category": "%configuration.title%"
 			}
 		],
 		"menus": {

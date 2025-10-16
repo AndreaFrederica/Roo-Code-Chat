@@ -38,8 +38,8 @@ export async function getEnvironmentDetails(cline: Task, includeFileDetails: boo
 	const mergedWorkspaceContextSettings = workspaceContextSettings 
 		? { ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS, ...workspaceContextSettings }
 		: DEFAULT_WORKSPACE_CONTEXT_SETTINGS
-	console.log(`[WorkspaceContext] getEnvironmentDetails workspaceContextSettings:`, workspaceContextSettings)
-	console.log(`[WorkspaceContext] getEnvironmentDetails mergedWorkspaceContextSettings:`, mergedWorkspaceContextSettings)
+	// console.log(`[WorkspaceContext] getEnvironmentDetails workspaceContextSettings:`, workspaceContextSettings)
+	// console.log(`[WorkspaceContext] getEnvironmentDetails mergedWorkspaceContextSettings:`, mergedWorkspaceContextSettings)
 	const isContextEnabled = (key: WorkspaceContextSettingKey) => mergedWorkspaceContextSettings[key] === true
 
 	// It could be useful for cline to know if the user went from one or no

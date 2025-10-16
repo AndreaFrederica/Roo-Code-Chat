@@ -2,6 +2,7 @@ import * as vscode from "vscode"
 import delay from "delay"
 
 import type { CommandId } from "@roo-code/types"
+import { RooCodeEventName } from "@roo-code/types"
 import { TelemetryService } from "@roo-code/telemetry"
 
 import { Package } from "../shared/package"
@@ -465,6 +466,57 @@ const getCommandsMap = ({
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
 			vscode.window.showErrorMessage(`记忆检索测试失败: ${message}`)
+		}
+	},
+	forceExitTask: async () => {
+		const visibleProvider = getVisibleProviderOrLog(outputChannel)
+		if (!visibleProvider) {
+			return
+		}
+
+		try {
+			const task = visibleProvider.getCurrentTask()
+			if (!task) {
+				vscode.window.showWarningMessage("没有活跃的任务需要退出。")
+				return
+			}
+
+			// 获取任务状态信息
+			const taskStateInfo = {
+				taskId: task.taskId,
+				userMessageContentReady: task.userMessageContentReady,
+				didCompleteReadingStream: task.didCompleteReadingStream,
+				currentStreamingContentIndex: task.currentStreamingContentIndex,
+				assistantMessageContentLength: task.assistantMessageContent.length,
+				userMessageContentLength: task.userMessageContent.length,
+				didAlreadyUseTool: task.didAlreadyUseTool,
+				didRejectTool: task.didRejectTool,
+			}
+
+			// 记录当前状态
+			outputChannel.appendLine(`[ForceExitTask] 当前任务状态: ${JSON.stringify(taskStateInfo, null, 2)}`)
+
+			// 强制设置状态以退出循环
+			task.userMessageContentReady = true
+			task.didCompleteReadingStream = true
+			task.userMessageContent = []
+
+			// 完成所有 partial 块
+			const partialBlocks = task.assistantMessageContent.filter((block: any) => block.partial)
+			partialBlocks.forEach((block: any) => (block.partial = false))
+
+			// 通知前端状态已更新
+			await visibleProvider.postStateToWebview()
+
+			// 触发 idle 事件
+			task.emit(RooCodeEventName.TaskIdle, task.taskId)
+
+			vscode.window.showInformationMessage("任务状态已强制重置。")
+			outputChannel.appendLine(`[ForceExitTask] 任务状态已强制重置: ${task.taskId}`)
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			vscode.window.showErrorMessage(`强制退出任务失败: ${message}`)
+			outputChannel.appendLine(`[ForceExitTask] 错误: ${message}`)
 		}
 	},
 })

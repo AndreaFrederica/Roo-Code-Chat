@@ -1753,9 +1753,9 @@ export const webviewMessageHandler = async (
 			[key]: message.bool ?? false,
 		}
 
-		provider.log(
-			`[WorkspaceContext] setWorkspaceContextSetting ${key} -> ${updatedSettings[key]} | before=${JSON.stringify(currentSettings)}`,
-		)
+		// provider.log(
+		// 	`[WorkspaceContext] setWorkspaceContextSetting ${key} -> ${updatedSettings[key]} | before=${JSON.stringify(currentSettings)}`,
+		// )
 		await updateGlobalState("workspaceContextSettings", updatedSettings)
 		await provider.postStateToWebview()
 		break

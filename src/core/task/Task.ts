@@ -1823,7 +1823,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				const allowNoToolsInChatMode = state?.allowNoToolsInChatMode ?? false
 				const currentMode = state?.mode ?? defaultModeSlug
 				this.providerRef.deref()?.log(
-					`[Task] allowNoToolsInChatMode=${allowNoToolsInChatMode} mode=${currentMode} didAlreadyUseTool=${this.didAlreadyUseTool} didRejectTool=${this.didRejectTool}`,
+					`[Task] allowNoToolsInChatMode=${allowNoToolsInChatMode} mode=${currentMode} didAlreadyUseTool=${this.didAlreadyUseTool} didRejectTool=${this.didRejectTool} userMessageContent.length=${this.userMessageContent.length}`,
 				)
 				
 				// Skip noToolsUsed validation if in chat mode and setting is enabled
@@ -1845,6 +1845,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 					} else {
 						// If no content to present, directly set userMessageContentReady
 						this.userMessageContentReady = true
+						// Notify frontend that user message content is ready
+						await this.providerRef.deref()?.postStateToWebview()
+						console.log("[Task] No content to present, but userMessageContentReady set to true")
 					}
 					this.userMessageContent = []
 					this.emit(RooCodeEventName.TaskIdle, this.taskId)
@@ -1861,6 +1864,17 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		userContent: Anthropic.Messages.ContentBlockParam[],
 		includeFileDetails: boolean = false,
 	): Promise<boolean> {
+		// 🔧 Check chat mode settings before resetting
+		const state = await this.providerRef.deref()?.getState()
+		const allowNoToolsInChatMode = state?.allowNoToolsInChatMode ?? false
+		const currentMode = state?.mode ?? defaultModeSlug
+
+		// ⚡ In chat mode with no user content and allowNoToolsInChatMode enabled, skip tool enforcement
+		if (allowNoToolsInChatMode && currentMode === "chat" && userContent.length === 0) {
+			this.providerRef.deref()?.log("[Task] Chat mode: No user content, skipping tool enforcement")
+			return false // Don't end loop, but don't force tools either
+		}
+
 		// Reset userMessageContentReady at the start of each request cycle
 		this.userMessageContentReady = false
 		
