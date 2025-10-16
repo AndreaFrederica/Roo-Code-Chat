@@ -960,6 +960,19 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			void this.checkpointSave(false, true)
 		}
 
+		// CRITICAL FIX: For continuous conversations, add user message content to userMessageContent array
+		// This ensures that when users send new messages, they get properly queued for the next AI response turn
+		if (askResponse === "messageResponse" && (text || images)) {
+			if (text && text.trim()) {
+				this.userMessageContent.push({ type: "text", text: text.trim() })
+			}
+			if (images && images.length > 0) {
+				const imageBlocks = formatResponse.imageBlocks(images)
+				this.userMessageContent.push(...imageBlocks)
+			}
+			console.log(`[Task] Added user message to userMessageContent: text="${text?.slice(0, 50)}...", images=${images?.length || 0}, total content blocks=${this.userMessageContent.length}`)
+		}
+
 		// Mark the last follow-up question as answered
 		if (askResponse === "messageResponse" || askResponse === "yesButtonClicked") {
 			// Find the last unanswered follow-up message using findLastIndex
@@ -977,7 +990,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				})
 			}
 		}
-	}
+}
 
 	public approveAsk({ text, images }: { text?: string; images?: string[] } = {}) {
 		this.handleWebviewAskResponse("yesButtonClicked", text, images)
@@ -1825,21 +1838,21 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				this.providerRef.deref()?.log(
 					`[Task] allowNoToolsInChatMode=${allowNoToolsInChatMode} mode=${currentMode} didAlreadyUseTool=${this.didAlreadyUseTool} didRejectTool=${this.didRejectTool} userMessageContent.length=${this.userMessageContent.length}`,
 				)
-				
+
 				// Skip noToolsUsed validation if in chat mode and setting is enabled
 				if (allowNoToolsInChatMode && currentMode === "chat") {
 					// In chat mode with allowNoToolsInChatMode enabled, we don't show the noToolsUsed error
-					// Instead, we break the loop to allow the conversation to continue naturally
-					
+					// Instead, we wait for new user messages and continue the loop
+
 					// Mark stream as complete and finalize any partial content blocks
 					this.didCompleteReadingStream = true
 					const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
 					partialBlocks.forEach((block) => (block.partial = false))
-					
+
 					// Finalize content blocks and present the message to set userMessageContentReady
 					this.assistantMessageParser.finalizeContentBlocks()
 					this.assistantMessageContent = this.assistantMessageParser.getContentBlocks()
-					
+
 					if (partialBlocks.length > 0 || this.assistantMessageContent.length > 0) {
 						presentAssistantMessage(this)
 					} else {
@@ -1849,9 +1862,23 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						await this.providerRef.deref()?.postStateToWebview()
 						console.log("[Task] No content to present, but userMessageContentReady set to true")
 					}
-					this.userMessageContent = []
+
+					// CRITICAL FIX: In chat mode, don't exit the loop. Instead, wait for new user messages
 					this.emit(RooCodeEventName.TaskIdle, this.taskId)
-					break
+
+					// Wait for new user messages to be added via handleWebviewAskResponse
+					console.log("[Task] Chat mode: Waiting for new user messages...")
+					await pWaitFor(() => this.userMessageContent.length > 0 || this.abort, { interval: 100 })
+
+					if (this.abort) {
+						break
+					}
+
+					// Process the new user messages
+					nextUserContent = [...this.userMessageContent]
+					this.userMessageContent = [] // Clear after consuming
+					console.log(`[Task] Chat mode: Processing ${nextUserContent.length} new user messages`)
+					// Continue the loop to process the new messages
 				} else {
 					nextUserContent = [{ type: "text", text: formatResponse.noToolsUsed() }]
 					this.consecutiveMistakeCount++
@@ -2474,7 +2501,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 					// 	this.userMessageContentReady = true
 					// }
 
+					console.log(`[Task] Waiting for userMessageContentReady to become true... Current: ${this.userMessageContentReady}`)
 					await pWaitFor(() => this.userMessageContentReady)
+					console.log(`[Task] userMessageContentReady is now true! Backend can proceed.`)
 
 					// NOTE: Do not auto-enqueue a follow-up request when the assistant
 					// chooses not to call a tool. Forcing another turn here caused the UI

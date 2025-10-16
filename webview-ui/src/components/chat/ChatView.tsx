@@ -445,6 +445,16 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						case "mcp_server_request_started":
 						case "mcp_server_response":
 						case "completion_result":
+							if (lastMessage.say === "text" && !lastMessage.partial && !clineAsk && !enableButtons) {
+								// This is a completed text message with no pending user interaction
+								// Wait a moment for backend to complete session state, then reset sendingDisabled
+								setTimeout(() => {
+									// Double-check conditions are still met before resetting
+									if (sendingDisabled && !clineAsk && !enableButtons) {
+										setSendingDisabled(false)
+									}
+								}, 800) // Wait 800ms for backend to complete session state
+							}
 							break
 					}
 					break

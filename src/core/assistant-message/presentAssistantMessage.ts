@@ -985,13 +985,14 @@ export async function presentAssistantMessage(cline: Task) {
 			// Notify frontend that user message content is ready
 			await cline.providerRef.deref()?.postStateToWebview()
 			console.debug(
-				"[Task] userMessageContentReady set true",
+				"[Task] userMessageContentReady set true - Backend ready for new input",
 				JSON.stringify({
 					taskId: cline.taskId,
 					instanceId: cline.instanceId,
 					blockType: block.type,
 					didRejectTool: cline.didRejectTool,
 					didAlreadyUseTool: cline.didAlreadyUseTool,
+					timestamp: Date.now()
 				}),
 			)
 		}

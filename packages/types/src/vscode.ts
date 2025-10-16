@@ -64,6 +64,8 @@ export const commandIds = [
 	"viewMemories",
 	"clearMemories",
 	"testMemoryRetrieval",
+
+	"forceExitTask",
 ] as const
 
 export type CommandId = (typeof commandIds)[number]
