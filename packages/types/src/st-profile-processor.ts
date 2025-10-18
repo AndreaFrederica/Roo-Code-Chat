@@ -120,6 +120,25 @@ export interface STRegexBinding {
 	substituteRegex: number
 	minDepth?: number
 	maxDepth?: number
+
+	// 新增：运行阶段控制
+	runStages: RegexRunStage[]  // 在哪些阶段运行
+	targetSource: RegexTargetSource  // 作用目标
+	priority: number  // 优先级
+}
+
+/** 正则运行阶段 */
+export enum RegexRunStage {
+	PRE_PROCESSING = 'pre_processing',    // 预处理阶段
+	AI_OUTPUT = 'ai_output',              // AI输出阶段
+	POST_PROCESSING = 'post_processing'   // 后处理阶段
+}
+
+/** 正则作用目标 */
+export enum RegexTargetSource {
+	PROMPT_CONTENT = 'prompt_content',    // 提示词内容
+	AI_RESPONSE = 'ai_response',          // AI回复内容
+	ALL_CONTENT = 'all_content'           // 所有内容
 }
 
 /** 模板变量 */
@@ -239,6 +258,11 @@ export interface STInjectionResult {
 	metadata: STInjectionMetadata
 	warnings: STWarning[]
 	errors: STError[]
+	/** 正则处理器实例 */
+	processors?: {
+		aiOutput: AIOutputProcessor
+		postProcess: PostProcessor
+	}
 }
 
 /** 注入元数据 */
@@ -372,7 +396,19 @@ export class STProfileProcessor {
 
 			const compilation = this.compile(profile, options.compile || {})
 			const renderResult = this.render(compilation, options.variables || {})
-			return this.inject(renderResult, targetRole, options.inject || {})
+			const injectResult = this.inject(renderResult, targetRole, options.inject || {})
+
+			// 创建处理器实例
+			const aiOutputProcessor = new AIOutputProcessor(compilation.templateContext.profile.regexBindings)
+			const postProcessor = new PostProcessor(compilation.templateContext.profile.regexBindings)
+
+			return {
+				...injectResult,
+				processors: {
+					aiOutput: aiOutputProcessor,
+					postProcess: postProcessor
+				}
+			}
 		} catch (error) {
 			return {
 				success: false,
@@ -514,8 +550,8 @@ class STProfileParser {
 		// 3. 解析扩展配置
 		const extensions = this.parseExtensions(rawObj.extensions || {})
 
-		// 4. 解析正则绑定
-		const regexBindings = this.parseRegexBindings(extensions.SPreset?.RegexBinding || [])
+		// 4. 解析正则绑定 - 从多个来源获取
+		const regexBindings = this.parseRegexBindingsFromMultipleSources(rawObj, extensions)
 
 		// 5. 构建完整结构
 		return {
@@ -592,9 +628,18 @@ class STProfileParser {
 	}
 
 	private parseSPreset(spreset: any): STSPresetExtension {
+		let regexBindings: any[] = []
+
+		// 检查多个可能的位置
+		if (spreset.RegexBinding && Array.isArray(spreset.RegexBinding)) {
+			regexBindings = spreset.RegexBinding
+		} else if (spreset.RegexBinding?.regexes && Array.isArray(spreset.RegexBinding.regexes)) {
+			regexBindings = spreset.RegexBinding.regexes
+		}
+
 		return {
 			ChatSquash: spreset.ChatSquash,
-			RegexBinding: spreset.RegexBinding || [],
+			RegexBinding: regexBindings,
 		}
 	}
 
@@ -618,7 +663,48 @@ class STProfileParser {
 			substituteRegex: b.substituteRegex || 0,
 			minDepth: b.minDepth,
 			maxDepth: b.maxDepth,
+			// 新增：运行阶段控制字段，提供默认值
+			runStages: b.runStages || [RegexRunStage.PRE_PROCESSING],
+			targetSource: b.targetSource || RegexTargetSource.PROMPT_CONTENT,
+			priority: b.priority || 0,
 		}))
+	}
+
+	/** 从多个来源解析正则绑定 */
+	private parseRegexBindingsFromMultipleSources(rawObj: any, extensions: STExtensions): STRegexBinding[] {
+		let allBindings: STRegexBinding[] = []
+
+		// 1. 从扩展配置中获取
+		if (extensions.SPreset?.RegexBinding && Array.isArray(extensions.SPreset.RegexBinding)) {
+			const extensionBindings = this.parseRegexBindings(extensions.SPreset.RegexBinding)
+			allBindings = allBindings.concat(extensionBindings)
+		}
+
+		// 2. 从 prompts 中的 regexes-bindings 获取
+		if (rawObj.prompts && Array.isArray(rawObj.prompts)) {
+			const regexPrompt = rawObj.prompts.find((p: any) => p.identifier === "regexes-bindings")
+			if (regexPrompt && regexPrompt.content) {
+				try {
+					const promptBindings = JSON.parse(regexPrompt.content)
+					if (Array.isArray(promptBindings)) {
+						const parsedPromptBindings = this.parseRegexBindings(promptBindings)
+						allBindings = allBindings.concat(parsedPromptBindings)
+					}
+				} catch (error) {
+					console.warn("Failed to parse regex bindings from prompt:", error)
+				}
+			}
+		}
+
+		// 3. 去重（基于ID）
+		const uniqueBindings = new Map<string, STRegexBinding>()
+		for (const binding of allBindings) {
+			if (!uniqueBindings.has(binding.id)) {
+				uniqueBindings.set(binding.id, binding)
+			}
+		}
+
+		return Array.from(uniqueBindings.values())
 	}
 
 	private parseConditional(prompt: any): STConditional | undefined {
@@ -973,8 +1059,25 @@ class STProfileRenderer {
 
 	private applyRegexProcessing(prompts: STResolvedPrompt[], compilation: STCompilationResult): STResolvedPrompt[] {
 		// 应用正则表达式处理
-		// 这里可以实现复杂的正则绑定逻辑
-		return prompts
+		const regexProcessor = new STRegexProcessor(compilation.templateContext.profile.regexBindings)
+
+		return prompts.map(prompt => {
+			const processedContent = regexProcessor.processContent(
+				prompt.processedContent,
+				RegexRunStage.PRE_PROCESSING,
+				RegexTargetSource.PROMPT_CONTENT,
+				{
+					prompt,
+					compilation,
+					variables: Object.fromEntries(compilation.templateContext.variables)
+				}
+			)
+
+			return {
+				...prompt,
+				processedContent
+			}
+		})
 	}
 }
 
@@ -1498,4 +1601,259 @@ export async function processSTProfileWithMixin(
 		...options,
 		mixin,
 	})
+}
+
+// ============================================================================
+// 正则处理器
+// ============================================================================
+
+/** 正则处理器上下文 */
+export interface RegexProcessorContext {
+	/** 当前提示词信息 */
+	prompt?: STResolvedPrompt
+	/** 编译结果 */
+	compilation?: STCompilationResult
+	/** 渲染结果 */
+	renderResult?: STRenderResult
+	/** 自定义变量 */
+	variables?: Record<string, any>
+}
+
+/** 正则处理器 */
+export class STRegexProcessor {
+	private bindings: STRegexBinding[]
+
+	constructor(bindings: STRegexBinding[]) {
+		this.bindings = bindings.filter(b => !b.disabled)
+	}
+
+	/** 在指定阶段处理内容 */
+	processContent(
+		content: string,
+		stage: RegexRunStage,
+		source: RegexTargetSource,
+		context?: RegexProcessorContext
+	): string {
+		let processedContent = content
+
+		// 按优先级排序
+		const sortedBindings = this.bindings
+			.filter(binding => this.shouldProcess(binding, stage, source, content, context))
+			.sort((a, b) => (b.priority || 0) - (a.priority || 0))
+
+		for (const binding of sortedBindings) {
+			processedContent = this.applyBinding(processedContent, binding, context)
+		}
+
+		return processedContent
+	}
+
+	/** 检查是否应该应用此绑定 */
+	private shouldProcess(
+		binding: STRegexBinding,
+		stage: RegexRunStage,
+		source: RegexTargetSource,
+		content: string,
+		context?: RegexProcessorContext
+	): boolean {
+		// 检查运行阶段
+		if (!binding.runStages.includes(stage)) {
+			return false
+		}
+
+		// 检查作用目标
+		if (binding.targetSource === RegexTargetSource.PROMPT_CONTENT && source !== RegexTargetSource.PROMPT_CONTENT) {
+			return false
+		}
+		if (binding.targetSource === RegexTargetSource.AI_RESPONSE && source !== RegexTargetSource.AI_RESPONSE) {
+			return false
+		}
+
+		// 检查 promptOnly 限制（仅在预处理阶段检查）
+		if (stage === RegexRunStage.PRE_PROCESSING && binding.promptOnly && context?.prompt) {
+			// 如果设置了 promptOnly，只处理系统角色的提示词
+			if (context.prompt.role !== 'system') {
+				return false
+			}
+		}
+
+		// 检查深度限制
+		if (context?.prompt) {
+			if (binding.minDepth !== undefined && context.prompt.injection.depth < binding.minDepth) {
+				return false
+			}
+			if (binding.maxDepth !== undefined && context.prompt.injection.depth > binding.maxDepth) {
+				return false
+			}
+		}
+
+		// 检查 markdownOnly 限制
+		if (binding.markdownOnly && !this.isMarkdownContent(content)) {
+			return false
+		}
+
+		return true
+	}
+
+	/** 应用单个正则绑定 */
+	private applyBinding(content: string, binding: STRegexBinding, context?: RegexProcessorContext): string {
+		try {
+			let result = content
+
+			// 创建正则表达式
+			const flags = binding.substituteRegex === 1 ? 'g' : ''
+			const regex = new RegExp(binding.findRegex, flags)
+
+			// 应用替换
+			result = result.replace(regex, this.processReplaceString(binding.replaceString, context))
+
+			// 应用字符串修剪
+			if (binding.trimStrings?.length > 0) {
+				for (const trimString of binding.trimStrings) {
+					result = result.replace(new RegExp(trimString, 'g'), '')
+				}
+			}
+
+			return result
+		} catch (error) {
+			console.warn(`正则绑定处理失败 ${binding.id}:`, error)
+			return content
+		}
+	}
+
+	/** 处理替换字符串中的变量 */
+	private processReplaceString(replaceString: string, context?: RegexProcessorContext): string {
+		// 支持在替换字符串中使用变量
+		if (context?.variables) {
+			return replaceString.replace(/\{\{(\w+)\}\}/g, (match, varName) => {
+				return context.variables![varName] || match
+			})
+		}
+		return replaceString
+	}
+
+	/** 检查内容是否为 Markdown 格式 */
+	private isMarkdownContent(content: string): boolean {
+		// 简单的 markdown 检测
+		const markdownPatterns = [
+			/^#{1,6}\s+/m,  // 标题
+			/\*\*.*?\*\*/,  // 粗体
+			/\*.*?\*/,      // 斜体
+			/\[.*?\]\(.*?\)/, // 链接
+			/```[\s\S]*?```/, // 代码块
+			/^[-*+]\s+/m,   // 列表
+			/^\d+\.\s+/m,   // 有序列表
+		]
+
+		return markdownPatterns.some(pattern => pattern.test(content))
+	}
+
+	/** 获取所有绑定信息 */
+	getBindings(): STRegexBinding[] {
+		return [...this.bindings]
+	}
+
+	/** 获取指定阶段的绑定 */
+	getBindingsForStage(stage: RegexRunStage): STRegexBinding[] {
+		return this.bindings.filter(binding => binding.runStages.includes(stage))
+	}
+}
+
+/** AI输出处理器 */
+export class AIOutputProcessor {
+	private regexProcessor: STRegexProcessor
+
+	constructor(regexBindings: STRegexBinding[]) {
+		this.regexProcessor = new STRegexProcessor(regexBindings)
+	}
+
+	/** 处理AI输出 */
+	processAIOutput(
+		aiResponse: string,
+		context?: Omit<RegexProcessorContext, 'prompt'>
+	): string {
+		return this.regexProcessor.processContent(
+			aiResponse,
+			RegexRunStage.AI_OUTPUT,
+			RegexTargetSource.AI_RESPONSE,
+			context
+		)
+	}
+
+	/** 获取正则处理器 */
+	getRegexProcessor(): STRegexProcessor {
+		return this.regexProcessor
+	}
+}
+
+/** 后处理器 */
+export class PostProcessor {
+	private regexProcessor: STRegexProcessor
+
+	constructor(regexBindings: STRegexBinding[]) {
+		this.regexProcessor = new STRegexProcessor(regexBindings)
+	}
+
+	/** 处理最终内容 */
+	processFinalContent(
+		content: string,
+		source: RegexTargetSource,
+		context?: Omit<RegexProcessorContext, 'prompt'>
+	): string {
+		return this.regexProcessor.processContent(
+			content,
+			RegexRunStage.POST_PROCESSING,
+			source,
+			context
+		)
+	}
+
+	/** 处理提示词内容 */
+	processPromptContent(
+		content: string,
+		prompt: STResolvedPrompt,
+		context?: Omit<RegexProcessorContext, 'prompt'>
+	): string {
+		const fullContext: RegexProcessorContext = {
+			...context,
+			prompt
+		}
+
+		return this.regexProcessor.processContent(
+			content,
+			RegexRunStage.POST_PROCESSING,
+			RegexTargetSource.PROMPT_CONTENT,
+			fullContext
+		)
+	}
+
+	/** 获取正则处理器 */
+	getRegexProcessor(): STRegexProcessor {
+		return this.regexProcessor
+	}
+}
+
+// ============================================================================
+// 便捷函数
+// ============================================================================
+
+/** 便捷函数：从原始数据创建正则处理器 */
+export function createRegexProcessor(raw: unknown): STRegexProcessor {
+	const processor = new STProfileProcessor()
+	const profile = processor.parse(raw)
+	return new STRegexProcessor(profile.regexBindings)
+}
+
+/** 便捷函数：从原始数据创建AI输出处理器 */
+export function createAIOutputProcessor(raw: unknown): AIOutputProcessor {
+	const processor = new STProfileProcessor()
+	const profile = processor.parse(raw)
+	return new AIOutputProcessor(profile.regexBindings)
+}
+
+/** 便捷函数：从原始数据创建后处理器 */
+export function createPostProcessor(raw: unknown): PostProcessor {
+	const processor = new STProfileProcessor()
+	const profile = processor.parse(raw)
+	return new PostProcessor(profile.regexBindings)
 }

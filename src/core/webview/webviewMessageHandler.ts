@@ -17,6 +17,7 @@ import {
 	DEFAULT_ASSISTANT_ROLE,
 	DEFAULT_ASSISTANT_ROLE_UUID,
 } from "@roo-code/types"
+import { STProfileProcessor } from "@roo-code/types"
 import { CloudService } from "@roo-code/cloud"
 import { TelemetryService } from "@roo-code/telemetry"
 
@@ -5291,6 +5292,14 @@ export const webviewMessageHandler = async (
 				const profileContent = await fs.readFile(message.tsProfilePath, "utf-8")
 				const profileData = JSON.parse(profileContent)
 
+				// Use STProfileProcessor to process and validate the profile
+				const processor = new STProfileProcessor()
+				const processedProfile = processor.parse(profileData)
+
+				if (!processedProfile) {
+					throw new Error("Failed to process TSProfile with STProfileProcessor")
+				}
+
 				// Generate mixin file path (same directory with .mixin.json extension)
 				const profileDir = path.dirname(message.tsProfilePath)
 				const profileName = path.basename(message.tsProfilePath, ".json")
@@ -5301,16 +5310,54 @@ export const webviewMessageHandler = async (
 				try {
 					if (await fileExistsAtPath(mixinPath)) {
 						const mixinContent = await fs.readFile(mixinPath, "utf-8")
-						mixinData = JSON.parse(mixinContent)
+						const rawMixinData = JSON.parse(mixinContent)
+
+						// Process mixin data with STProfileProcessor as well
+						mixinData = processor.parse(rawMixinData)
+						if (!mixinData) {
+							provider.log(`Warning: Failed to process mixin file with STProfileProcessor, using raw data`)
+							mixinData = rawMixinData
+						}
 					}
 				} catch (error) {
 					provider.log(`Error loading mixin file: ${error}`)
 					// Continue without mixin data
 				}
 
+				provider.log(`TSProfile loaded successfully: ${message.tsProfilePath}`)
+				provider.log(`Processed profile contains ${processedProfile.extensions?.SPreset?.RegexBinding?.length || 0} regex bindings in extensions`)
+				provider.log(`Processed profile contains ${processedProfile.regexBindings?.length || 0} regex bindings in root level`)
+
+				// 添加详细的profile数据结构日志
+				provider.log(`Profile data structure: ${JSON.stringify({
+					hasRootRegex: !!processedProfile.regexBindings,
+					rootRegexCount: processedProfile.regexBindings?.length || 0,
+					hasExtensions: !!processedProfile.extensions,
+					hasSPreset: !!processedProfile.extensions?.SPreset,
+					hasExtensionRegex: !!processedProfile.extensions?.SPreset?.RegexBinding,
+					extensionRegexCount: processedProfile.extensions?.SPreset?.RegexBinding?.length || 0
+				}, null, 2)}`)
+
+				// 记录正则绑定的详细信息
+				if (processedProfile.regexBindings && processedProfile.regexBindings.length > 0) {
+					provider.log(`Root level regex bindings: ${JSON.stringify(processedProfile.regexBindings.map(rb => ({
+						id: rb.id,
+						scriptName: rb.scriptName,
+						findRegex: rb.findRegex
+					})), null, 2)}`)
+				}
+
+				if (processedProfile.extensions?.SPreset?.RegexBinding && processedProfile.extensions.SPreset.RegexBinding.length > 0) {
+					provider.log(`Extension regex bindings: ${JSON.stringify(processedProfile.extensions.SPreset.RegexBinding.map(rb => ({
+						id: rb.id,
+						scriptName: rb.scriptName,
+						findRegex: rb.findRegex
+					})), null, 2)}`)
+				}
+
 				provider.postMessageToWebview({
 					type: "tsProfileContentLoaded",
-					profileData: profileData,
+					profileData: processedProfile,
 					mixinData: mixinData,
 					profilePath: message.tsProfilePath,
 					mixinPath: mixinPath,

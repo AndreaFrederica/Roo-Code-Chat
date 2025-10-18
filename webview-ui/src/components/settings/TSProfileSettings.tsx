@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 import { vscode } from "@/utils/vscode"
 import { StandardTooltip } from "@/components/ui"
 import { useExtensionState } from "@/context/ExtensionStateContext"
+import { RegexSettings } from "./RegexSettings"
 
 import { SectionHeader } from "./SectionHeader"
 import { Section } from "./Section"
@@ -58,6 +59,33 @@ interface ProfileData {
 		identifier: string
 		enabled: boolean
 	}>
+	// 根级别的正则绑定（由STProfileProcessor处理）
+	regexBindings?: RegexBinding[]
+	extensions?: {
+		SPreset?: {
+			RegexBinding?: RegexBinding[]
+		}
+	}
+}
+
+// 正则绑定数据结构 (使用与 STRegexBinding 兼容的接口)
+interface RegexBinding {
+	id: string
+	scriptName: string
+	findRegex: string
+	replaceString: string
+	trimStrings: string[]
+	placement: number[]
+	disabled: boolean
+	markdownOnly: boolean
+	promptOnly: boolean
+	runOnEdit: boolean
+	substituteRegex: number
+	minDepth?: number
+	maxDepth?: number
+	runStages: string[]  // 预处理、AI输出、后处理
+	targetSource: string  // 提示词内容、AI回复、所有内容
+	priority: number
 }
 
 // Mixin 文件结构
@@ -150,10 +178,13 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	// 新增状态：用于管理prompts编辑
 	const [profileData, setProfileData] = useState<ProfileData | null>(null)
 	const [editingPrompts, setEditingPrompts] = useState<Record<string, PromptConfig>>({})
+	const [editingRegexBindings, setEditingRegexBindings] = useState<Record<string, RegexBinding>>({})
 	const [editMode, setEditMode] = useState<"source" | "mixin">("mixin") // 默认使用mixin模式
+	const [editSection, setEditSection] = useState<"prompts" | "regex">("prompts") // 编辑区域选择
 	const [mixinData, setMixinData] = useState<ProfileMixin | null>(null)
 	const [mixinExists, setMixinExists] = useState(false)
 	const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set())
+	const [expandedRegexBindings, setExpandedRegexBindings] = useState<Set<string>>(new Set())
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
 	// 验证和错误处理相关状态
@@ -165,6 +196,9 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	const [showCopyDialog, setShowCopyDialog] = useState(false)
 	const [copyTargetProfile, setCopyTargetProfile] = useState<ProfileInfo | null>(null)
 	const [copyTargetScope, setCopyTargetScope] = useState<"global" | "workspace">("workspace")
+
+	// 正则设置相关状态
+	const [showRegexSettings, setShowRegexSettings] = useState(false)
 
 	// 初始化：创建profile文件夹并加载列表
 	useEffect(() => {
@@ -212,6 +246,9 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 				case "tsProfileContentLoaded":
 					// 处理加载的profile内容
 					if (message.profileData) {
+						console.log('TSProfileContentLoaded received profileData:', message.profileData)
+						console.log('profileData.regexBindings:', message.profileData.regexBindings, 'Is Array:', Array.isArray(message.profileData.regexBindings))
+						console.log('profileData.extensions?.SPreset?.RegexBinding:', message.profileData.extensions?.SPreset?.RegexBinding, 'Is Array:', Array.isArray(message.profileData.extensions?.SPreset?.RegexBinding))
 						setProfileData(message.profileData)
 						// 初始化编辑状态 - 只有在没有现有编辑状态或者不在mixin模式时才重置
 						if (Object.keys(editingPrompts).length === 0 || editMode !== "mixin") {
@@ -220,6 +257,14 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 								initialEditingState[prompt.identifier] = { ...prompt }
 							})
 							setEditingPrompts(initialEditingState)
+						}
+						// 初始化正则绑定编辑状态
+						if (Object.keys(editingRegexBindings).length === 0 || editMode !== "mixin") {
+							const initialRegexEditingState: Record<string, RegexBinding> = {}
+							message.profileData.extensions?.SPreset?.RegexBinding?.forEach((regex: RegexBinding) => {
+								initialRegexEditingState[regex.id] = { ...regex }
+							})
+							setEditingRegexBindings(initialRegexEditingState)
 						}
 						// 如果已经有mixin数据且在mixin模式下，需要重新应用mixin
 						if (message.mixinData && editMode === "mixin") {
@@ -674,6 +719,29 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 		setHasUnsavedChanges(true)
 	}
 
+	// 更新正则绑定内容
+	const updateRegexBinding = (id: string, field: keyof RegexBinding, value: any) => {
+		setEditingRegexBindings((prev) => ({
+			...prev,
+			[id]: {
+				...prev[id],
+				[field]: value,
+			},
+		}))
+		setHasUnsavedChanges(true)
+	}
+
+	// 切换正则绑定的展开状态
+	const toggleRegexBindingExpanded = (id: string) => {
+		const newExpanded = new Set(expandedRegexBindings)
+		if (newExpanded.has(id)) {
+			newExpanded.delete(id)
+		} else {
+			newExpanded.add(id)
+		}
+		setExpandedRegexBindings(newExpanded)
+	}
+
 	// 启用TSProfile - 暂存保存模式
 	const handleEnableTSProfile = (fileName: string, scope: "global" | "workspace" = "workspace") => {
 		console.log(`[TSProfile] Enabling profile: ${fileName}, scope: ${scope}`)
@@ -742,6 +810,94 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 
 		setShowCopyDialog(false)
 		setCopyTargetProfile(null)
+	}
+
+	// 获取profile中的正则绑定（从两个可能的位置）
+	const getRegexBindingsForProfile = (profileData: ProfileData | null): any[] => {
+		if (!profileData) return []
+
+		console.log('getRegexBindingsForProfile called with profileData:', profileData)
+		console.log('profileData.regexBindings:', profileData.regexBindings, 'Type:', typeof profileData.regexBindings, 'Is Array:', Array.isArray(profileData.regexBindings))
+		console.log('profileData.extensions?.SPreset?.RegexBinding:', profileData.extensions?.SPreset?.RegexBinding, 'Type:', typeof profileData.extensions?.SPreset?.RegexBinding, 'Is Array:', Array.isArray(profileData.extensions?.SPreset?.RegexBinding))
+
+		// 首先尝试从根级别获取
+		if (profileData.regexBindings && Array.isArray(profileData.regexBindings)) {
+			console.log('Found regex bindings in root level, count:', profileData.regexBindings.length)
+			return profileData.regexBindings
+		}
+
+		// 然后尝试从扩展级别获取
+		if (profileData.extensions?.SPreset?.RegexBinding && Array.isArray(profileData.extensions.SPreset.RegexBinding)) {
+			console.log('Found regex bindings in extensions, count:', profileData.extensions.SPreset.RegexBinding.length)
+			return profileData.extensions.SPreset.RegexBinding
+		}
+
+		console.log('No regex bindings found in profile')
+		return []
+	}
+
+	// 处理正则设置保存
+	const handleRegexSettingsSave = (regexBindings: any[]) => {
+		if (!selectedProfile || !profileData) return
+
+		// 转换STRegexBinding到内部RegexBinding接口
+		const convertedBindings: RegexBinding[] = regexBindings.map((binding) => ({
+			id: binding.id,
+			scriptName: binding.scriptName,
+			findRegex: binding.findRegex,
+			replaceString: binding.replaceString,
+			trimStrings: binding.trimStrings,
+			placement: binding.placement,
+			disabled: binding.disabled,
+			markdownOnly: binding.markdownOnly,
+			promptOnly: binding.promptOnly,
+			runOnEdit: binding.runOnEdit,
+			substituteRegex: binding.substituteRegex,
+			minDepth: binding.minDepth,
+			maxDepth: binding.maxDepth,
+			runStages: binding.runStages,
+			targetSource: binding.targetSource,
+			priority: binding.priority
+		}))
+
+		// 更新profileData中的正则绑定（同时更新两个位置）
+		const updatedProfileData = {
+			...profileData,
+			// 根级别
+			regexBindings: convertedBindings,
+			extensions: {
+				...profileData.extensions,
+				SPreset: {
+					...profileData.extensions?.SPreset,
+					RegexBinding: convertedBindings
+				}
+			}
+		}
+
+		// 更新本地状态
+		setProfileData(updatedProfileData)
+
+		// 如果在编辑模式，也更新编辑状态
+		const updatedEditingRegexBindings: Record<string, RegexBinding> = {}
+		convertedBindings.forEach((binding) => {
+			updatedEditingRegexBindings[binding.id] = binding
+		})
+		setEditingRegexBindings(updatedEditingRegexBindings)
+
+		// 如果是源文件模式，直接保存
+		if (editMode === "source") {
+			const profile = profiles.find((p) => p.name === selectedProfile)
+			if (profile) {
+				vscode.postMessage({
+					type: "saveTsProfileSource",
+					tsProfilePath: profile.path,
+					profileData: updatedProfileData,
+				})
+			}
+		} else {
+			// Mixin模式，标记有未保存的更改
+			setHasUnsavedChanges(true)
+		}
 	}
 
 	// 删除 profile
@@ -1175,7 +1331,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 						<div className="flex items-center justify-between">
 							<div className="flex items-center gap-2">
 								<Edit3 className="w-4 h-4" />
-								<h3 className="text-sm font-medium">提示词编辑</h3>
+								<h3 className="text-sm font-medium">内容编辑</h3>
 								<span className="text-xs text-vscode-descriptionForeground">({selectedProfile})</span>
 								{hasUnsavedChanges && (
 									<span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-400">
@@ -1184,6 +1340,41 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 								)}
 							</div>
 							<div className="flex items-center gap-2">
+								{/* 编辑区域切换 */}
+								<div className="flex items-center gap-1 bg-vscode-editor-background border border-vscode-widget-border rounded p-1">
+									<button
+										className={cn(
+											"px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors",
+											editSection === "prompts"
+												? "bg-vscode-button-background text-vscode-button-foreground"
+												: "text-vscode-descriptionForeground hover:bg-vscode-toolbar-hoverBackground",
+										)}
+										onClick={() => setEditSection("prompts")}>
+										<FileText className="w-3 h-3" />
+										提示词
+									</button>
+									<button
+										className={cn(
+											"px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors",
+											editSection === "regex"
+												? "bg-vscode-button-background text-vscode-button-foreground"
+												: "text-vscode-descriptionForeground hover:bg-vscode-toolbar-hoverBackground",
+										)}
+										onClick={() => setEditSection("regex")}>
+										<FilePlus className="w-3 h-3" />
+										正则
+									</button>
+									{editSection === "regex" && (
+										<button
+											className="px-2 py-1 text-xs rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 flex items-center gap-1"
+											onClick={() => setShowRegexSettings(true)}
+											title="打开正则设置页面">
+											<Edit3 className="w-3 h-3" />
+											设置
+										</button>
+									)}
+								</div>
+
 								{/* 编辑模式切换 */}
 								<div className="flex items-center gap-1 bg-vscode-editor-background border border-vscode-widget-border rounded p-1">
 									<button
@@ -1259,7 +1450,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 									<FileText className="w-4 h-4" />
 									<h4 className="text-sm font-medium">{selectedProfile}</h4>
 									<span className="text-xs text-vscode-descriptionForeground">
-										({profileData.prompts?.length || 0} 个提示词)
+										({profileData.prompts?.length || 0} 个提示词, {profileData.extensions?.SPreset?.RegexBinding?.length || 0} 个正则绑定)
 									</span>
 
 									{/* Mixin 状态统计 */}
@@ -1821,6 +2012,14 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 					</div>
 				</div>
 			)}
+
+			{/* 正则设置模态框 */}
+			<RegexSettings
+				isOpen={showRegexSettings}
+				onClose={() => setShowRegexSettings(false)}
+				regexBindings={getRegexBindingsForProfile(profileData)}
+				onSave={handleRegexSettingsSave}
+			/>
 		</div>
 	)
 }
