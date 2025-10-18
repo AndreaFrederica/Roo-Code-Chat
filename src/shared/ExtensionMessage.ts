@@ -165,6 +165,9 @@ export interface ExtensionMessage {
 		| "tsProfileMixinLoaded"
 		| "tsProfileMixinSaved"
 		| "tsProfileSourceSaved"
+		| "deleteTsProfileMixin"
+		| "toggleAIOutputDisplayMode"
+		| "aiOutputDisplayModeToggled"
 		| "STWordBookBrowseResponse"
 		| "STWordBookValidateResponse"
 	| "globalHistoryLoaded"
@@ -335,6 +338,9 @@ export interface ExtensionMessage {
 	mixinRemoved?: boolean // For worldBookEntryMixinRemoved
 	entryUid?: number | string // For worldBookEntryMixinUpdated and worldBookEntryMixinRemoved
 	mixin?: any // For worldBookEntryMixinUpdated
+	// AI Output Display Mode Toggle properties
+	displayMode?: "original" | "processed" // For aiOutputDisplayModeToggled
+	message?: string // For aiOutputDisplayModeToggled
 }
 
 export type ExtensionState = Pick<
@@ -535,6 +541,14 @@ export type ExtensionState = Pick<
 		lastUpdated: number
 	}
 	globalWorldBooksPath?: string // Global world books directory path
+	currentTsProfile?: {
+		profilePath?: string
+		profileName?: string
+		mixinPath?: string
+		scope?: "global" | "workspace"
+		profileData?: any
+		mixinData?: any
+	}
 }
 
 export interface ClineSayTool {

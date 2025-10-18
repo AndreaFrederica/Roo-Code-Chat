@@ -300,6 +300,8 @@ export interface WebviewMessage {
 		| "loadTsProfileMixin"
 		| "saveTsProfileMixin"
 		| "saveTsProfileSource"
+		| "deleteTsProfileMixin"
+		| "toggleAIOutputDisplayMode"
 		| "loadGlobalHistory"
 		| "addGlobalHistoryItem"
 		| "deleteGlobalHistoryItem"

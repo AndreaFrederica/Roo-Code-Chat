@@ -100,6 +100,10 @@
 		"showSystemPrompt": "查看系统提示词",
 		"showSystemPromptTooltip": "查看发送给 AI 模型的完整系统提示词，包括所有上下文和指令。"
 	},
+	"markdown": {
+		"showRaw": "显示原文",
+		"showRendered": "显示渲染结果"
+	},
 	"codeIndex": {
 		"title": "代码库索引",
 		"description": "配置代码库索引设置以启用项目的语义搜索。<0>了解更多</0>",
@@ -814,6 +818,10 @@
 		"RUN_SLASH_COMMAND": {
 			"name": "启用模型发起的斜杠命令",
 			"description": "启用后 Roo 可运行斜杠命令执行工作流程。"
+		},
+		"ST_REGEX_PROCESSOR": {
+			"name": "启用 ST 正则处理器",
+			"description": "启用后，系统将使用 SillyTavern 的正则处理器来处理用户输入、AI输出和提示词内容，支持文本格式化、清理和变量替换。"
 		}
 	},
 	"promptCaching": {

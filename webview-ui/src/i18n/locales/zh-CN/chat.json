@@ -313,6 +313,9 @@
   },
   "reasoning": {
     "thinking": "思考中",
+    "variables": "变量",
+    "metadata": "元数据",
+    "code": "代码块",
     "seconds": "{{count}}秒"
   },
   "contextCondense": {

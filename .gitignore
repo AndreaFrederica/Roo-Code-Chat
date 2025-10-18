@@ -57,3 +57,4 @@ novel-helper/.anh-fsdb/
 .history/
 novel-helper/**
 tests/reports/**
+temp/**

@@ -13,6 +13,7 @@
 	"command.openInEditor.title": "Open in Editor",
 	"command.cloud.title": "Cloud",
 	"command.settings.title": "Settings",
+	"command.toggleAIOutputDisplay.title": "Toggle AI Output Display",
 	"command.documentation.title": "Documentation",
 	"command.openInNewTab.title": "Open In New Tab",
 	"command.explainCode.title": "Explain Code",

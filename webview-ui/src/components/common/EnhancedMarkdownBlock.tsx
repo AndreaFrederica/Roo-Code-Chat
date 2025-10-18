@@ -12,71 +12,15 @@ import { useTranslation } from "react-i18next"
 
 import CodeBlock from "./CodeBlock"
 import MermaidBlock from "./MermaidBlock"
-import { Lightbulb, ChevronUp } from "lucide-react"
-import { cn } from "@/lib/utils"
+import FoldableBlock from "./FoldableBlock"
+import { defaultPreReplace, defaultBlockRules, getAllRuleNames } from "./fold-config"
+import { splitBlocks, getDefaultCollapsedState } from "./fold-engine"
+import { Eye, EyeOff } from "lucide-react"
 
 interface EnhancedMarkdownBlockProps {
 	markdown?: string
 }
 
-const ThinkingBlock = memo(
-	({ content, isCollapsed, onToggle }: { content: string; isCollapsed: boolean; onToggle: () => void }) => {
-		const { t } = useTranslation()
-
-		return (
-			<div className="group my-4">
-				<div
-					className="flex items-center justify-between mb-2.5 pr-2 cursor-pointer select-none"
-					onClick={onToggle}>
-					<div className="flex items-center gap-2">
-						<Lightbulb className="w-4" />
-						<span className="font-bold text-vscode-foreground">{t("chat:reasoning.thinking")}</span>
-					</div>
-					<div className="flex items-center gap-2">
-						<ChevronUp
-							className={cn(
-								"w-4 transition-all opacity-0 group-hover:opacity-100",
-								isCollapsed && "-rotate-180",
-							)}
-						/>
-					</div>
-				</div>
-				{!isCollapsed && (
-					<div className="border-l border-vscode-descriptionForeground/20 ml-2 pl-4 pb-1 text-vscode-descriptionForeground">
-						<ReactMarkdown
-							remarkPlugins={[remarkGfm, remarkMath]}
-							rehypePlugins={[rehypeKatex as any]}
-							components={{
-								code: ({ children, className, ...props }: any) => {
-									if (className?.includes("language-")) {
-										const match = /language-(\w+)/.exec(className)
-										const language = match ? match[1] : "text"
-										return (
-											<div style={{ margin: "1em 0" }}>
-												<CodeBlock
-													source={String(children).replace(/\n$/, "")}
-													language={language}
-												/>
-											</div>
-										)
-									}
-									return (
-										<code className={className} {...props}>
-											{children}
-										</code>
-									)
-								},
-							}}>
-							{content}
-						</ReactMarkdown>
-					</div>
-				)}
-			</div>
-		)
-	},
-)
-
-ThinkingBlock.displayName = "ThinkingBlock"
 
 const StyledMarkdown = styled.div`
 	* {
@@ -264,92 +208,98 @@ const StyledMarkdown = styled.div`
 	tr:hover {
 		background-color: var(--vscode-list-hoverBackground);
 	}
+
+	/* Raw markdown view styles */
+	.raw-content {
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 0.9em;
+		white-space: pre-wrap;
+		word-wrap: break-word;
+		background-color: var(--vscode-textCodeBlock-background);
+		border: 1px solid var(--vscode-panel-border);
+		border-radius: 4px;
+		padding: 12px;
+		line-height: 1.4;
+		color: var(--vscode-editor-foreground);
+		overflow-x: auto;
+	}
+
+	/* Toggle button styles */
+	.toggle-button {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 6px 12px;
+		margin-bottom: 12px;
+		background-color: var(--vscode-button-secondaryBackground);
+		color: var(--vscode-button-secondaryForeground);
+		border: 1px solid var(--vscode-button-border);
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 12px;
+		transition: all 0.2s ease;
+		select: none;
+	}
+
+	.toggle-button:hover {
+		background-color: var(--vscode-button-secondaryHoverBackground);
+		color: var(--vscode-button-secondaryHoverForeground);
+	}
 `
 
 const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) => {
 	const { reasoningBlockCollapsed } = useExtensionState()
 	const [collapsedThinkingBlocks, setCollapsedThinkingBlocks] = useState<Set<number>>(new Set())
+	const [showRaw, setShowRaw] = useState(false)
 
-	// Extract thinking blocks and their positions
+	// 使用新的折叠引擎处理内容
 	const processedContent = useMemo(() => {
 		if (!markdown) {
-			return { blocks: [], content: markdown }
+			return { blocks: [] }
 		}
 
-		// Support both Chinese and English tags
-		const thinkingTagRegex = /<思考>([\s\S]*?)<\/思考>|<thinking>([\s\S]*?)<\/thinking>/gi
-		const blocks: Array<{ content: string; start: number; end: number; type: string }> = []
-		let match
-		let lastIndex = 0
+		// 可选：额外添加你自己的"替换表达式"规则
+		const myPre = [
+			...defaultPreReplace,
+			// 确保 <思索>…</思索> 和 <思考>…</思考> 都能被正确处理
+			{ re: /<\s*(思索|思考)\b([^>]*)>/gi, replace: "<thinking$2>" } as any,
+			{ re: /<\s*\/\s*(思索|思考)\b[^>]*>/gi, replace: "</thinking>" } as any,
+		]
 
-		while ((match = thinkingTagRegex.exec(markdown)) !== null) {
-			const fullMatch = match[0]
-			const chineseContent = match[1]
-			const englishContent = match[2]
-			const content = chineseContent || englishContent
-			const tagType = chineseContent ? "chinese" : "english"
+		// 清理尾部半截标签
+		const ruleNames = getAllRuleNames(defaultBlockRules)
+		const stripHalf = new RegExp(`<\\s*\\/??\\s*(?:${ruleNames})\\b[^>]*$`, "i")
 
-			// Add text before thinking block
-			if (match.index > lastIndex) {
-				blocks.push({
-					content: markdown.substring(lastIndex, match.index),
-					start: lastIndex,
-					end: match.index,
-					type: "text",
-				})
-			}
+		const blocks = splitBlocks(markdown, {
+			pre: myPre,
+			rules: defaultBlockRules,   // 这里就是纯"查找表达式"集合
+			stripTrailingHalf: stripHalf,
+		})
 
-			// Add thinking block
-			blocks.push({
-				content: content.trim(),
-				start: match.index,
-				end: match.index + fullMatch.length,
-				type: "thinking",
-			})
-
-			lastIndex = match.index + fullMatch.length
-		}
-
-		// Add remaining text
-		if (lastIndex < markdown.length) {
-			blocks.push({
-				content: markdown.substring(lastIndex),
-				start: lastIndex,
-				end: markdown.length,
-				type: "text",
-			})
-		}
-
-		// If no thinking blocks found, treat entire content as text
-		if (blocks.length === 0) {
-			blocks.push({
-				content: markdown,
-				start: 0,
-				end: markdown.length,
-				type: "text",
-			})
-		}
-
+		
 		return { blocks }
 	}, [markdown])
 
-	// Initialize collapsed state for thinking blocks
+	// Initialize collapsed state for all foldable blocks
 	useMemo(() => {
-		const thinkingBlockIndices = processedContent.blocks
-			.map((block, index) => (block.type === "thinking" ? index : -1))
+		const foldableBlockIndices = processedContent.blocks
+			.map((block, index) => (block.type !== "text" ? index : -1))
 			.filter((index) => index !== -1)
 
-		if (thinkingBlockIndices.length > 0 && collapsedThinkingBlocks.size === 0) {
-			// Initialize with default setting
+		
+		if (foldableBlockIndices.length > 0 && collapsedThinkingBlocks.size === 0) {
+			// Initialize with default settings based on block type
 			const initialCollapsed = new Set<number>()
-			thinkingBlockIndices.forEach((index) => {
-				if (reasoningBlockCollapsed) {
+			foldableBlockIndices.forEach((index) => {
+				const block = processedContent.blocks[index]
+				const shouldCollapse = getDefaultCollapsedState(block, reasoningBlockCollapsed ?? false)
+								if (shouldCollapse) {
 					initialCollapsed.add(index)
 				}
 			})
-			setCollapsedThinkingBlocks(initialCollapsed)
+						setCollapsedThinkingBlocks(initialCollapsed)
 		}
-	}, [processedContent.blocks.length, reasoningBlockCollapsed])
+	}, [processedContent.blocks, reasoningBlockCollapsed, collapsedThinkingBlocks.size])
 
 	const toggleThinkingBlock = useCallback((blockIndex: number) => {
 		setCollapsedThinkingBlocks((prev) => {
@@ -462,19 +412,25 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 		[],
 	)
 
-	return (
-		<StyledMarkdown>
+	const ToggleButton = () => {
+		const { t } = useTranslation()
+
+		return (
+			<button
+				className="toggle-button"
+				onClick={() => setShowRaw(!showRaw)}
+			>
+				{showRaw ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+				{showRaw ? t("settings:markdown.showRaw", "显示原文") : t("settings:markdown.showRendered", "显示渲染结果")}
+			</button>
+		)
+	}
+
+	const RenderedContent = () => (
+		<>
 			{processedContent.blocks.map((block, index) => {
-				if (block.type === "thinking") {
-					return (
-						<ThinkingBlock
-							key={`thinking-${index}`}
-							content={block.content}
-							isCollapsed={collapsedThinkingBlocks.has(index)}
-							onToggle={() => toggleThinkingBlock(index)}
-						/>
-					)
-				} else {
+				
+				if (block.type === "text") {
 					return (
 						<ReactMarkdown
 							key={`text-${index}`}
@@ -498,8 +454,31 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 							{block.content}
 						</ReactMarkdown>
 					)
+				} else {
+					return (
+						<FoldableBlock
+							key={`${block.type}-${index}`}
+							content={block.content}
+							type={block.type}
+							isCollapsed={collapsedThinkingBlocks.has(index)}
+							onToggle={() => toggleThinkingBlock(index)}
+						/>
+					)
 				}
 			})}
+		</>
+	)
+
+	const RawContent = () => (
+		<div className="raw-content">
+			{markdown || ""}
+		</div>
+	)
+
+	return (
+		<StyledMarkdown>
+			{markdown && <ToggleButton />}
+			{showRaw ? <RawContent /> : <RenderedContent />}
 		</StyledMarkdown>
 	)
 })

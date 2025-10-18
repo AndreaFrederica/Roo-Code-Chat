@@ -235,6 +235,7 @@ describe("mergeExtensionState", () => {
 				newTaskRequireTodos: false,
 				imageGeneration: false,
 				runSlashCommand: false,
+				stRegexProcessor: false,
 			} as Record<ExperimentId, boolean>,
 		}
 

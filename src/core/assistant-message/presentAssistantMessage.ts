@@ -191,8 +191,9 @@ export async function presentAssistantMessage(cline: Task) {
 				// - Needs to be separate since we dont want to remove the line
 				//   break before the first tag.
 				// - Needs to happen before the xml parsing below.
-				content = content.replace(/<thinking>\s?/g, "")
-				content = content.replace(/\s?<\/thinking>/g, "")
+				// TODO 正则作用目标应该在这边（如果你要删东西）...
+				// content = content.replace(/<thinking>\s?/g, "")
+				// content = content.replace(/\s?<\/thinking>/g, "")
 
 				// Remove partial XML tag at the very end of the content (for
 				// tool use and thinking tags), Prevents scrollview from

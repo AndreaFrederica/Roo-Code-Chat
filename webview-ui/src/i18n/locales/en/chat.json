@@ -346,6 +346,9 @@
   },
   "reasoning": {
     "thinking": "Thinking",
+    "variables": "Variables",
+    "metadata": "Metadata",
+    "code": "Code Block",
     "seconds": "{{count}}s"
   },
   "followUpSuggest": {

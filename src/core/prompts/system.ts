@@ -46,6 +46,7 @@ import { CodeIndexManager } from "../../services/code-index/manager"
 
 import { PromptVariables, loadSystemPromptFile } from "./sections/custom-system-prompt"
 import { applyTemplateVariablesToRole } from "./template-variables"
+import { RegexTargetSource } from "@roo-code/types"
 
 import { getToolDescriptionsForMode } from "./tools"
 import {
@@ -376,7 +377,9 @@ async function applyTsProfilePreprocessing(
 			const description = processedRole.description || ""
 			const personality = processedRole.personality || ""
 
-			processedRole.system_prompt = `You are ${name}${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.`
+			processedRole.system_prompt = `You are ${name}${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.
+
+请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。`
 
 			debugLog("applyTsProfilePreprocessing - Generated basic role definition:", {
 				roleName: processedRole.name,
@@ -1406,9 +1409,13 @@ function applySillyTavernRoleOverride(
 		const personality = role.personality || ""
 
 		if (persona === "chat") {
-			newRoleDefinition = `You are ${name}${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.`
+			newRoleDefinition = `You are ${name}${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.
+
+请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。`
 		} else {
-			newRoleDefinition = `You are ${name}, a character with programming capabilities${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.`
+			newRoleDefinition = `You are ${name}, a character with programming capabilities${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.
+
+请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。`
 		}
 	}
 
@@ -1524,11 +1531,15 @@ function createPersonaHeader(role: any, persona: RolePersona): string {
 
 	if (persona === "chat") {
 		// Pure chat persona - no coding emphasis
-		return `You are ${name}, a ${type}${description ? `. ${description}` : ""}.`
+		return `You are ${name}, a ${type}${description ? `. ${description}` : ""}.
+
+请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。`
 	}
 
 	// Hybrid persona - coding capable but with role identity
-	return `You are ${name}, a ${type} with programming capabilities${description ? `. ${description}` : ""}.`
+	return `You are ${name}, a ${type} with programming capabilities${description ? `. ${description}` : ""}.
+
+请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。`
 }
 
 /**
@@ -1997,11 +2008,101 @@ Example:
 
 	const basePrompt = promptSections.join("\n")
 
+	// Apply ST regex processing to the final system prompt if ST regex processor is enabled
+	let finalPrompt = basePrompt
+	if (experiments?.stRegexProcessor) {
+		console.log("[ANH-Chat:SystemPrompt] 🔍 ST regex processor is enabled in experiments, applying processing...")
+
+		try {
+			// Import regex processor manager
+			const { getRegexProcessorManager, debugRegexProcessorStatus } = require("../../core/processors/RegexProcessorManager")
+			const regexManager = getRegexProcessorManager()
+
+			// Debug: Output current processor status
+			console.log("[ANH-Chat:SystemPrompt] 📊 Regex processor status check:")
+			console.log("[ANH-Chat:SystemPrompt] 🎛️ Enabled:", regexManager.isProcessorEnabled())
+
+			if (regexManager.isProcessorEnabled()) {
+				console.log("[ANH-Chat:SystemPrompt] ✅ Regex processor is enabled, processing final system prompt...")
+				console.log(`[ANH-Chat:SystemPrompt] 📏 Original prompt length: ${finalPrompt.length} characters`)
+
+				// Log first few lines of the prompt for context
+				const previewLines = finalPrompt.split('\n').slice(0, 5)
+				console.log("[ANH-Chat:SystemPrompt] 📋 Original prompt preview:")
+				previewLines.forEach((line, index) => {
+					console.log(`[ANH-Chat:SystemPrompt]   ${index + 1}: ${line.substring(0, 100)}${line.length > 100 ? "..." : ""}`)
+				})
+
+				// Apply prompt_content regex processing to the final system prompt
+				// This processes the entire generated system prompt as a whole
+				const startTime = Date.now()
+				finalPrompt = regexManager.processFinalContent(
+					finalPrompt,
+					RegexTargetSource.PROMPT_CONTENT, // Target source for prompt content processing
+					{
+						variables: {
+							user: userAvatarRole?.name || "用户",
+							char: rolePromptData?.role?.name || "",
+							name: rolePromptData?.role?.name || "",
+							description: rolePromptData?.role?.description || "",
+							personality: rolePromptData?.role?.personality || "",
+							scenario: rolePromptData?.role?.scenario || "",
+							first_mes: rolePromptData?.role?.first_mes || "",
+							mes_example: rolePromptData?.role?.mes_example || "",
+							isodate: new Date().toISOString().split("T")[0],
+							isotime: new Date().toTimeString().split(" ")[0],
+							mode: mode,
+							workspace: cwd,
+						},
+						stage: "system_prompt_generation"
+					}
+				)
+				const processingTime = Date.now() - startTime
+
+				console.log(`[ANH-Chat:SystemPrompt] ✅ ST regex processing completed in ${processingTime}ms`)
+				console.log(`[ANH-Chat:SystemPrompt] 📏 Final prompt length: ${finalPrompt.length} characters`)
+
+				// Log first few lines of the processed prompt for comparison
+				const processedPreviewLines = finalPrompt.split('\n').slice(0, 5)
+				console.log("[ANH-Chat:SystemPrompt] 📋 Processed prompt preview:")
+				processedPreviewLines.forEach((line, index) => {
+					console.log(`[ANH-Chat:SystemPrompt]   ${index + 1}: ${line.substring(0, 100)}${line.length > 100 ? "..." : ""}`)
+				})
+
+				// Check if prompt was actually changed
+				if (finalPrompt !== basePrompt) {
+					console.log(`[ANH-Chat:SystemPrompt] 🔄 System prompt was MODIFIED by regex processing`)
+					const charDiff = finalPrompt.length - basePrompt.length
+					console.log(`[ANH-Chat:SystemPrompt] 📊 Length change: ${charDiff > 0 ? '+' : ''}${charDiff} characters`)
+				} else {
+					console.log(`[ANH-Chat:SystemPrompt] ⏭️ System prompt was unchanged by regex processing`)
+				}
+
+				// Call debug function to make status available globally
+				debugRegexProcessorStatus()
+
+				console.log("[ANH-Chat:SystemPrompt] 🎯 Applied ST regex processing to final system prompt")
+				debugLog(`ST regex processing applied - before: ${basePrompt.length} chars, after: ${finalPrompt.length} chars`)
+			} else {
+				console.log("[ANH-Chat:SystemPrompt] ⏭️ Regex processor is enabled but not initialized, skipping processing")
+			}
+		} catch (error) {
+			console.warn("[ANH-Chat:SystemPrompt] ❌ Failed to apply ST regex processing:", error)
+			console.warn("[ANH-Chat:SystemPrompt] 📋 Error details:", {
+				message: error instanceof Error ? error.message : String(error),
+				stack: error instanceof Error ? error.stack : undefined
+			})
+			// Continue with original prompt if regex processing fails
+		}
+	} else {
+		console.log("[ANH-Chat:SystemPrompt] ⏭️ ST regex processor is not enabled in experiments")
+	}
+
 	// Debug logging
 	console.log("[ANH-Chat:SystemPrompt] Generated prompt sections count:", promptSections.length)
 	console.log("[ANH-Chat:SystemPrompt] Pure chat mode:", isPureChatMode)
 
-	return basePrompt
+	return finalPrompt
 }
 
 export const SYSTEM_PROMPT = async (
@@ -2127,11 +2228,53 @@ export const SYSTEM_PROMPT = async (
 		const roleSectionBlock = aiRoleSectionBlock + userAvatarSectionBlock
 
 		// For file-based prompts, don't include the tool sections
-		return `${roleDefinition}
+		let filePrompt = `${roleDefinition}
 
 ${roleSectionBlock}${fileCustomSystemPrompt}
 
 ${customInstructions}`
+
+		// Apply ST regex processing to file-based system prompt if ST regex processor is enabled
+		if (experiments?.stRegexProcessor) {
+			try {
+				// Import regex processor manager
+				const { getRegexProcessorManager } = require("../../core/processors/RegexProcessorManager")
+				const regexManager = getRegexProcessorManager()
+
+				if (regexManager.isProcessorEnabled()) {
+					// Apply prompt_content regex processing to the file-based system prompt
+					filePrompt = regexManager.processFinalContent(
+						filePrompt,
+						RegexTargetSource.PROMPT_CONTENT, // Target source for prompt content processing
+						{
+							variables: {
+								user: userAvatarRole?.name || "用户",
+								char: processedRolePromptData?.role?.name || "",
+								name: processedRolePromptData?.role?.name || "",
+								description: processedRolePromptData?.role?.description || "",
+								personality: processedRolePromptData?.role?.personality || "",
+								scenario: processedRolePromptData?.role?.scenario || "",
+								first_mes: processedRolePromptData?.role?.first_mes || "",
+								mes_example: processedRolePromptData?.role?.mes_example || "",
+								isodate: new Date().toISOString().split("T")[0],
+								isotime: new Date().toTimeString().split(" ")[0],
+								mode: mode,
+								workspace: cwd,
+							},
+							stage: "file_system_prompt"
+						}
+					)
+
+					console.log("[ANH-Chat:SystemPrompt] Applied ST regex processing to file-based system prompt")
+					debugLog(`ST regex processing applied to file prompt - before: ${filePrompt.length} chars`)
+				}
+			} catch (error) {
+				console.warn("[ANH-Chat:SystemPrompt] Failed to apply ST regex processing to file prompt:", error)
+				// Continue with original prompt if regex processing fails
+			}
+		}
+
+		return filePrompt
 	}
 
 	// If diff is disabled, don't pass the diffStrategy

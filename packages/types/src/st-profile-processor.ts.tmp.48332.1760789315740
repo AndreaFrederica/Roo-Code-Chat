@@ -263,7 +263,6 @@ export interface STInjectionResult {
 	processors?: {
 		aiOutput: AIOutputProcessor
 		postProcess: PostProcessor
-		userInput: UserInputProcessor
 	}
 }
 
@@ -403,14 +402,12 @@ export class STProfileProcessor {
 			// 创建处理器实例
 			const aiOutputProcessor = new AIOutputProcessor(compilation.templateContext.profile.regexBindings)
 			const postProcessor = new PostProcessor(compilation.templateContext.profile.regexBindings)
-			const userInputProcessor = new UserInputProcessor(compilation.templateContext.profile.regexBindings)
 
 			return {
 				...injectResult,
 				processors: {
 					aiOutput: aiOutputProcessor,
-					postProcess: postProcessor,
-					userInput: userInputProcessor
+					postProcess: postProcessor
 				}
 			}
 		} catch (error) {
@@ -1833,9 +1830,6 @@ export class STRegexProcessor {
 		if (binding.targetSource === RegexTargetSource.AI_RESPONSE && source !== RegexTargetSource.AI_RESPONSE) {
 			return false
 		}
-		if (binding.targetSource === RegexTargetSource.USER_INPUT && source !== RegexTargetSource.USER_INPUT) {
-			return false
-		}
 
 		// 检查 promptOnly 限制（仅在预处理阶段检查）
 		if (stage === RegexRunStage.PRE_PROCESSING && binding.promptOnly && context?.prompt) {
@@ -2001,47 +1995,6 @@ export class PostProcessor {
 	}
 }
 
-/** 用户输入处理器 */
-export class UserInputProcessor {
-	private regexProcessor: STRegexProcessor
-
-	constructor(regexBindings: STRegexBinding[]) {
-		this.regexProcessor = new STRegexProcessor(regexBindings)
-	}
-
-	/** 处理用户输入 */
-	processUserInput(
-		userInput: string,
-		context?: Omit<RegexProcessorContext, 'prompt'>
-	): string {
-		return this.regexProcessor.processContent(
-			userInput,
-			RegexRunStage.PRE_PROCESSING,
-			RegexTargetSource.USER_INPUT,
-			context
-		)
-	}
-
-	/** 处理用户输入（使用指定阶段） */
-	processUserInputAtStage(
-		userInput: string,
-		stage: RegexRunStage,
-		context?: Omit<RegexProcessorContext, 'prompt'>
-	): string {
-		return this.regexProcessor.processContent(
-			userInput,
-			stage,
-			RegexTargetSource.USER_INPUT,
-			context
-		)
-	}
-
-	/** 获取正则处理器 */
-	getRegexProcessor(): STRegexProcessor {
-		return this.regexProcessor
-	}
-}
-
 // ============================================================================
 // 便捷函数
 // ============================================================================
@@ -2065,11 +2018,4 @@ export function createPostProcessor(raw: unknown): PostProcessor {
 	const processor = new STProfileProcessor()
 	const profile = processor.parse(raw)
 	return new PostProcessor(profile.regexBindings)
-}
-
-/** 便捷函数：从原始数据创建用户输入处理器 */
-export function createUserInputProcessor(raw: unknown): UserInputProcessor {
-	const processor = new STProfileProcessor()
-	const profile = processor.parse(raw)
-	return new UserInputProcessor(profile.regexBindings)
 }

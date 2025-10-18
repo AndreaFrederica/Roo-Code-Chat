@@ -150,6 +150,17 @@ const getCommandsMap = ({
 		// Also explicitly post the visibility message to trigger scroll reliably
 		visibleProvider.postMessageToWebview({ type: "action", action: "didBecomeVisible" })
 	},
+	toggleAIOutputDisplay: () => {
+		const visibleProvider = getVisibleProviderOrLog(outputChannel)
+
+		if (!visibleProvider) {
+			return
+		}
+
+		TelemetryService.instance.captureTitleButtonClicked("toggleAIOutputDisplay")
+
+		visibleProvider.postMessageToWebview({ type: "toggleAIOutputDisplayMode" })
+	},
 	historyButtonClicked: () => {
 		const visibleProvider = getVisibleProviderOrLog(outputChannel)
 

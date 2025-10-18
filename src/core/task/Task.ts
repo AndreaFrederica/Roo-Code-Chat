@@ -149,6 +149,7 @@ export interface TaskOptions extends CreateTaskOptions {
 	anhPersonaMode?: RolePersona
 	anhToneStrict?: boolean
 	anhUseAskTool?: boolean
+	anhTsProfileVariables?: Record<string, any>
 }
 
 export class Task extends EventEmitter<TaskEvents> implements TaskLike {
@@ -170,6 +171,21 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	private anhPersonaMode?: RolePersona
 	private anhToneStrict?: boolean
 	private anhUseAskTool?: boolean
+	private anhTsProfileVariables?: Record<string, any>
+
+	// 实时累积正则处理相关属性
+	private aiOutputBuffer = "" // 累积的AI输出缓冲区
+	private aiOutputProcessedBuffer = "" // 正则处理后的缓冲区
+	private aiOutputOriginalContent: AssistantMessageContent[] = [] // 原始消息内容
+	private aiOutputProcessedContent: AssistantMessageContent[] = [] // 处理后的消息内容
+	private useProcessedContent = true // 是否使用处理后的内容显示
+	private lastRegexProcessTimestamp = 0
+	private lastRegexProcessedBufferLength = 0
+	private static readonly REGEX_BUFFER_MIN_DELTA = 200
+	private static readonly REGEX_BUFFER_MIN_INTERVAL_MS = 1000
+	private regexProcessorNotReadyLogged = false
+	private regexExperimentEnabled: boolean | null = null
+	private lastRegexProcessReason: "sentence_end" | "paragraph_break" | "code_block" | "buffer_limit" | "stream_finalization" | "" = ""
 
 	/**
 	 * The mode associated with this task. Persisted across sessions
@@ -340,6 +356,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		anhPersonaMode,
 		anhToneStrict,
 		anhUseAskTool,
+		anhTsProfileVariables,
+		experiments: experimentsConfig,
 	}: TaskOptions) {
 		super()
 
@@ -360,6 +378,12 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		this.anhPersonaMode = anhPersonaMode
 		this.anhToneStrict = anhToneStrict
 		this.anhUseAskTool = anhUseAskTool
+		this.anhTsProfileVariables = anhTsProfileVariables
+		const regexExperimentKey = EXPERIMENT_IDS.ST_REGEX_PROCESSOR ?? "stRegexProcessor"
+		this.regexExperimentEnabled =
+			experimentsConfig && typeof experimentsConfig[regexExperimentKey] === "boolean"
+				? experimentsConfig[regexExperimentKey]
+				: experimentsConfig?.stRegexProcessor ?? null
 
 		// Normal use-case is usually retry similar history task with new workspace.
 		this.workspacePath = parentTask
@@ -445,6 +469,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		if (initialTodos && initialTodos.length > 0) {
 			this.todoList = initialTodos
 		}
+
+		// 重置累积处理状态
+		this.resetAccumulatedProcessing()
 
 		onCreated?.(this)
 
@@ -968,14 +995,56 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		// CRITICAL FIX: For continuous conversations, add user message content to userMessageContent array
 		// This ensures that when users send new messages, they get properly queued for the next AI response turn
 		if (askResponse === "messageResponse" && (text || images)) {
+			// let processedText = text
+
 			if (text && text.trim()) {
+				//RAW版本
 				this.userMessageContent.push({ type: "text", text: text.trim() })
+
+				// // 只有实验性功能开启时才应用用户输入正则处理
+				// if (this.regexExperimentEnabled) {
+				// 	// 使用全局正则处理器，避免异步调用
+				// 	const { getRegexProcessorManager } = require("../../core/processors/RegexProcessorManager")
+				// 	const regexManager = getRegexProcessorManager()
+
+				// 	if (regexManager.isProcessorEnabled()) {
+				// 		try {
+				// 			console.log(`[Task] 🔍 Applying regex processor to user input (${text.length} characters)`)
+				// 			console.log(`[Task] 📥 Variables:`, this.anhTsProfileVariables || {})
+				// 			const originalText = text
+				// 			processedText = regexManager.processUserInput(text, {
+				// 				variables: this.anhTsProfileVariables || {}
+				// 			})
+
+				// 			if (processedText && processedText !== originalText) {
+				// 				console.log(`[Task] ✅ User input was MODIFIED by regex processing`)
+				// 				console.log(`[Task] 📊 Before (${originalText.length} chars): "${originalText}"`)
+				// 				console.log(`[Task] 📊 After (${processedText.length} chars): "${processedText}"`)
+				// 			} else {
+				// 				console.log(`[Task] ⏭️ User input unchanged by regex processing`)
+				// 			}
+				// 		} catch (error) {
+				// 			console.warn("[Task] ❌ Error processing user input with regex processor:", error)
+				// 		}
+				// 	} else {
+				// 		console.log(`[Task] ⚠️ Regex processor not enabled, skipping user input processing`)
+				// 	}
+				// } else {
+				// 	console.log(`[Task] ⚠️ ST regex processor experiment disabled, skipping user input processing`)
+				// }
+
+				// this.userMessageContent.push({ type: "text", text: (processedText || '').trim() })
 			}
 			if (images && images.length > 0) {
 				const imageBlocks = formatResponse.imageBlocks(images)
 				this.userMessageContent.push(...imageBlocks)
 			}
+			// //正则版本
+			// console.log(`[Task] Added user message to userMessageContent: text="${(processedText || '').slice(0, 50)}...", images=${images?.length || 0}, total content blocks=${this.userMessageContent.length}`)
+
+			//RAW
 			console.log(`[Task] Added user message to userMessageContent: text="${text?.slice(0, 50)}...", images=${images?.length || 0}, total content blocks=${this.userMessageContent.length}`)
+
 
 			// CRITICAL FIX: Don't immediately display user feedback during resume prompts
 			// This would interfere with the ask method waiting logic by changing lastMessageTs
@@ -1000,7 +1069,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				})
 			}
 		}
-}
+	}
 
 	public approveAsk({ text, images }: { text?: string; images?: string[] } = {}) {
 		this.handleWebviewAskResponse("yesButtonClicked", text, images)
@@ -1161,9 +1230,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			enabled: true,
 			role: userAvatarRole.name
 				? {
-						name: userAvatarRole.name,
-						color: userAvatarRole.color,
-					}
+					name: userAvatarRole.name,
+					color: userAvatarRole.color,
+				}
 				: undefined,
 		}
 
@@ -1309,8 +1378,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	async sayAndCreateMissingParamError(toolName: ToolName, paramName: string, relPath?: string) {
 		await this.say(
 			"error",
-			`Roo tried to use ${toolName}${
-				relPath ? ` for '${relPath.toPosix()}'` : ""
+			`Roo tried to use ${toolName}${relPath ? ` for '${relPath.toPosix()}'` : ""
 			} without value for required parameter '${paramName}'. Retrying...`,
 		)
 		return formatResponse.toolError(formatResponse.missingToolParameterError(paramName))
@@ -1892,6 +1960,17 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 					this.assistantMessageParser.finalizeContentBlocks()
 					this.assistantMessageContent = this.assistantMessageParser.getContentBlocks()
 
+					// // 流式结束后，处理剩余的累积文本
+					// if (this.aiOutputBuffer && this.aiOutputBuffer.trim()) {
+					// 	console.log(`[Task] 🏁 Processing remaining accumulated text after streaming (${this.aiOutputBuffer.length} characters)`)
+					// 	this.applyRegexToAccumulatedText("stream_finalization")
+					// }
+
+					// // 最终确认处理状态
+					// const finalContent = this.getCurrentDisplayContent()
+					// this.assistantMessageContent = finalContent
+					// console.log(`[Task] ✅ Final AI output processing complete. Display mode: ${this.useProcessedContent ? 'processed' : 'original'}`)
+
 					if (partialBlocks.length > 0 || this.assistantMessageContent.length > 0) {
 						presentAssistantMessage(this)
 					} else {
@@ -1950,7 +2029,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 		// Reset userMessageContentReady at the start of each request cycle
 		this.userMessageContentReady = false
-		
+
 		interface StackItem {
 			userContent: Anthropic.Messages.ContentBlockParam[]
 			includeFileDetails: boolean
@@ -2209,9 +2288,19 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 							case "text": {
 								assistantMessage += chunk.text
 
-								// Parse raw assistant message chunk into content blocks.
+
+								// // 实时累积处理方案：累积文本并在适当时机进行正则处理
+								// await this.processAccumulatedAIOutput(chunk.text)
+
+								// // 使用当前显示的内容更新assistantMessageContent
+								// const currentDisplayContent = this.getCurrentDisplayContent()
 								const prevLength = this.assistantMessageContent.length
+								// this.assistantMessageContent = currentDisplayContent
+
+								//原有的处理逻辑 RAW
 								this.assistantMessageContent = this.assistantMessageParser.processChunk(chunk.text)
+
+
 
 								if (this.assistantMessageContent.length > prevLength) {
 									// New content we need to present, reset to
@@ -2455,6 +2544,17 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 				this.didCompleteReadingStream = true
 
+				// // 流式结束后，处理剩余的累积文本
+				// if (this.aiOutputBuffer && this.aiOutputBuffer.trim()) {
+				// 	console.log(`[Task] 🏁 Processing remaining accumulated text after streaming (${this.aiOutputBuffer.length} characters)`)
+				// 	this.applyRegexToAccumulatedText("stream_finalization")
+				// }
+
+				// // 最终确认处理状态
+				// const finalContent = this.getCurrentDisplayContent()
+				// this.assistantMessageContent = finalContent
+				// console.log(`[Task] ✅ Final AI output processing complete. Display mode: ${this.useProcessedContent ? 'processed' : 'original'}`)
+
 				// Set any blocks to be complete to allow `presentAssistantMessage`
 				// to finish and set `userMessageContentReady` to true.
 				// (Could be a text block that had no subsequent tool uses, or a
@@ -2682,9 +2782,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 			const resolvedUserAvatarVisibility =
 				userAvatarVisibility === "full" ||
-				userAvatarVisibility === "summary" ||
-				userAvatarVisibility === "name" ||
-				userAvatarVisibility === "hidden"
+					userAvatarVisibility === "summary" ||
+					userAvatarVisibility === "name" ||
+					userAvatarVisibility === "hidden"
 					? userAvatarVisibility
 					: userAvatarHideFullData
 						? "summary"
@@ -2810,8 +2910,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		// Log the context window error for debugging
 		console.warn(
 			`[ANH-Chat:Task#${this.taskId}] Context window exceeded for model ${this.api.getModel().id}. ` +
-				`Current tokens: ${contextTokens}, Context window: ${contextWindow}. ` +
-				`Forcing truncation to ${FORCED_CONTEXT_REDUCTION_PERCENT}% of current context.`,
+			`Current tokens: ${contextTokens}, Context window: ${contextWindow}. ` +
+			`Forcing truncation to ${FORCED_CONTEXT_REDUCTION_PERCENT}% of current context.`,
 		)
 
 		// Force aggressive truncation by keeping only 75% of the conversation history
@@ -3045,8 +3145,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			if (isContextWindowExceededError && retryAttempt < MAX_CONTEXT_WINDOW_RETRIES) {
 				console.warn(
 					`[ANH-Chat:Task#${this.taskId}] Context window exceeded for model ${this.api.getModel().id}. ` +
-						`Retry attempt ${retryAttempt + 1}/${MAX_CONTEXT_WINDOW_RETRIES}. ` +
-						`Attempting automatic truncation...`,
+					`Retry attempt ${retryAttempt + 1}/${MAX_CONTEXT_WINDOW_RETRIES}. ` +
+					`Attempting automatic truncation...`,
 				)
 				await this.handleContextWindowExceededError()
 				// Retry the request after handling the context window error
@@ -3652,5 +3752,253 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	 */
 	public getUseAskTool(): boolean {
 		return this.anhUseAskTool ?? true
+	}
+
+	/**
+	 * 处理累积的AI输出文本，检查是否需要正则处理
+	 */
+	private async processAccumulatedAIOutput(newText: string): Promise<void> {
+		// 如果实验性功能关闭，完全绕过所有累计计算和正则处理
+		if (!this.regexExperimentEnabled) {
+			// 直接处理新文本，不进行任何累积
+			this.updateOriginalContent(newText)
+			this.updateProcessedContent(newText)
+			// 重置缓冲区状态，避免累积
+			this.aiOutputBuffer = ""
+			this.aiOutputProcessedBuffer = ""
+			return
+		}
+
+		// 实验性功能开启时，才进行累积和正则处理逻辑
+		this.aiOutputBuffer += newText
+		console.log(`[Task] 📝 AI output buffer accumulated (${this.aiOutputBuffer.length} chars): "${this.aiOutputBuffer.substring(0, 100)}${this.aiOutputBuffer.length > 100 ? "..." : ""}"`)
+
+		// 检查是否到达处理边界（句号、换行、段落等）
+		const processReason = this.shouldProcessAccumulatedText()
+
+		if (processReason) {
+			// 使用全局正则处理器，避免异步调用
+			const { getRegexProcessorManager } = require("../../core/processors/RegexProcessorManager")
+			const regexManager = getRegexProcessorManager()
+
+			const isProcessorEnabled = regexManager?.isProcessorEnabled?.() ?? false
+
+			if (isProcessorEnabled) {
+				this.regexProcessorNotReadyLogged = false
+				this.applyRegexToAccumulatedText(processReason)
+			} else {
+				if (!this.regexProcessorNotReadyLogged) {
+					console.log(`[Task] ⚠️ Regex processor not enabled, displaying raw accumulated text`)
+					this.regexProcessorNotReadyLogged = true
+				}
+
+				this.aiOutputProcessedBuffer = this.aiOutputBuffer
+				this.updateProcessedContent(this.aiOutputBuffer)
+
+				// 清理已处理的文本以避免无限累积
+				this.trimProcessedBuffer()
+			}
+		}
+
+		// 始终更新原始内容
+		this.updateOriginalContent(newText)
+	}
+
+	/**
+	 * 判断是否应该对累积文本进行正则处理
+	 */
+	private shouldProcessAccumulatedText(): "sentence_end" | "paragraph_break" | "code_block" | "buffer_limit" | "" {
+		// 检查文本长度，避免处理过小的片段
+		if (this.aiOutputBuffer.length < 10) {
+			return ""
+		}
+
+		// 检查是否包含句子结束符
+		const sentenceEnders = /[.!?。！？]\s*$/m
+		if (sentenceEnders.test(this.aiOutputBuffer)) {
+			const throttledReason = this.shouldThrottleRegexProcessing("sentence_end")
+			if (throttledReason) {
+				console.log(`[Task] 📄 Sentence end detected, processing accumulated text`)
+			}
+			return throttledReason
+		}
+
+		// 检查是否包含换行符（可能是段落或列表项）
+		const lineBreaks = /\n\s*\n$/m
+		if (lineBreaks.test(this.aiOutputBuffer)) {
+			const throttledReason = this.shouldThrottleRegexProcessing("paragraph_break")
+			if (throttledReason) {
+				console.log(`[Task] 📄 Paragraph break detected, processing accumulated text`)
+			}
+			return throttledReason
+		}
+
+		// 检查是否包含代码块结束符
+		const codeBlockEnd = /```\s*$/
+		if (codeBlockEnd.test(this.aiOutputBuffer)) {
+			const throttledReason = this.shouldThrottleRegexProcessing("code_block")
+			if (throttledReason) {
+				console.log(`[Task] 📄 Code block end detected, processing accumulated text`)
+			}
+			return throttledReason
+		}
+
+		// 检查缓冲区是否过大，强制处理
+		if (this.aiOutputBuffer.length > 500) {
+			const throttledReason = this.shouldThrottleRegexProcessing("buffer_limit")
+			if (throttledReason) {
+				console.log(`[Task] 📄 Buffer size limit reached, processing accumulated text`)
+			}
+			return throttledReason
+		}
+
+		return ""
+	}
+
+	private shouldThrottleRegexProcessing(
+		reason: "sentence_end" | "paragraph_break" | "code_block" | "buffer_limit",
+	): "sentence_end" | "paragraph_break" | "code_block" | "buffer_limit" | "" {
+		if (this.lastRegexProcessReason !== reason) {
+			return reason
+		}
+
+		const charsSinceLast = this.aiOutputBuffer.length - this.lastRegexProcessedBufferLength
+		const elapsedSinceLast = Date.now() - this.lastRegexProcessTimestamp
+
+		if (charsSinceLast < Task.REGEX_BUFFER_MIN_DELTA && elapsedSinceLast < Task.REGEX_BUFFER_MIN_INTERVAL_MS) {
+			return ""
+		}
+
+		return reason
+	}
+
+	/**
+	 * 对累积文本应用正则处理
+	 */
+	private applyRegexToAccumulatedText(reason: string): void {
+		// 再次检查实验性功能状态（双重保险）
+		if (!this.regexExperimentEnabled) {
+			console.log(`[Task] ⚠️ ST regex processor experiment disabled, skipping regex processing`)
+			return
+		}
+
+		// 使用全局单例
+		const { getRegexProcessorManager } = require("../../core/processors/RegexProcessorManager")
+		const regexManager = getRegexProcessorManager()
+
+		if (!regexManager.isProcessorEnabled()) {
+			console.log(`[Task] ⚠️ Regex processor not enabled, displaying raw accumulated text`)
+			return
+		}
+
+		try {
+			console.log(`[Task] 🔄 Applying regex to accumulated text (${this.aiOutputBuffer.length} characters) due to ${reason}`)
+			const originalText = this.aiOutputBuffer
+			const processedText = regexManager.processAIOutput(originalText, {
+				variables: this.anhTsProfileVariables || {}
+			})
+
+			if (processedText !== originalText) {
+				console.log(`[Task] ✅ Accumulated text was MODIFIED by regex processing`)
+				console.log(`[Task] 📊 Before: "${originalText.substring(0, 200)}${originalText.length > 200 ? "..." : ""}"`)
+				console.log(`[Task] 📊 After: "${processedText.substring(0, 200)}${processedText.length > 200 ? "..." : ""}"`)
+
+				// 更新处理后的缓冲区
+				this.aiOutputProcessedBuffer = processedText
+				this.updateProcessedContent(processedText)
+			} else {
+				console.log(`[Task] ⏭️ Accumulated text unchanged by regex processing`)
+				this.aiOutputProcessedBuffer = originalText
+				this.updateProcessedContent(originalText)
+			}
+
+			// 清理已处理的文本以避免无限累积
+			this.trimProcessedBuffer()
+		} catch (error) {
+			console.warn("[Task] ❌ Error processing accumulated text with regex:", error)
+			// 出错时也要清理缓冲区，避免无限累积
+			this.trimProcessedBuffer()
+		} finally {
+			this.lastRegexProcessTimestamp = Date.now()
+			this.lastRegexProcessedBufferLength = this.aiOutputBuffer.length
+			this.lastRegexProcessReason = reason as typeof this.lastRegexProcessReason
+		}
+	}
+
+	/**
+	 * 更新原始消息内容
+	 */
+	private updateOriginalContent(newText: string): void {
+		const parser = new AssistantMessageParser()
+		this.aiOutputOriginalContent = parser.processChunk(newText)
+		parser.finalizeContentBlocks()
+		this.aiOutputOriginalContent = parser.getContentBlocks()
+	}
+
+	/**
+	 * 更新处理后消息内容
+	 */
+	private updateProcessedContent(processedText: string): void {
+		const parser = new AssistantMessageParser()
+		this.aiOutputProcessedContent = parser.processChunk(processedText)
+		parser.finalizeContentBlocks()
+		this.aiOutputProcessedContent = parser.getContentBlocks()
+	}
+
+	/**
+	 * 获取当前应该显示的消息内容
+	 */
+	private getCurrentDisplayContent(): AssistantMessageContent[] {
+		return this.useProcessedContent ? this.aiOutputProcessedContent : this.aiOutputOriginalContent
+	}
+
+	/**
+	 * 切换显示模式（原文/处理后）
+	 */
+	toggleAIOutputDisplayMode(): { mode: 'original' | 'processed', content: AssistantMessageContent[] } {
+		this.useProcessedContent = !this.useProcessedContent
+		const mode = this.useProcessedContent ? 'processed' : 'original'
+		const content = this.getCurrentDisplayContent()
+
+		console.log(`[Task] 🔄 AI output display mode toggled to: ${mode}`)
+
+		// 更新当前显示的内容
+		this.assistantMessageContent = content
+
+		return { mode, content }
+	}
+
+
+	/**
+	 * 清理已处理的缓冲区文本，避免无限累积
+	 */
+	private trimProcessedBuffer(): void {
+		if (this.aiOutputBuffer.length > 1000) {
+			// 保留最后500个字符，避免缓冲区过大
+			const keepLength = 500
+			const trimStart = this.aiOutputBuffer.length - keepLength
+			this.aiOutputBuffer = this.aiOutputBuffer.substring(trimStart)
+			console.log(`[Task] ✂️ Trimmed buffer from ${this.aiOutputBuffer.length + keepLength} to ${this.aiOutputBuffer.length} characters`)
+		}
+
+		if (this.lastRegexProcessedBufferLength > this.aiOutputBuffer.length) {
+			this.lastRegexProcessedBufferLength = this.aiOutputBuffer.length
+		}
+	}
+
+	/**
+	 * 重置累积处理状态
+	 */
+	private resetAccumulatedProcessing(): void {
+		this.aiOutputBuffer = ""
+		this.aiOutputProcessedBuffer = ""
+		this.aiOutputOriginalContent = []
+		this.aiOutputProcessedContent = []
+		this.useProcessedContent = true
+		this.lastRegexProcessTimestamp = 0
+		this.lastRegexProcessedBufferLength = 0
+		this.regexProcessorNotReadyLogged = false
+		this.lastRegexProcessReason = ""
+		console.log(`[Task] 🧹 Reset accumulated processing state`)
 	}
 }

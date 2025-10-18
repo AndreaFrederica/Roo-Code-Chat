@@ -143,6 +143,10 @@
 		"showSystemPrompt": "View System Prompt",
 		"showSystemPromptTooltip": "View the complete system prompt that is sent to the AI model, including all context and instructions."
 	},
+	"markdown": {
+		"showRaw": "Show Raw",
+		"showRendered": "Show Rendered"
+	},
 	"codeIndex": {
 		"title": "Codebase Indexing",
 		"description": "Configure codebase indexing settings to enable semantic search of your project. <0>Learn more</0>",
@@ -855,6 +859,10 @@
 		"RUN_SLASH_COMMAND": {
 			"name": "Enable model-initiated slash commands",
 			"description": "When enabled, Roo can run your slash commands to execute workflows."
+		},
+		"ST_REGEX_PROCESSOR": {
+			"name": "Enable ST Regex Processor",
+			"description": "When enabled, the system will use SillyTavern's regex processor to process user input, AI output, and prompt content, supporting text formatting, cleanup, and variable replacement."
 		}
 	},
 	"promptCaching": {

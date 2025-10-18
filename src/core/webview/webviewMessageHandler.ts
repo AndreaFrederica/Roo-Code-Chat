@@ -71,6 +71,51 @@ import { MarketplaceManager, MarketplaceItemType } from "../../services/marketpl
 import { setPendingTodoList } from "../tools/updateTodoListTool"
 import { MemoryManagementHandler } from "../../services/role-memory/MemoryManagementHandler"
 
+/**
+ * Load profile mixin data for a given profile name
+ */
+async function loadProfileMixin(provider: ClineProvider, profileName: string): Promise<void> {
+	try {
+		const extendedTSProfileService = await getExtendedTSProfileService(provider.context)
+		const profiles = await extendedTSProfileService.loadAllTsProfiles()
+
+		// Find the profile by name
+		const profile = profiles.find(p => p.name === profileName)
+		if (!profile) {
+			provider.log(`[TSProfile] Profile not found: ${profileName}`)
+			return
+		}
+
+		// Construct mixin path
+		const mixinPath = profile.path.replace(/\.jsonc?$/, '.mixin.json')
+
+		let mixinData = null
+		if (await fileExistsAtPath(mixinPath)) {
+			const mixinContent = await fs.readFile(mixinPath, "utf-8")
+			mixinData = JSON.parse(mixinContent)
+			provider.log(`[TSProfile] Loaded mixin for ${profileName}: ${mixinPath}`)
+		} else {
+			provider.log(`[TSProfile] No mixin found for ${profileName}`)
+		}
+
+		// Note: currentTsProfile state will be updated by the webview
+		// We just send the mixin data to the webview to handle the state update
+
+		// Send mixin data to webview
+		await provider.postMessageToWebview({
+			type: "tsProfileMixinLoaded",
+			mixinData,
+			mixinPath,
+		})
+	} catch (error) {
+		provider.log(`[TSProfile] Error loading profile mixin: ${error}`)
+		await provider.postMessageToWebview({
+			type: "tsProfileMixinLoaded",
+			error: error instanceof Error ? error.message : String(error),
+		})
+	}
+}
+
 export const webviewMessageHandler = async (
 	provider: ClineProvider,
 	message: WebviewMessage,
@@ -2198,6 +2243,11 @@ export const webviewMessageHandler = async (
 				// 刷新状态
 				await provider.postStateToWebview()
 
+				// 重新初始化正则处理器（如果启用）
+				provider.reloadRegexProcessors().catch((error) => {
+					provider.log(`Failed to reinitialize regex processor after TSProfile changes: ${error}`)
+				})
+
 				provider.log(`Saved TSProfile changes: ${enabledProfiles.length} enabled profiles, autoInject: ${autoInject}, ${Object.keys(variables).length} variables`)
 				vscode.window.showInformationMessage("TSProfile设置已保存")
 
@@ -2582,21 +2632,35 @@ export const webviewMessageHandler = async (
 				vscode.window.showErrorMessage(t("common:errors.list_api_config"))
 			}
 			break
-		case "updateExperimental": {
-			if (!message.values) {
-				break
-			}
-
-			const updatedExperiments = {
-				...(getGlobalState("experiments") ?? experimentDefault),
-				...message.values,
-			}
-
-			await updateGlobalState("experiments", updatedExperiments)
-
-			await provider.postStateToWebview()
+	case "updateExperimental": {
+		if (!message.values) {
 			break
 		}
+
+		const updatedExperiments = {
+			...(getGlobalState("experiments") ?? experimentDefault),
+			...message.values,
+		}
+
+		await updateGlobalState("experiments", updatedExperiments)
+
+		// Reinitialize regex processor if ST_REGEX_PROCESSOR setting changed
+		if ("stRegexProcessor" in message.values) {
+			const enabled = !!message.values.stRegexProcessor
+			provider.setRegexProcessorEnabled(enabled)
+
+			if (enabled) {
+				provider.reloadRegexProcessors().catch((error) => {
+					provider.log(`Failed to reinitialize regex processor after experimental setting change: ${error}`)
+				})
+			} else {
+				provider.log("[RegexProcessor] Disabled via experimental settings")
+			}
+		}
+
+		await provider.postStateToWebview()
+		break
+	}
 		case "updateMcpTimeout":
 			if (message.serverName && typeof message.timeout === "number") {
 				try {
@@ -3409,6 +3473,59 @@ export const webviewMessageHandler = async (
 			} catch (error) {
 				provider.log(`Error deleting TSProfile: ${error}`)
 				vscode.window.showErrorMessage(`删除 Profile 失败: ${error}`)
+			}
+			break
+		}
+		case "deleteTsProfileMixin": {
+			try {
+				if (!message.mixinPath) {
+					throw new Error("Mixin path is required for deletion")
+				}
+
+				provider.log(`[TSProfile] Deleting mixin file "${message.mixinPath}"...`)
+				const extendedService = await getExtendedTSProfileService(provider.context)
+				const success = await extendedService.deleteMixinFile(message.mixinPath)
+
+				if (success) {
+					vscode.window.showInformationMessage(`Mixin文件已删除`)
+
+					// 如果有当前选中的profile，重新加载其mixin状态
+					const state = await provider.getState()
+					if (state.currentTsProfile?.profilePath && state.currentTsProfile.profileName) {
+						const profileName = state.currentTsProfile.profileName
+						await loadProfileMixin(provider, profileName)
+					}
+				} else {
+					throw new Error("删除Mixin文件失败")
+				}
+			} catch (error) {
+				provider.log(`Error deleting TSProfile mixin: ${error}`)
+				vscode.window.showErrorMessage(`删除Mixin文件失败: ${error}`)
+			}
+			break
+		}
+		case "toggleAIOutputDisplayMode": {
+			try {
+				// 获取当前活动的task
+				const activeTask = provider.getCurrentTask()
+				if (!activeTask) {
+					throw new Error("没有活动的任务可以切换显示模式")
+				}
+
+				provider.log(`[Task] Toggling AI output display mode...`)
+				const result = activeTask.toggleAIOutputDisplayMode()
+
+				// 通知前端显示模式已切换
+				provider.postMessageToWebview({
+					type: "aiOutputDisplayModeToggled",
+					displayMode: result.mode,
+					message: `已切换到${result.mode === 'original' ? '原始' : '处理后'}AI输出显示模式`
+				})
+
+				provider.log(`[Task] AI output display mode toggled to: ${result.mode}`)
+			} catch (error) {
+				provider.log(`Error toggling AI output display mode: ${error}`)
+				vscode.window.showErrorMessage(`切换AI输出显示模式失败: ${error}`)
 			}
 			break
 		}

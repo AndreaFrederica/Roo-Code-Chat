@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 import { vscode } from "@/utils/vscode"
 import { StandardTooltip } from "@/components/ui"
 import { useExtensionState } from "@/context/ExtensionStateContext"
+import { RegexEditor } from "./RegexEditor"
 import { RegexSettings } from "./RegexSettings"
 
 import { SectionHeader } from "./SectionHeader"
@@ -187,6 +188,10 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	const [expandedRegexBindings, setExpandedRegexBindings] = useState<Set<string>>(new Set())
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
+	// 搜索功能状态
+	const [promptSearchQuery, setPromptSearchQuery] = useState("")
+	const [regexSearchQuery, setRegexSearchQuery] = useState("")
+
 	// 验证和错误处理相关状态
 	const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
 	const [showValidationDetails, setShowValidationDetails] = useState(false)
@@ -250,6 +255,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 						console.log('profileData.regexBindings:', message.profileData.regexBindings, 'Is Array:', Array.isArray(message.profileData.regexBindings))
 						console.log('profileData.extensions?.SPreset?.RegexBinding:', message.profileData.extensions?.SPreset?.RegexBinding, 'Is Array:', Array.isArray(message.profileData.extensions?.SPreset?.RegexBinding))
 						setProfileData(message.profileData)
+
 						// 初始化编辑状态 - 只有在没有现有编辑状态或者不在mixin模式时才重置
 						if (Object.keys(editingPrompts).length === 0 || editMode !== "mixin") {
 							const initialEditingState: Record<string, PromptConfig> = {}
@@ -258,18 +264,22 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 							})
 							setEditingPrompts(initialEditingState)
 						}
+
 						// 初始化正则绑定编辑状态
 						if (Object.keys(editingRegexBindings).length === 0 || editMode !== "mixin") {
 							const initialRegexEditingState: Record<string, RegexBinding> = {}
-							message.profileData.extensions?.SPreset?.RegexBinding?.forEach((regex: RegexBinding) => {
+							const regexBindings = getRegexBindingsForProfile(message.profileData)
+							regexBindings.forEach((regex: RegexBinding) => {
 								initialRegexEditingState[regex.id] = { ...regex }
 							})
 							setEditingRegexBindings(initialRegexEditingState)
 						}
+
 						// 如果已经有mixin数据且在mixin模式下，需要重新应用mixin
 						if (message.mixinData && editMode === "mixin") {
 							setMixinData(message.mixinData)
 							applyMixinToEditingState(message.profileData, message.mixinData)
+							applyRegexMixinToEditingState(message.profileData, message.mixinData)
 						} else {
 							setMixinData(message.mixinData)
 						}
@@ -285,6 +295,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 						// 如果有profile数据，应用mixin到编辑状态
 						if (profileData) {
 							applyMixinToEditingState(profileData, message.mixinData)
+							applyRegexMixinToEditingState(profileData, message.mixinData)
 						}
 					} else {
 						setMixinExists(false)
@@ -551,14 +562,14 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	const applyMixinToEditingState = (profileData: ProfileData, mixinData: ProfileMixin) => {
 		if (mixinData.prompts && profileData.prompts) {
 			const updatedEditingState = { ...editingPrompts }
-			
+
 			// 首先初始化所有原始prompts
 			profileData.prompts.forEach((prompt: PromptConfig) => {
 				if (!updatedEditingState[prompt.identifier]) {
 					updatedEditingState[prompt.identifier] = { ...prompt }
 				}
 			})
-			
+
 			// 然后应用mixin修改
 			mixinData.prompts.forEach((mixinPrompt: any) => {
 				const originalPrompt = profileData.prompts.find(
@@ -579,6 +590,29 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 				}
 			})
 			setEditingPrompts(updatedEditingState)
+		}
+	}
+
+	// 应用正则mixin到编辑状态的辅助函数
+	const applyRegexMixinToEditingState = (profileData: ProfileData, mixinData: any) => {
+		if (mixinData.regexBindings && profileData) {
+			const originalRegexBindings = getRegexBindingsForProfile(profileData)
+			const updatedRegexEditingState = { ...editingRegexBindings }
+
+			// 首先初始化所有原始正则绑定
+			originalRegexBindings.forEach((regex: RegexBinding) => {
+				if (!updatedRegexEditingState[regex.id]) {
+					updatedRegexEditingState[regex.id] = { ...regex }
+				}
+			})
+
+			// 然后应用mixin修改
+			mixinData.regexBindings.forEach((mixinRegex: RegexBinding) => {
+				if (mixinRegex.id) {
+					updatedRegexEditingState[mixinRegex.id] = { ...mixinRegex }
+				}
+			})
+			setEditingRegexBindings(updatedRegexEditingState)
 		}
 	}
 
@@ -643,11 +677,30 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 					if (prompt.content !== originalPrompt.content) {
 						mixinPrompt.content = prompt.content
 					}
+				} else {
+					// 如果原始prompt不存在，这是一个新的prompt，需要完整保存
+					mixinPrompt.enabled = prompt.enabled
+					mixinPrompt.content = prompt.content
 				}
 
 				return mixinPrompt
 			})
 			.filter((mixin) => Object.keys(mixin).length > 1) // 过滤掉只有identifier的项
+
+		// 处理正则绑定的mixin
+		const originalRegexBindings = getRegexBindingsForProfile(profileData)
+		const mixinRegexBindings = Object.entries(editingRegexBindings)
+			.map(([id, regex]) => {
+				const originalRegex = originalRegexBindings.find((r: RegexBinding) => r.id === id)
+				if (!originalRegex) return null
+
+				// 检查是否有变化
+				const hasChanges = JSON.stringify(regex) !== JSON.stringify(originalRegex)
+				if (!hasChanges) return null
+
+				return regex // 直接使用完整的regex对象
+			})
+			.filter(Boolean) as RegexBinding[]
 
 		const mixinData: ProfileMixin = {
 			version: "1.0.0",
@@ -658,6 +711,11 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 				updatedAt: Date.now(),
 				author: "User",
 			},
+		}
+
+		// 如果有正则绑定修改，添加到mixin数据中
+		if (mixinRegexBindings.length > 0) {
+			;(mixinData as any).regexBindings = mixinRegexBindings
 		}
 
 		const profile = profiles.find((p) => p.name === selectedProfile)
@@ -681,9 +739,20 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 			return
 		}
 
+		const updatedRegexBindings = Object.values(editingRegexBindings)
 		const updatedProfileData = {
 			...profileData,
 			prompts: Object.values(editingPrompts),
+			// 更新根级别的正则绑定
+			regexBindings: updatedRegexBindings,
+			// 更新扩展级别的正则绑定
+			extensions: {
+				...profileData.extensions,
+				SPreset: {
+					...profileData.extensions?.SPreset,
+					RegexBinding: updatedRegexBindings
+				}
+			}
 		}
 
 		const profile = profiles.find((p) => p.name === selectedProfile)
@@ -729,6 +798,182 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 			},
 		}))
 		setHasUnsavedChanges(true)
+	}
+
+	// 处理正则绑定变更
+	const handleRegexChange = (updatedBinding: RegexBinding) => {
+		setEditingRegexBindings(prev => ({
+			...prev,
+			[updatedBinding.id]: updatedBinding
+		}))
+		setHasUnsavedChanges(true)
+	}
+
+	// 处理正则绑定更新
+	const handleUpdateRegexBinding = (id: string, updatedBinding: RegexBinding) => {
+		setEditingRegexBindings(prev => ({
+			...prev,
+			[id]: updatedBinding
+		}))
+		setHasUnsavedChanges(true)
+	}
+
+	// 处理正则绑定创建
+	const handleCreateRegexBinding = (isNew?: boolean) => {
+		const newId = `regex-${Date.now()}`
+		const newBinding: RegexBinding = {
+			id: newId,
+			scriptName: "新正则绑定",
+			findRegex: "",
+			replaceString: "",
+			trimStrings: [],
+			substituteRegex: 1,
+			placement: [1],
+			disabled: false,
+			markdownOnly: false,
+			promptOnly: false,
+			runOnEdit: false,
+			minDepth: undefined,
+			maxDepth: undefined,
+			runStages: ["ai_output"],
+			targetSource: "ai_response",
+			priority: 100
+		}
+
+		setEditingRegexBindings(prev => ({
+			...prev,
+			[newId]: newBinding
+		}))
+		setHasUnsavedChanges(true)
+
+		// 展开新创建的正则绑定
+		setExpandedRegexBindings(prev => new Set(prev).add(newId))
+	}
+
+	// 处理正则绑定删除
+	const handleDeleteRegexBinding = (id: string) => {
+		setEditingRegexBindings(prev => {
+			const newState = { ...prev }
+			delete newState[id]
+			return newState
+		})
+		setHasUnsavedChanges(true)
+	}
+
+	// 处理正则绑定删除（别名）
+	const handleDeleteRegex = (id: string) => {
+		handleDeleteRegexBinding(id)
+	}
+
+	// 搜索过滤函数
+	const filterPrompts = (prompts: PromptConfig[]) => {
+		if (!promptSearchQuery.trim()) return prompts
+		const query = promptSearchQuery.toLowerCase()
+		return prompts.filter(prompt =>
+			prompt.identifier.toLowerCase().includes(query) ||
+			(prompt.name && prompt.name.toLowerCase().includes(query)) ||
+			prompt.content.toLowerCase().includes(query) ||
+			prompt.role.toLowerCase().includes(query)
+		)
+	}
+
+	const filterRegexBindings = (regexBindings: RegexBinding[]) => {
+		if (!regexSearchQuery.trim()) return regexBindings
+		const query = regexSearchQuery.toLowerCase()
+		return regexBindings.filter(regex =>
+			regex.id.toLowerCase().includes(query) ||
+			regex.scriptName.toLowerCase().includes(query) ||
+			regex.findRegex.toLowerCase().includes(query) ||
+			regex.replaceString.toLowerCase().includes(query)
+		)
+	}
+
+	// 一键还原Mixin功能
+	const handleResetMixin = () => {
+		if (!selectedProfile || !profileData || !confirm("确定要还原所有Mixin修改吗？这将清除所有个性化设置。")) {
+			return
+		}
+
+		// 重置提示词编辑状态为原始状态
+		const originalEditingState: Record<string, PromptConfig> = {}
+		profileData.prompts?.forEach((prompt: PromptConfig) => {
+			originalEditingState[prompt.identifier] = { ...prompt }
+		})
+		setEditingPrompts(originalEditingState)
+
+		// 重置正则绑定编辑状态为原始状态
+		const originalRegexEditingState: Record<string, RegexBinding> = {}
+		const regexBindings = getRegexBindingsForProfile(profileData)
+		regexBindings.forEach((regex: RegexBinding) => {
+			originalRegexEditingState[regex.id] = { ...regex }
+		})
+		setEditingRegexBindings(originalRegexEditingState)
+
+		// 清空mixin数据
+		setMixinData(null)
+		setMixinExists(false)
+
+		// 保存空的mixin文件（相当于删除mixin）
+		const profile = profiles.find((p) => p.name === selectedProfile)
+		if (profile) {
+			vscode.postMessage({
+				type: "saveTsProfileMixin",
+				mixinPath: profile.path.replace(".json", ".mixin.json"),
+				mixinData: null,
+			})
+		}
+
+		setHasUnsavedChanges(false)
+		setValidationSuccess("已还原到原始状态")
+	}
+
+	// 还原单个提示词的Mixin更改
+	const handleResetPromptMixin = (identifier: string) => {
+		if (!profileData) return
+
+		const originalPrompt = profileData.prompts.find((p) => p.identifier === identifier)
+		if (originalPrompt) {
+			setEditingPrompts(prev => ({
+				...prev,
+				[identifier]: { ...originalPrompt }
+			}))
+			setHasUnsavedChanges(true)
+			setValidationSuccess(`已还原提示词 "${identifier}"`)
+		}
+	}
+
+	// 还原单个正则绑定的Mixin更改
+	const handleResetRegexMixin = (id: string) => {
+		if (!profileData) return
+
+		const originalRegexBindings = getRegexBindingsForProfile(profileData)
+		const originalRegex = originalRegexBindings.find((r) => r.id === id)
+		if (originalRegex) {
+			setEditingRegexBindings(prev => ({
+				...prev,
+				[id]: { ...originalRegex }
+			}))
+			setHasUnsavedChanges(true)
+			setValidationSuccess(`已还原正则绑定 "${id}"`)
+		}
+	}
+
+	// 删除Mixin文件功能
+	const handleDeleteMixin = () => {
+		if (!selectedProfile || !confirm("确定要删除Mixin文件吗？这将永久删除所有个性化设置。")) {
+			return
+		}
+
+		const profile = profiles.find((p) => p.name === selectedProfile)
+		if (profile) {
+			vscode.postMessage({
+				type: "deleteTsProfileMixin" as any,
+				mixinPath: profile.path.replace(".json", ".mixin.json"),
+			})
+		}
+
+		// 重置状态
+		handleResetMixin()
 	}
 
 	// 切换正则绑定的展开状态
@@ -812,7 +1057,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 		setCopyTargetProfile(null)
 	}
 
-	// 获取profile中的正则绑定（从两个可能的位置）
+	// 获取profile中的正则绑定（从两个可能的位置，并去重）
 	const getRegexBindingsForProfile = (profileData: ProfileData | null): any[] => {
 		if (!profileData) return []
 
@@ -820,20 +1065,33 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 		console.log('profileData.regexBindings:', profileData.regexBindings, 'Type:', typeof profileData.regexBindings, 'Is Array:', Array.isArray(profileData.regexBindings))
 		console.log('profileData.extensions?.SPreset?.RegexBinding:', profileData.extensions?.SPreset?.RegexBinding, 'Type:', typeof profileData.extensions?.SPreset?.RegexBinding, 'Is Array:', Array.isArray(profileData.extensions?.SPreset?.RegexBinding))
 
+		const allBindings: any[] = []
+		const seenIds = new Set<string>()
+
 		// 首先尝试从根级别获取
 		if (profileData.regexBindings && Array.isArray(profileData.regexBindings)) {
 			console.log('Found regex bindings in root level, count:', profileData.regexBindings.length)
-			return profileData.regexBindings
+			profileData.regexBindings.forEach(binding => {
+				if (binding.id && !seenIds.has(binding.id)) {
+					allBindings.push(binding)
+					seenIds.add(binding.id)
+				}
+			})
 		}
 
 		// 然后尝试从扩展级别获取
 		if (profileData.extensions?.SPreset?.RegexBinding && Array.isArray(profileData.extensions.SPreset.RegexBinding)) {
 			console.log('Found regex bindings in extensions, count:', profileData.extensions.SPreset.RegexBinding.length)
-			return profileData.extensions.SPreset.RegexBinding
+			profileData.extensions.SPreset.RegexBinding.forEach(binding => {
+				if (binding.id && !seenIds.has(binding.id)) {
+					allBindings.push(binding)
+					seenIds.add(binding.id)
+				}
+			})
 		}
 
-		console.log('No regex bindings found in profile')
-		return []
+		console.log('Total unique regex bindings found:', allBindings.length)
+		return allBindings
 	}
 
 	// 处理正则设置保存
@@ -1364,16 +1622,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 										<FilePlus className="w-3 h-3" />
 										正则
 									</button>
-									{editSection === "regex" && (
-										<button
-											className="px-2 py-1 text-xs rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 flex items-center gap-1"
-											onClick={() => setShowRegexSettings(true)}
-											title="打开正则设置页面">
-											<Edit3 className="w-3 h-3" />
-											设置
-										</button>
-									)}
-								</div>
+																	</div>
 
 								{/* 编辑模式切换 */}
 								<div className="flex items-center gap-1 bg-vscode-editor-background border border-vscode-widget-border rounded p-1">
@@ -1409,6 +1658,26 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 										<Save className="w-3 h-3" />
 										保存{editMode === "mixin" ? "Mixin" : "源文件"}
 									</button>
+								)}
+
+								{/* Mixin管理按钮 */}
+								{editMode === "mixin" && mixinExists && (
+									<>
+										<button
+											className="px-2 py-1 text-xs bg-yellow-500/20 text-yellow-400 rounded hover:bg-yellow-500/30 flex items-center gap-1"
+											onClick={handleResetMixin}
+											title="还原到原始状态">
+											<RefreshCw className="w-3 h-3" />
+											还原
+										</button>
+										<button
+											className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 flex items-center gap-1"
+											onClick={handleDeleteMixin}
+											title="删除Mixin文件">
+											<Trash2 className="w-3 h-3" />
+											删除
+										</button>
+									</>
 								)}
 							</div>
 						</div>
@@ -1450,7 +1719,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 									<FileText className="w-4 h-4" />
 									<h4 className="text-sm font-medium">{selectedProfile}</h4>
 									<span className="text-xs text-vscode-descriptionForeground">
-										({profileData.prompts?.length || 0} 个提示词, {profileData.extensions?.SPreset?.RegexBinding?.length || 0} 个正则绑定)
+										({profileData.prompts?.length || 0} 个提示词, {getRegexBindingsForProfile(profileData).length} 个正则绑定)
 									</span>
 
 									{/* Mixin 状态统计 */}
@@ -1530,334 +1799,409 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 								)}
 							</div>
 
-							{/* Prompts 列表 */}
-							<div className="max-h-96 overflow-y-auto">
-								<div className="p-3 space-y-2">
-									{profileData.prompts?.map((prompt) => {
-										const editingPrompt = editingPrompts[prompt.identifier]
-										if (!editingPrompt) return null
+							{/* 内容列表 - 根据编辑区域显示不同内容 */}
+							<div className="flex-1 overflow-y-auto">
+								{/* 搜索框 */}
+								<div className="p-3 border-b border-vscode-widget-border">
+									<div className="relative">
+										<input
+											type="text"
+											value={editSection === "prompts" ? promptSearchQuery : regexSearchQuery}
+											onChange={(e) => editSection === "prompts" ? setPromptSearchQuery(e.target.value) : setRegexSearchQuery(e.target.value)}
+											placeholder={`搜索${editSection === "prompts" ? "提示词" : "正则绑定"}...`}
+											className="w-full px-3 py-2 text-xs bg-vscode-input-background border border-vscode-input-border rounded focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder pl-8"
+										/>
+										<div className="absolute left-3 top-2.5 text-vscode-descriptionForeground">
+											{editSection === "prompts" ? (
+												<FileText className="w-3 h-3" />
+											) : (
+												<FilePlus className="w-3 h-3" />
+											)}
+										</div>
+									</div>
+								</div>
 
-										const isExpanded = expandedPrompts.has(prompt.identifier)
-										const hasChanges =
-											profileData &&
-											(editingPrompt.enabled !== prompt.enabled ||
-												editingPrompt.content !== prompt.content)
+								{editSection === "prompts" ? (
+									<div className="p-3 space-y-2">
+										{filterPrompts(profileData.prompts || []).length === 0 ? (
+											<div className="text-sm text-vscode-descriptionForeground text-center py-8">
+												{promptSearchQuery.trim() ? "没有找到匹配的提示词" : "没有提示词"}
+											</div>
+										) : (
+											filterPrompts(profileData.prompts || []).map((prompt) => {
+											const editingPrompt = editingPrompts[prompt.identifier]
+											if (!editingPrompt) return null
 
-										// 检查此prompt是否被mixin修改
-										const isModifiedByMixin =
-											mixinData &&
-											mixinData.prompts &&
-											mixinData.prompts.some((m: any) => m.identifier === prompt.identifier)
-										const isDisabledByMixin =
-											editMode === "mixin" &&
-											mixinData &&
-											mixinData.prompts &&
-											mixinData.prompts.some(
-												(m: any) =>
-													m.identifier === prompt.identifier &&
-													m.enabled === false &&
-													prompt.enabled,
-											)
-										const isEnabledByMixin =
-											editMode === "mixin" &&
-											mixinData &&
-											mixinData.prompts &&
-											mixinData.prompts.some(
-												(m: any) =>
-													m.identifier === prompt.identifier &&
-													m.enabled === true &&
-													!prompt.enabled,
-											)
+											const isExpanded = expandedPrompts.has(prompt.identifier)
+											const hasChanges =
+												profileData &&
+												(editingPrompt.enabled !== prompt.enabled ||
+													editingPrompt.content !== prompt.content)
 
-										return (
-											<div
-												key={prompt.identifier}
-												className={cn(
-													"border rounded transition-colors",
-													"border-vscode-widget-border",
-													isModifiedByMixin &&
-														"border-l-4 border-l-purple-500 bg-purple-500/5",
-													isDisabledByMixin && "border-l-4 border-l-red-500 bg-red-500/5",
-													isEnabledByMixin && "border-l-4 border-l-green-500 bg-green-500/5",
-												)}>
-												{/* Prompt 头部 */}
+											// 检查此prompt是否被mixin修改
+											const isModifiedByMixin =
+												mixinData &&
+												mixinData.prompts &&
+												mixinData.prompts.some((m: any) => m.identifier === prompt.identifier)
+											const isDisabledByMixin =
+												editMode === "mixin" &&
+												mixinData &&
+												mixinData.prompts &&
+												mixinData.prompts.some(
+													(m: any) =>
+														m.identifier === prompt.identifier &&
+														m.enabled === false &&
+														prompt.enabled,
+												)
+											const isEnabledByMixin =
+												editMode === "mixin" &&
+												mixinData &&
+												mixinData.prompts &&
+												mixinData.prompts.some(
+													(m: any) =>
+														m.identifier === prompt.identifier &&
+														m.enabled === true &&
+														!prompt.enabled,
+												)
+
+											return (
 												<div
-													className="flex items-center justify-between p-3 cursor-pointer hover:bg-vscode-list-hoverBackground"
-													onClick={() => togglePromptExpanded(prompt.identifier)}>
-													<div className="flex items-center gap-2">
-														<div
-															className={cn(
-																"w-2 h-2 rounded-full",
-																editingPrompt.enabled ? "bg-green-400" : "bg-gray-400",
-															)}
-														/>
-														<span className="text-sm font-medium">
-															{editingPrompt.name || prompt.identifier}
-														</span>
-														<span className="text-xs text-vscode-descriptionForeground">
-															{editingPrompt.role}
-														</span>
+													key={prompt.identifier}
+													className={cn(
+														"border rounded transition-colors",
+														"border-vscode-widget-border",
+														isModifiedByMixin &&
+															"border-l-4 border-l-purple-500 bg-purple-500/5",
+														isDisabledByMixin && "border-l-4 border-l-red-500 bg-red-500/5",
+														isEnabledByMixin && "border-l-4 border-l-green-500 bg-green-500/5",
+													)}>
+													{/* Prompt 头部 */}
+													<div
+														className="flex items-center justify-between p-3 cursor-pointer hover:bg-vscode-list-hoverBackground"
+														onClick={() => togglePromptExpanded(prompt.identifier)}>
+														<div className="flex items-center gap-2">
+															<div
+																className={cn(
+																	"w-2 h-2 rounded-full",
+																	editingPrompt.enabled ? "bg-green-400" : "bg-gray-400",
+																)}
+															/>
+															<span className="text-sm font-medium">
+																{editingPrompt.name || prompt.identifier}
+															</span>
+															<span className="text-xs text-vscode-descriptionForeground">
+																{editingPrompt.role}
+															</span>
 
-														{/* 显示各种状态标签 */}
+															{/* 显示各种状态标签 */}
+															<div className="flex items-center gap-1">
+																{/* 被mixin修改的标签 */}
+																{mixinData &&
+																	mixinData.prompts &&
+																	mixinData.prompts.some(
+																		(m: any) => m.identifier === prompt.identifier,
+																	) && (
+																		<span
+																			className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30"
+																			title="此提示词被Mixin修改">
+																			Mixin
+																		</span>
+																	)}
+
+																{/* 在mixin模式下被禁用的标签 */}
+																{editMode === "mixin" &&
+																	mixinData &&
+																	mixinData.prompts &&
+																	mixinData.prompts.some(
+																		(m: any) =>
+																			m.identifier === prompt.identifier &&
+																			m.enabled === false &&
+																			prompt.enabled,
+																	) && (
+																		<span
+																			className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30"
+																			title="在Mixin中被禁用">
+																			已禁用
+																		</span>
+																	)}
+
+																{/* 在mixin中被启用的标签 */}
+																{editMode === "mixin" &&
+																	mixinData &&
+																	mixinData.prompts &&
+																	mixinData.prompts.some(
+																		(m: any) =>
+																			m.identifier === prompt.identifier &&
+																			m.enabled === true &&
+																			!prompt.enabled,
+																	) && (
+																		<span
+																			className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30"
+																			title="在Mixin中启用">
+																			已启用
+																		</span>
+																	)}
+
+																{/* 在mixin中内容被修改的标签 */}
+																{editMode === "mixin" &&
+																	mixinData &&
+																	mixinData.prompts &&
+																	mixinData.prompts.some(
+																		(m: any) =>
+																			m.identifier === prompt.identifier &&
+																			m.content !== undefined &&
+																			m.content !== prompt.content,
+																	) && (
+																		<span
+																			className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30"
+																			title="内容被Mixin修改">
+																			内容已改
+																		</span>
+																	)}
+
+																{/* 有未保存的修改 */}
+																{hasChanges && (
+																	<span
+																		className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+																		title="有未保存的更改">
+																		未保存
+																	</span>
+																)}
+															</div>
+														</div>
 														<div className="flex items-center gap-1">
-															{/* 被mixin修改的标签 */}
-															{mixinData &&
-																mixinData.prompts &&
-																mixinData.prompts.some(
-																	(m: any) => m.identifier === prompt.identifier,
-																) && (
-																	<span
-																		className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30"
-																		title="此提示词被Mixin修改">
-																		Mixin
-																	</span>
-																)}
-
-															{/* 在mixin模式下被禁用的标签 */}
-															{editMode === "mixin" &&
-																mixinData &&
-																mixinData.prompts &&
-																mixinData.prompts.some(
-																	(m: any) =>
-																		m.identifier === prompt.identifier &&
-																		m.enabled === false &&
-																		prompt.enabled,
-																) && (
-																	<span
-																		className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30"
-																		title="在Mixin中被禁用">
-																		已禁用
-																	</span>
-																)}
-
-															{/* 在mixin中被启用的标签 */}
-															{editMode === "mixin" &&
-																mixinData &&
-																mixinData.prompts &&
-																mixinData.prompts.some(
-																	(m: any) =>
-																		m.identifier === prompt.identifier &&
-																		m.enabled === true &&
-																		!prompt.enabled,
-																) && (
-																	<span
-																		className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30"
-																		title="在Mixin中启用">
-																		已启用
-																	</span>
-																)}
-
-															{/* 在mixin中内容被修改的标签 */}
-															{editMode === "mixin" &&
-																mixinData &&
-																mixinData.prompts &&
-																mixinData.prompts.some(
-																	(m: any) =>
-																		m.identifier === prompt.identifier &&
-																		m.content !== undefined &&
-																		m.content !== prompt.content,
-																) && (
-																	<span
-																		className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30"
-																		title="内容被Mixin修改">
-																		内容已改
-																	</span>
-																)}
-
-															{/* 有未保存的修改 */}
-															{hasChanges && (
-																<span
-																	className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-																	title="有未保存的更改">
-																	未保存
-																</span>
+															{/* 在Mixin模式下且被修改时显示还原按钮 */}
+															{editMode === "mixin" && hasChanges && (
+																<button
+																	className="p-1 text-xs text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors"
+																	onClick={(e) => {
+																		e.stopPropagation()
+																		handleResetPromptMixin(prompt.identifier)
+																	}}
+																	title={`还原提示词 "${prompt.identifier}" 的Mixin更改`}>
+																	<RefreshCw className="w-3 h-3" />
+																</button>
 															)}
-														</div>
-													</div>
-													<div className="flex items-center gap-1">
-														{/* 启用/禁用切换 */}
-														<button
-															className={cn(
-																"p-1 text-xs rounded transition-colors",
-																editingPrompt.enabled
-																	? "text-green-400 hover:bg-green-500/10"
-																	: "text-gray-400 hover:bg-gray-500/10",
-															)}
-															onClick={(e) => {
-																e.stopPropagation()
-																updatePromptContent(
-																	prompt.identifier,
-																	"enabled",
-																	!editingPrompt.enabled,
-																)
-															}}>
-															{editingPrompt.enabled ? (
-																<ToggleRight className="w-4 h-4" />
-															) : (
-																<ToggleLeft className="w-4 h-4" />
-															)}
-														</button>
 
-														{/* 展开/收起 */}
-														{isExpanded ? (
-															<X className="w-4 h-4" />
-														) : (
-															<Edit3 className="w-4 h-4" />
-														)}
-													</div>
-												</div>
-
-												{/* Prompt 详细内容 */}
-												{isExpanded && (
-													<div className="border-t border-vscode-widget-border p-3 space-y-3">
-														{/* 显示当前prompt的mixin状态 */}
-														{(isModifiedByMixin ||
-															isDisabledByMixin ||
-															isEnabledByMixin) && (
-															<div className="flex items-center gap-2 p-2 rounded bg-vscode-textBlockQuote-background">
-																<span className="text-xs font-medium">Mixin状态:</span>
-																{isModifiedByMixin && (
-																	<span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
-																		被Mixin修改
-																	</span>
+															{/* 启用/禁用切换 */}
+															<button
+																className={cn(
+																	"p-1 text-xs rounded transition-colors",
+																	editingPrompt.enabled
+																		? "text-green-400 hover:bg-green-500/10"
+																		: "text-gray-400 hover:bg-gray-500/10",
 																)}
-																{isDisabledByMixin && (
-																	<span className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
-																		在Mixin中禁用
-																	</span>
-																)}
-																{isEnabledByMixin && (
-																	<span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30">
-																		在Mixin中启用
-																	</span>
-																)}
-																{editMode === "mixin" && (
-																	<span className="text-xs text-vscode-descriptionForeground ml-auto">
-																		{hasChanges
-																			? "当前有未保存的修改"
-																			: "与Mixin文件同步"}
-																	</span>
-																)}
-															</div>
-														)}
-
-														<div className="grid grid-cols-2 gap-3">
-															<div>
-																<label className="text-xs font-medium text-vscode-descriptionForeground">
-																	标识符
-																</label>
-																<input
-																	type="text"
-																	value={editingPrompt.identifier}
-																	disabled
-																	className="w-full px-2 py-1 text-xs bg-vscode-input-background border border-vscode-input-border rounded opacity-60"
-																/>
-															</div>
-															<div>
-																<label className="text-xs font-medium text-vscode-descriptionForeground">
-																	名称
-																</label>
-																<input
-																	type="text"
-																	value={editingPrompt.name || ""}
-																	onChange={(e) =>
-																		updatePromptContent(
-																			prompt.identifier,
-																			"name",
-																			e.target.value,
-																		)
-																	}
-																	className="w-full px-2 py-1 text-xs bg-vscode-input-background border border-vscode-input-border rounded focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder"
-																/>
-															</div>
-														</div>
-
-														<div>
-															<label className="text-xs font-medium text-vscode-descriptionForeground">
-																内容
-															</label>
-															<textarea
-																value={editingPrompt.content}
-																onChange={(e) =>
+																onClick={(e) => {
+																	e.stopPropagation()
 																	updatePromptContent(
 																		prompt.identifier,
-																		"content",
-																		e.target.value,
+																		"enabled",
+																		!editingPrompt.enabled,
 																	)
-																}
-																rows={6}
-																className="w-full px-2 py-1 text-xs bg-vscode-input-background border border-vscode-input-border rounded focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder resize-vertical"
-																placeholder="输入提示词内容..."
-															/>
-														</div>
+																}}>
+																{editingPrompt.enabled ? (
+																	<ToggleRight className="w-4 h-4" />
+																) : (
+																	<ToggleLeft className="w-4 h-4" />
+																)}
+															</button>
 
-														<div className="grid grid-cols-3 gap-3">
+															{/* 展开/收起 */}
+															{isExpanded ? (
+																<X className="w-4 h-4" />
+															) : (
+																<Edit3 className="w-4 h-4" />
+															)}
+														</div>
+													</div>
+
+													{/* Prompt 详细内容 */}
+													{isExpanded && (
+														<div className="border-t border-vscode-widget-border p-3 space-y-3">
+															{/* 显示当前prompt的mixin状态 */}
+															{(isModifiedByMixin ||
+																isDisabledByMixin ||
+																isEnabledByMixin) && (
+																<div className="flex items-center gap-2 p-2 rounded bg-vscode-textBlockQuote-background">
+																	<span className="text-xs font-medium">Mixin状态:</span>
+																	{isModifiedByMixin && (
+																		<span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
+																			被Mixin修改
+																		</span>
+																	)}
+																	{isDisabledByMixin && (
+																		<span className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+																			在Mixin中禁用
+																		</span>
+																	)}
+																	{isEnabledByMixin && (
+																		<span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30">
+																			在Mixin中启用
+																		</span>
+																	)}
+																	{editMode === "mixin" && (
+																		<span className="text-xs text-vscode-descriptionForeground ml-auto">
+																			{hasChanges
+																				? "当前有未保存的修改"
+																				: "与Mixin文件同步"}
+																		</span>
+																	)}
+																</div>
+															)}
+
+															<div className="grid grid-cols-2 gap-3">
+																<div>
+																	<label className="text-xs font-medium text-vscode-descriptionForeground">
+																		标识符
+																	</label>
+																	<input
+																		type="text"
+																		value={editingPrompt.identifier}
+																		disabled
+																		className="w-full px-2 py-1 text-xs bg-vscode-input-background border border-vscode-input-border rounded opacity-60"
+																	/>
+																</div>
+																<div>
+																	<label className="text-xs font-medium text-vscode-descriptionForeground">
+																		名称
+																	</label>
+																	<input
+																		type="text"
+																		value={editingPrompt.name || ""}
+																		onChange={(e) =>
+																			updatePromptContent(
+																				prompt.identifier,
+																				"name",
+																				e.target.value,
+																			)
+																		}
+																		className="w-full px-2 py-1 text-xs bg-vscode-input-background border border-vscode-input-border rounded focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder"
+																	/>
+																</div>
+															</div>
+
 															<div>
 																<label className="text-xs font-medium text-vscode-descriptionForeground">
-																	角色
+																	内容
 																</label>
-																<select
-																	value={editingPrompt.role}
+																<textarea
+																	value={editingPrompt.content}
 																	onChange={(e) =>
 																		updatePromptContent(
 																			prompt.identifier,
-																			"role",
+																			"content",
 																			e.target.value,
 																		)
 																	}
-																	className="w-full px-2 py-1 text-xs bg-vscode-input-background border border-vscode-input-border rounded focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder">
-																	<option value="system">系统</option>
-																	<option value="user">用户</option>
-																	<option value="assistant">助手</option>
-																</select>
-															</div>
-															<div className="flex items-center gap-2">
-																<input
-																	type="checkbox"
-																	id={`system-prompt-${prompt.identifier}`}
-																	checked={editingPrompt.system_prompt}
-																	onChange={(e) =>
-																		updatePromptContent(
-																			prompt.identifier,
-																			"system_prompt",
-																			e.target.checked,
-																		)
-																	}
-																	className="w-3 h-3 rounded border-vscode-input-border bg-vscode-input-background text-vscode-focusBorder focus:ring-vscode-focusBorder"
+																	rows={6}
+																	className="w-full px-2 py-1 text-xs bg-vscode-input-background border border-vscode-input-border rounded focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder resize-vertical"
+																	placeholder="输入提示词内容..."
 																/>
-																<label
-																	htmlFor={`system-prompt-${prompt.identifier}`}
-																	className="text-xs text-vscode-descriptionForeground">
-																	系统提示词
-																</label>
 															</div>
-															<div className="flex items-center gap-2">
-																<input
-																	type="checkbox"
-																	id={`marker-${prompt.identifier}`}
-																	checked={editingPrompt.marker}
-																	onChange={(e) =>
-																		updatePromptContent(
-																			prompt.identifier,
-																			"marker",
-																			e.target.checked,
-																		)
-																	}
-																	className="w-3 h-3 rounded border-vscode-input-border bg-vscode-input-background text-vscode-focusBorder focus:ring-vscode-focusBorder"
-																/>
-																<label
-																	htmlFor={`marker-${prompt.identifier}`}
-																	className="text-xs text-vscode-descriptionForeground">
-																	标记
-																</label>
+
+															<div className="grid grid-cols-3 gap-3">
+																<div>
+																	<label className="text-xs font-medium text-vscode-descriptionForeground">
+																		角色
+																	</label>
+																	<select
+																		value={editingPrompt.role}
+																		onChange={(e) =>
+																			updatePromptContent(
+																				prompt.identifier,
+																				"role",
+																				e.target.value,
+																			)
+																		}
+																		className="w-full px-2 py-1 text-xs bg-vscode-input-background border border-vscode-input-border rounded focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder">
+																		<option value="system">系统</option>
+																		<option value="user">用户</option>
+																		<option value="assistant">助手</option>
+																	</select>
+																</div>
+																<div className="flex items-center gap-2">
+																	<input
+																		type="checkbox"
+																		id={`system-prompt-${prompt.identifier}`}
+																		checked={editingPrompt.system_prompt}
+																		onChange={(e) =>
+																			updatePromptContent(
+																				prompt.identifier,
+																				"system_prompt",
+																				e.target.checked,
+																			)
+																		}
+																		className="w-3 h-3 rounded border-vscode-input-border bg-vscode-input-background text-vscode-focusBorder focus:ring-vscode-focusBorder"
+																	/>
+																	<label
+																		htmlFor={`system-prompt-${prompt.identifier}`}
+																		className="text-xs text-vscode-descriptionForeground">
+																		系统提示词
+																	</label>
+																</div>
+																<div className="flex items-center gap-2">
+																	<input
+																		type="checkbox"
+																		id={`marker-${prompt.identifier}`}
+																		checked={editingPrompt.marker}
+																		onChange={(e) =>
+																			updatePromptContent(
+																				prompt.identifier,
+																				"marker",
+																				e.target.checked,
+																			)
+																		}
+																		className="w-3 h-3 rounded border-vscode-input-border bg-vscode-input-background text-vscode-focusBorder focus:ring-vscode-focusBorder"
+																	/>
+																	<label
+																		htmlFor={`marker-${prompt.identifier}`}
+																		className="text-xs text-vscode-descriptionForeground">
+																		标记
+																	</label>
+																</div>
 															</div>
 														</div>
-													</div>
-												)}
+													)}
+												</div>
+											)
+										})
+										)}
+									</div>
+								) : (
+									<div className="p-3 space-y-2">
+										{filterRegexBindings(getRegexBindingsForProfile(profileData)).length === 0 ? (
+											<div className="text-sm text-vscode-descriptionForeground text-center py-8">
+												{regexSearchQuery.trim() ? "没有找到匹配的正则绑定" : "没有正则绑定"}
 											</div>
-										)
-									})}
-								</div>
+										) : (
+											filterRegexBindings(getRegexBindingsForProfile(profileData)).map((regex: RegexBinding) => {
+											const editingRegex = editingRegexBindings[regex.id]
+											if (!editingRegex) return null
+
+											const isExpanded = expandedRegexBindings.has(regex.id)
+											const hasChanges =
+												profileData && (
+													editingRegex.scriptName !== regex.scriptName ||
+													editingRegex.findRegex !== regex.findRegex ||
+													editingRegex.replaceString !== regex.replaceString ||
+													editingRegex.disabled !== regex.disabled
+												)
+
+											return (
+												<RegexEditor
+													key={regex.id}
+													binding={editingRegex}
+													onChange={(updatedBinding) => handleUpdateRegexBinding(regex.id, updatedBinding)}
+													onDelete={() => handleDeleteRegex(regex.id)}
+													onReset={editMode === "mixin" ? handleResetRegexMixin : undefined}
+													originalBinding={editMode === "mixin" ? regex : undefined}
+													editMode={editMode}
+												/>
+											)
+										})
+										)}
+									</div>
+								)}
 							</div>
 						</div>
 					</div>

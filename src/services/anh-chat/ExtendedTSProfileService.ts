@@ -333,6 +333,21 @@ export class ExtendedTSProfileService {
 	}
 
 	/**
+	 * 删除 mixin 文件
+	 */
+	async deleteMixinFile(mixinPath: string): Promise<boolean> {
+		try {
+			const fs = await import("fs/promises")
+			await fs.unlink(mixinPath)
+			console.log(`Mixin file deleted: ${mixinPath}`)
+			return true
+		} catch (error) {
+			console.error(`Failed to delete mixin file ${mixinPath}:`, error)
+			return false
+		}
+	}
+
+	/**
 	 * 验证 profile 文件
 	 */
 	async validateProfile(filePath: string): Promise<ValidationResult> {

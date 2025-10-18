@@ -58,6 +58,7 @@ export const commandIds = [
 	"toggleAutoApprove",
 	"reloadRoleCards",
 	"reloadExtensions",
+	"toggleAIOutputDisplay",
 
 	// 记忆相关指令
 	"addTestMemory",

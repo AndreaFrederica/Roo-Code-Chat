@@ -22,6 +22,9 @@ const processor = new STProfileProcessor()
 const result = await processor.process(targetRole, profileData)
 
 if (result.success && result.processors) {
+  // 使用用户输入处理器
+  const processedUserInput = result.processors.userInput.processUserInput(userInput)
+
   // 使用 AI 输出处理器
   const aiOutput = result.processors.aiOutput.processAIOutput(aiResponse)
 
@@ -112,6 +115,28 @@ const finalFormatted = postProcessor.processFinalContent(
           "runStages": ["pre_processing"],
           "targetSource": "prompt_content",
           "priority": 50
+        },
+
+        {
+          "id": "cleanup-user-input",
+          "scriptName": "清理用户输入",
+          "findRegex": "\\s+$",
+          "replaceString": "",
+          "substituteRegex": 1,
+          "runStages": ["pre_processing"],
+          "targetSource": "user_input",
+          "priority": 200
+        },
+
+        {
+          "id": "format-user-dialogue",
+          "scriptName": "格式化用户对话",
+          "findRegex": "\"([^\"]*)\"",
+          "replaceString": "「$1」",
+          "substituteRegex": 1,
+          "runStages": ["pre_processing"],
+          "targetSource": "user_input",
+          "priority": 150
         }
       ]
     }
@@ -198,7 +223,31 @@ const result = processor.processAIOutput(
 // 结果: "你好，张三"
 ```
 
-### 2. 优先级控制
+### 2. 用户输入处理
+
+支持专门处理用户输入内容：
+
+```typescript
+import { createUserInputProcessor } from './st-profile-processor.js'
+
+// 创建用户输入处理器
+const userInputProcessor = createUserInputProcessor(profileData)
+
+// 处理用户输入
+const cleanedInput = userInputProcessor.processUserInput(
+  "用户输入的内容    ",  // 带有多余空格
+  { variables: { userName: "张三" } }
+)
+// 结果: "用户输入的内容"
+
+// 在特定阶段处理用户输入
+const processedInput = userInputProcessor.processUserInputAtStage(
+  "原始用户输入",
+  RegexRunStage.POST_PROCESSING
+)
+```
+
+### 3. 优先级控制
 
 优先级数值越高，越先执行：
 

@@ -189,6 +189,13 @@ const App = () => {
 			if (message.type === "acceptInput") {
 				chatViewRef.current?.acceptInput()
 			}
+
+			if (message.type === "aiOutputDisplayModeToggled") {
+				console.log("[App] AI output display mode toggled:", {
+					displayMode: message.displayMode,
+					message: message.message
+				})
+			}
 		},
 		[switchTab],
 	)
