@@ -9,6 +9,7 @@ import { ChevronUp, Lightbulb, Database, FileText, Code } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BlockTypeConfig } from "./fold-config"
 import CodeBlock from "./CodeBlock"
+import VariableCommandsRenderer from "./VariableCommandsRenderer"
 
 interface FoldableBlockProps {
   content: string
@@ -59,32 +60,36 @@ const FoldableBlock = memo(({ content, type, isCollapsed, onToggle }: FoldableBl
           )}
         >
           <div className={cn(config.color)}>
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeKatex as any]}
-              components={{
-                code: ({ children, className, ...props }: any) => {
-                  if (className?.includes("language-")) {
-                    const match = /language-(\w+)/.exec(className)
-                    const language = match ? match[1] : "text"
+            {type === 'variables' ? (
+              <VariableCommandsRenderer content={content} />
+            ) : (
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex as any]}
+                components={{
+                  code: ({ children, className, ...props }: any) => {
+                    if (className?.includes("language-")) {
+                      const match = /language-(\w+)/.exec(className)
+                      const language = match ? match[1] : "text"
+                      return (
+                        <div style={{ margin: "1em 0" }}>
+                          <CodeBlock
+                            source={String(children).replace(/\n$/, "")}
+                            language={language}
+                          />
+                        </div>
+                      )
+                    }
                     return (
-                      <div style={{ margin: "1em 0" }}>
-                        <CodeBlock
-                          source={String(children).replace(/\n$/, "")}
-                          language={language}
-                        />
-                      </div>
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
                     )
-                  }
-                  return (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  )
-                },
-              }}>
-              {content}
-            </ReactMarkdown>
+                  },
+                }}>
+                {content}
+              </ReactMarkdown>
+            )}
           </div>
         </div>
       )}

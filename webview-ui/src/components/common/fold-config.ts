@@ -48,10 +48,31 @@ export const defaultBlockRules: BlockRule[] = [
     toType: "variables",
     defaultCollapsed: false,
   },
-  // 1) <thinking>/<思考>/<ThinkingProcess>：未闭合到结尾也算（|$）
+  // 1) <thinking>...</thinking>：英文思考块
   {
-    name: "thinking-like",
-    re: /<\s*(?:thinking|思考|ThinkingProcess)\b[^>]*>(?<content>[\s\S]*?)(?:<\s*\/\s*(?:thinking|思考|ThinkingProcess)\b[^>]*>|$)/gi,
+    name: "thinking-english",
+    re: /<thinking>(?<content>[\s\S]*?)<\/thinking>/gi,
+    toType: "thinking",
+    defaultCollapsed: true,
+  },
+  // 2) <思考>...</思考>：中文思考块
+  {
+    name: "thinking-chinese", 
+    re: /<思考>(?<content>[\s\S]*?)<\/思考>/gi,
+    toType: "thinking",
+    defaultCollapsed: true,
+  },
+  // 3) 混合语言标签：<思考thinking>...</thinkingthinking> 或 <thinking思考>...</思考thinking> 等
+  {
+    name: "thinking-mixed",
+    re: /<\s*(?:思考|thinking|ThinkingProcess)\s*(?:思考|thinking|ThinkingProcess)\s*(?<content>[\s\S]*?)<\/\s*(?:思考|thinking|ThinkingProcess)\s*(?:思考|thinking|ThinkingProcess)\s*>/gi,
+    toType: "thinking",
+    defaultCollapsed: true,
+  },
+  // 4) 跨语言标签：<thinking>...</思考> 或 <思考>...</thinking> 等（开始和结束标签不同）
+  {
+    name: "thinking-cross-language",
+    re: /<\s*(thinking|思考|ThinkingProcess)\s*>(?<content>[\s\S]*?)<\/\s*(thinking|思考|ThinkingProcess)\s*>/gi,
     toType: "thinking",
     defaultCollapsed: true,
   },

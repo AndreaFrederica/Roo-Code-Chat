@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react"
+import { memo, useEffect, useRef, useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useCloudUpsell } from "@src/hooks/useCloudUpsell"
 import { CloudUpsellDialog } from "@src/components/cloud/CloudUpsellDialog"
@@ -23,6 +23,8 @@ import { TaskActions } from "./TaskActions"
 import { ContextWindowProgress } from "./ContextWindowProgress"
 import { Mention } from "./Mention"
 import { TodoListDisplay } from "./TodoListDisplay"
+import { VariableStateDisplay } from "./VariableStateDisplay"
+import { parseVariableCommands, ParsedCommand } from "../common/VariableCommandParser"
 
 export interface TaskHeaderProps {
 	task: ClineMessage
@@ -57,6 +59,50 @@ const TaskHeader = ({
 	const { isOpen, openUpsell, closeUpsell, handleConnect } = useCloudUpsell({
 		autoOpenOnAuth: false,
 	})
+
+	// 提取并合并变量状态
+	const mergedVariableState = useMemo(() => {
+		const variableCommands = (task as any)?.tool?.variables || []
+		if (!Array.isArray(variableCommands) || variableCommands.length === 0) {
+			return null
+		}
+
+		// 解析所有变量命令
+		const parsedCommands: ParsedCommand[] = []
+		variableCommands.forEach((variableStr: string) => {
+			try {
+				const commands = parseVariableCommands(variableStr)
+				parsedCommands.push(...commands)
+			} catch (error) {
+				console.warn('Failed to parse variable command:', error)
+			}
+		})
+
+		// 按变量名分组，保留最新的值
+		const variableStates: Record<string, ParsedCommand> = {}
+		parsedCommands.forEach(command => {
+			const existing = variableStates[command.variable]
+			// 保留最新的命令，或者如果没有则设置
+			if (!existing || command.position && existing.position && 
+				command.position.start > existing.position.start) {
+				variableStates[command.variable] = command
+			}
+		})
+
+		return variableStates
+	}, [task])
+
+	// 将变量状态保存到task实例中
+	useEffect(() => {
+		if (mergedVariableState && Object.keys(mergedVariableState).length > 0) {
+			// 将变量状态保存到task的工具数据中
+			if ((task as any).tool) {
+				(task as any).tool.variableState = mergedVariableState
+			} else {
+				(task as any).tool = { variableState: mergedVariableState }
+			}
+		}
+	}, [mergedVariableState, task])
 
 	// Check if the task is complete by looking at the last relevant message (skipping resume messages)
 	const isTaskComplete =
@@ -339,7 +385,16 @@ const TaskHeader = ({
 					</>
 				)}
 			</div>
-			<TodoListDisplay todos={todos ?? (task as any)?.tool?.todos ?? []} />
+			{/* 显示变量状态和TODO列表 */}
+			<div className="flex flex-col">
+				<VariableStateDisplay 
+					variables={(task as any)?.tool?.variables || []}
+					className="border-t-0"
+				/>
+				<TodoListDisplay 
+					todos={todos ?? (task as any)?.tool?.todos ?? []} 
+				/>
+			</div>
 			<CloudUpsellDialog open={isOpen} onOpenChange={closeUpsell} onConnect={handleConnect} />
 		</div>
 	)

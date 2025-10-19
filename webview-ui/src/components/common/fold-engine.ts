@@ -64,11 +64,11 @@ export function splitBlocks(markdown: string, opts: {
     }
   }
 
-  // 2) 排序：按起点位置，优先保留更长的匹配（外层块优先）
+  // 2) 排序：按起点位置，优先保留更短的匹配（避免大块吞小块）
   hits.sort((a, b) => {
     if (a.start !== b.start) return a.start - b.start
-    // 起点相同，优先保留更长的匹配（外层块）
-    return (b.end - b.start) - (a.end - a.start)
+    // 起点相同，优先保留更短的匹配（避免大块吞小块）
+    return (a.end - a.start) - (b.end - b.start)
   })
 
   // 3) 去重：移除被包含在更大连通区间内的匹配

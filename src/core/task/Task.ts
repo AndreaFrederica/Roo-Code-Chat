@@ -668,6 +668,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		// 实时更新最后一条有效消息缓存
 		this.updateLastMessageCache(message)
 
+		// 保存变量状态到当前消息
+		await this.saveVariableStateToMessage(message)
+
 		const provider = this.providerRef.deref()
 		await provider?.postStateToWebview()
 		this.emit(RooCodeEventName.Message, { action: "created", message })
@@ -4000,5 +4003,92 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		this.regexProcessorNotReadyLogged = false
 		this.lastRegexProcessReason = ""
 		console.log(`[Task] 🧹 Reset accumulated processing state`)
+	}
+
+	/**
+	 * 保存变量状态到当前消息中
+	 * 确保每条消息都有变量状态快照，而不是只留一个全局值
+	 * @param message 当前消息
+	 */
+	private async saveVariableStateToMessage(message: ClineMessage): Promise<void> {
+		try {
+			// 只对包含变量命令的消息保存变量状态
+			if (message.type === "say" && message.say === "text" && message.text) {
+				// 检查消息是否包含变量命令
+				const hasVariableCommands = message.text.includes('_.set(') || 
+												message.text.includes('_.add(') || 
+												message.text.includes('_.insert(') || 
+												message.text.includes('_.remove(')
+
+				if (hasVariableCommands) {
+					// 解析当前消息中的变量命令
+					const { parseVariableCommands } = require("../../core/processors/RegexProcessorManager")
+					const regexManager = parseVariableCommands()
+					
+					const parsedCommands = regexManager.parseVariableCommands(message.text, {
+						variables: this.anhTsProfileVariables || {}
+					})
+
+					if (parsedCommands.length > 0) {
+						// 按变量名分组，保留最新的值
+						const variableStates: Record<string, any> = {}
+						parsedCommands.forEach((command: any) => {
+							variableStates[command.variable] = command.value
+						})
+
+						// 将变量状态保存到消息的工具数据中
+						// 使用类型断言来扩展ClineMessage类型
+						const messageWithTool = message as any
+						if (!messageWithTool.tool) {
+							messageWithTool.tool = {}
+						}
+						messageWithTool.tool.variableState = variableStates
+
+						console.log(`[Task] 💾 Saved variable state to message ${message.ts}: ${Object.keys(variableStates).length} variables`)
+					}
+				}
+			}
+		} catch (error) {
+			console.warn(`[Task] ❌ Failed to save variable state to message:`, error)
+		}
+	}
+
+	/**
+	 * 获取所有消息中的最新变量状态
+	 * 从消息历史中获取最新的变量状态，用于快照恢复
+	 * @returns 最新的变量状态映射
+	 */
+	public getLatestVariableState(): Record<string, any> {
+		try {
+			// 从最新到最旧遍历消息，查找包含变量状态的消息
+			for (let i = this.clineMessages.length - 1; i >= 0; i--) {
+				const message = this.clineMessages[i] as any
+				if (message.tool && message.tool.variableState) {
+					console.log(`[Task] 📖 Found latest variable state in message ${message.ts}: ${Object.keys(message.tool.variableState).length} variables`)
+					return message.tool.variableState
+				}
+			}
+		} catch (error) {
+			console.warn(`[Task] ❌ Failed to get latest variable state:`, error)
+		}
+
+		return {}
+	}
+
+	/**
+	 * 恢复变量状态到TSProfile变量中
+	 * 从消息历史中恢复变量状态，用于任务恢复
+	 */
+	public restoreVariableState(): void {
+		try {
+			const latestState = this.getLatestVariableState()
+			if (Object.keys(latestState).length > 0) {
+				// 更新任务的TSProfile变量
+				this.anhTsProfileVariables = { ...this.anhTsProfileVariables, ...latestState }
+				console.log(`[Task] 🔄 Restored variable state: ${Object.keys(latestState).length} variables`)
+			}
+		} catch (error) {
+			console.warn(`[Task] ❌ Failed to restore variable state:`, error)
+		}
 	}
 }
