@@ -379,7 +379,7 @@ async function applyTsProfilePreprocessing(
 
 			processedRole.system_prompt = `You are ${name}${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.
 
-请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。`
+请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，还有你需要注意 "USER AVATAR"为标题的部分 这是用户的身份信息，请根据这些内容开始角色扮演。\n### First Message 里面的内容是你的初始问候语，请根据这些内容开始角色扮演。`
 
 			debugLog("applyTsProfilePreprocessing - Generated basic role definition:", {
 				roleName: processedRole.name,
@@ -718,9 +718,14 @@ function buildRolePromptSection(
 		sections.push(`### Creator Notes\n${processedRole.creator_notes}`)
 	}
 
-	// 处理系统提示词
+	// 处理系统提示词 - 确保在Character Overview和First Message之后添加
+	// 这样即使有system_prompt，也会先显示角色的详细信息
 	if (processedRole.system_prompt) {
-		sections.push(`### System Instructions\n${processedRole.system_prompt}`)
+		// 在system_prompt后添加特殊指示，确保模型注意Character Overview和First Message
+		const enhancedSystemPrompt = `${processedRole.system_prompt}
+
+**重要提醒：请特别注意上面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。你必须完全按照Character Overview中定义的角色特征和行为方式进行角色扮演。还有 "USER AVATAR" 这是 用户的身份信息\n### First Message 里面的内容是你的初始问候语，请根据这些内容开始角色扮演。**`
+		sections.push(`### System Instructions\n${enhancedSystemPrompt}`)
 	}
 
 	// 处理STProfile注入的system_settings字段
@@ -1401,7 +1406,7 @@ function applySillyTavernRoleOverride(
 
 	// Use system_prompt if available, otherwise create from character info
 	if (role.system_prompt) {
-		newRoleDefinition = role.system_prompt
+		newRoleDefinition = role.system_prompt + `\n请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，还有你需要注意 "USER AVATAR"为标题的部分 这是用户的身份信息，请根据这些内容开始角色扮演。\n### First Message 里面的内容是你的初始问候语，请根据这些内容开始角色扮演。`
 	} else {
 		// Create role definition from character info
 		const name = role.name || "Assistant"
@@ -1411,11 +1416,11 @@ function applySillyTavernRoleOverride(
 		if (persona === "chat") {
 			newRoleDefinition = `You are ${name}${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.
 
-请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。`
+请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，还有你需要注意 "USER AVATAR"为标题的部分 这是用户的身份信息，请根据这些内容开始角色扮演。\n### First Message 里面的内容是你的初始问候语，请根据这些内容开始角色扮演。`
 		} else {
 			newRoleDefinition = `You are ${name}, a character with programming capabilities${description ? `. ${description}` : ""}${personality ? ` Your personality: ${personality}` : ""}.
 
-请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。`
+请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，还有你需要注意 "USER AVATAR"为标题的部分 这是用户的身份信息，请根据这些内容开始角色扮演。\n### First Message 里面的内容是你的初始问候语，请根据这些内容开始角色扮演。`
 		}
 	}
 
@@ -1533,13 +1538,13 @@ function createPersonaHeader(role: any, persona: RolePersona): string {
 		// Pure chat persona - no coding emphasis
 		return `You are ${name}, a ${type}${description ? `. ${description}` : ""}.
 
-请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。`
+请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，还有你需要注意 "USER AVATAR"为标题的部分 这是用户的身份信息，请根据这些内容开始角色扮演。\n### First Message 里面的内容是你的初始问候语，请根据这些内容开始角色扮演。`
 	}
 
 	// Hybrid persona - coding capable but with role identity
 	return `You are ${name}, a ${type} with programming capabilities${description ? `. ${description}` : ""}.
 
-请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。`
+请特别注意下面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，还有你需要注意 "USER AVATAR"为标题的部分 这是用户的身份信息，请根据这些内容开始角色扮演。\n### First Message 里面的内容是你的初始问候语，请根据这些内容开始角色扮演。`
 }
 
 /**

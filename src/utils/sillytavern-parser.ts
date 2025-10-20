@@ -1,8 +1,9 @@
-import type { CharaCardV2, Role } from '@roo-code/types'
+import type { CharaCardV2, CharaCardV3, Role } from '@roo-code/types'
 import { createSillyTavernCompatibility } from '@roo-code/types'
 import { SillyTavernPngDecoder, type SillyTavernPngDecodeResult } from './sillytavern-png-decoder.js'
 import { Buffer } from 'buffer'
 import { debugLog } from '../utils/debug'
+import { isCharacterCardV3, convertV2ToV3 } from './characterCardV3'
 
 /**
  * SillyTavern 解析结果
@@ -10,9 +11,10 @@ import { debugLog } from '../utils/debug'
 export interface SillyTavernParseResult {
 	success: boolean
 	role?: Role
-	originalCard?: CharaCardV2
+	originalCard?: CharaCardV2 | CharaCardV3
 	error?: string
 	source: 'png' | 'json' | 'unknown'
+	cardVersion?: 'v2' | 'v3'
 }
 
 /**
@@ -66,22 +68,36 @@ export class SillyTavernParser {
 
 			debugLog(`[SillyTavernParser] 📋 PNG decoded successfully, found character: ${decodeResult.data.data?.name || 'Unknown'}`)
 
-			// 转换为 anh-chat 角色
-			const role = this.convertToRole(decodeResult.data, options)
+			// 根据卡片版本转换为 anh-chat 角色
+			let role: Role
+			let cardVersion: 'v2' | 'v3' | undefined
+
+			if (decodeResult.cardVersion === 'v3') {
+				// V3 格式处理
+				const compatibility = createSillyTavernCompatibility()
+				role = compatibility.fromSillyTavernV3(decodeResult.data as CharaCardV3, options.uuid)
+				cardVersion = 'v3'
+			} else {
+				// V2 格式处理
+				role = this.convertToRole(decodeResult.data as CharaCardV2, options)
+				cardVersion = 'v2'
+			}
 
 			debugLog(`[SillyTavernParser] ✅ Successfully parsed SillyTavern character "${role.name}" from PNG`)
 			debugLog(`[SillyTavernParser] 📊 Character details:`, {
 				name: role.name,
 				type: role.type,
 				description: role.description?.substring(0, 100) + (role.description && role.description.length > 100 ? "..." : ""),
-				uuid: role.uuid
+				uuid: role.uuid,
+				cardVersion
 			})
 
 			return {
 				success: true,
 				role,
 				originalCard: decodeResult.data,
-				source: 'png'
+				source: 'png',
+				cardVersion
 			}
 		} catch (error) {
 			debugLog(`[SillyTavernParser] 💥 Error parsing PNG character card: ${error instanceof Error ? error.message : String(error)}`)
@@ -117,22 +133,36 @@ export class SillyTavernParser {
 
 			debugLog(`[SillyTavernParser] 📋 PNG buffer decoded successfully, found character: ${decodeResult.data.data?.name || 'Unknown'}`)
 
-			// 转换为 anh-chat 角色
-			const role = this.convertToRole(decodeResult.data, options)
+			// 根据卡片版本转换为 anh-chat 角色
+			let role: Role
+			let cardVersion: 'v2' | 'v3' | undefined
+
+			if (decodeResult.cardVersion === 'v3') {
+				// V3 格式处理
+				const compatibility = createSillyTavernCompatibility()
+				role = compatibility.fromSillyTavernV3(decodeResult.data as CharaCardV3, options.uuid)
+				cardVersion = 'v3'
+			} else {
+				// V2 格式处理
+				role = this.convertToRole(decodeResult.data as CharaCardV2, options)
+				cardVersion = 'v2'
+			}
 
 			debugLog(`[SillyTavernParser] ✅ Successfully parsed SillyTavern character "${role.name}" from PNG buffer`)
 			debugLog(`[SillyTavernParser] 📊 Character details:`, {
 				name: role.name,
 				type: role.type,
 				description: role.description?.substring(0, 100) + (role.description && role.description.length > 100 ? "..." : ""),
-				uuid: role.uuid
+				uuid: role.uuid,
+				cardVersion
 			})
 
 			return {
 				success: true,
 				role,
 				originalCard: decodeResult.data,
-				source: 'png'
+				source: 'png',
+				cardVersion
 			}
 		} catch (error) {
 			debugLog(`[SillyTavernParser] 💥 Error parsing PNG character buffer: ${error instanceof Error ? error.message : String(error)}`)
@@ -155,35 +185,24 @@ export class SillyTavernParser {
 			debugLog(`[SillyTavernParser] 📄 Starting to parse JSON character data`)
 
 			// 解析 JSON
-			const cardData = JSON.parse(jsonString) as CharaCardV2
+			const rawData = JSON.parse(jsonString)
 
-			debugLog(`[SillyTavernParser] 📋 JSON parsed successfully, found character: ${cardData.data?.name || 'Unknown'}`)
-
-			// 验证卡片格式
-			if (options.validateCard !== false && !this.validateCard(cardData)) {
-				debugLog(`[SillyTavernParser] ❌ Invalid SillyTavern card format`)
-				return {
-					success: false,
-					error: 'Invalid SillyTavern card format',
-					source: 'json'
-				}
+			// 检测是否为 V3 格式
+			if (isCharacterCardV3(rawData)) {
+				debugLog(`[SillyTavernParser] 🆕 Detected Character Card V3 format: ${rawData.data?.name || 'Unknown'}`)
+				return this.parseFromV3Card(rawData, options)
 			}
 
-			// 转换为 anh-chat 角色
-			const role = this.convertToRole(cardData, options)
+			// 检测是否为 V2 格式
+			if (this.validateCard(rawData)) {
+				debugLog(`[SillyTavernParser] 📋 Detected Character Card V2 format: ${rawData.data?.name || 'Unknown'}`)
+				return this.parseFromV2Card(rawData as CharaCardV2, options)
+			}
 
-			debugLog(`[SillyTavernParser] ✅ Successfully parsed SillyTavern character "${role.name}" from JSON`)
-			debugLog(`[SillyTavernParser] 📊 Character details:`, {
-				name: role.name,
-				type: role.type,
-				description: role.description?.substring(0, 100) + (role.description && role.description.length > 100 ? "..." : ""),
-				uuid: role.uuid
-			})
-
+			debugLog(`[SillyTavernParser] ❌ Invalid SillyTavern card format`)
 			return {
-				success: true,
-				role,
-				originalCard: cardData,
+				success: false,
+				error: 'Invalid SillyTavern card format - not V2 or V3',
 				source: 'json'
 			}
 		} catch (error) {
@@ -194,6 +213,126 @@ export class SillyTavernParser {
 				source: 'json'
 			}
 		}
+	}
+
+	/**
+	 * 从 Character Card V3 解析角色
+	 */
+	private static parseFromV3Card(
+		card: CharaCardV3,
+		options: SillyTavernParseOptions = {}
+	): SillyTavernParseResult {
+		try {
+			debugLog(`[SillyTavernParser] 🆕 Parsing Character Card V3: ${card.data?.name || 'Unknown'}`)
+
+			// 将 V3 转换为 V2 以兼容现有的转换逻辑
+			const v2Card = this.convertV3ToV2(card)
+
+			// 转换为 anh-chat 角色
+			const role = this.compatibility.fromSillyTavernV3(card, options.uuid)
+
+			debugLog(`[SillyTavernParser] ✅ Successfully parsed Character Card V3 "${role.name}"`)
+			debugLog(`[SillyTavernParser] 📊 Character details:`, {
+				name: role.name,
+				type: role.type,
+				description: role.description?.substring(0, 100) + (role.description && role.description.length > 100 ? "..." : ""),
+				uuid: role.uuid,
+				cardVersion: 'v3'
+			})
+
+			return {
+				success: true,
+				role,
+				originalCard: card,
+				source: 'json',
+				cardVersion: 'v3'
+			}
+		} catch (error) {
+			debugLog(`[SillyTavernParser] 💥 Error parsing Character Card V3: ${error instanceof Error ? error.message : String(error)}`)
+			return {
+				success: false,
+				error: `V3 parse error: ${error instanceof Error ? error.message : String(error)}`,
+				source: 'json',
+				cardVersion: 'v3'
+			}
+		}
+	}
+
+	/**
+	 * 从 Character Card V2 解析角色
+	 */
+	private static parseFromV2Card(
+		card: CharaCardV2,
+		options: SillyTavernParseOptions = {}
+	): SillyTavernParseResult {
+		try {
+			debugLog(`[SillyTavernParser] 📋 Parsing Character Card V2: ${card.data?.name || 'Unknown'}`)
+
+			// 转换为 anh-chat 角色
+			const role = this.convertToRole(card, options)
+
+			debugLog(`[SillyTavernParser] ✅ Successfully parsed Character Card V2 "${role.name}"`)
+			debugLog(`[SillyTavernParser] 📊 Character details:`, {
+				name: role.name,
+				type: role.type,
+				description: role.description?.substring(0, 100) + (role.description && role.description.length > 100 ? "..." : ""),
+				uuid: role.uuid,
+				cardVersion: 'v2'
+			})
+
+			return {
+				success: true,
+				role,
+				originalCard: card,
+				source: 'json',
+				cardVersion: 'v2'
+			}
+		} catch (error) {
+			debugLog(`[SillyTavernParser] 💥 Error parsing Character Card V2: ${error instanceof Error ? error.message : String(error)}`)
+			return {
+				success: false,
+				error: `V2 parse error: ${error instanceof Error ? error.message : String(error)}`,
+				source: 'json',
+				cardVersion: 'v2'
+			}
+		}
+	}
+
+	/**
+	 * 将 Character Card V3 转换为 V2 格式（用于兼容现有转换逻辑）
+	 */
+	private static convertV3ToV2(v3Card: CharaCardV3): CharaCardV2 {
+		// 从 V3 的 assets 中提取头像
+		const v3Data = v3Card.data as any
+		const avatar = v3Data.assets?.find((asset: any) => asset.type === 'icon')?.uri || null
+
+		// 构建 V2 格式的 data，只包含 V2 支持的字段
+		const v2Data: any = {
+			name: v3Data.name,
+			description: v3Data.description,
+			personality: v3Data.personality,
+			first_mes: v3Data.first_mes,
+			mes_example: v3Data.mes_example,
+			scenario: v3Data.scenario,
+			creator_notes: v3Data.creator_notes,
+			system_prompt: v3Data.system_prompt,
+			post_history_instructions: v3Data.post_history_instructions,
+			alternate_greetings: v3Data.alternate_greetings,
+			tags: v3Data.tags,
+			creator: v3Data.creator,
+			character_version: v3Data.character_version,
+			extensions: v3Data.extensions,
+			character_book: v3Data.character_book,
+			avatar: avatar
+		}
+
+		const v2Card: CharaCardV2 = {
+			spec: v3Card.spec,
+			spec_version: v3Card.spec_version,
+			data: v2Data
+		}
+
+		return v2Card
 	}
 
 	/**

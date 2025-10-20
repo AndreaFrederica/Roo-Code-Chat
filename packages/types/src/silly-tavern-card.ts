@@ -10,6 +10,156 @@ export interface CharaCardV2 {
     spec_version?: string;
 }
 
+/** ---- Character Card V3 ---- */
+export interface CharacterCardV3 {
+    /** 规范标识；必须为 "chara_card_v3" */
+    spec: "chara_card_v3";
+    
+    /** 版本；必须为 "3.0" */
+    spec_version: "3.0";
+    
+    /** 卡片主体数据（必有） */
+    data: CharacterCardV3Data;
+}
+
+/** ---- Character Card V3 Data ---- */
+export interface CharacterCardV3Data extends Omit<CardData, 'creator_notes' | 'character_book'> {
+    /** 修改后的创作者备注 */
+    creator_notes: string;
+    
+    /** 角色设定本（V3 格式） */
+    character_book?: LorebookV3;
+    
+    /** 新增字段：角色资源数组 */
+    assets?: CharacterAsset[];
+    
+    /** 新增字段：角色昵称（用于 {{char}} 占位符） */
+    nickname?: string;
+    
+    /** 新增字段：多语言创作者备注 */
+    creator_notes_multilingual?: Record<string, string>;
+    
+    /** 新增字段：来源信息 */
+    source?: string[];
+    
+    /** 新增字段：群组专用问候语 */
+    group_only_greetings: string[];
+    
+    /** 新增字段：创建日期（Unix 时间戳） */
+    creation_date?: number;
+    
+    /** 新增字段：修改日期（Unix 时间戳） */
+    modification_date?: number;
+    
+    /** 新增字段：原始格式信息（用于记录转换前的格式） */
+    original_format?: {
+        spec?: string;
+        spec_version?: string;
+        converted_at: number; // 转换时间戳
+        converted_from: string; // 转换来源，如 "chara_card_v2"
+    };
+}
+
+/** ---- Character Asset ---- */
+export interface CharacterAsset {
+    /** 资源类型 */
+    type: string;
+    
+    /** 资源 URI */
+    uri: string;
+    
+    /** 资源名称 */
+    name: string;
+    
+    /** 文件扩展名 */
+    ext: string;
+}
+
+/** ---- Lorebook V3 ---- */
+export interface LorebookV3 {
+    /** 设定本名称 */
+    name?: string;
+    
+    /** 说明 */
+    description?: string;
+    
+    /** 扫描深度 */
+    scan_depth?: number;
+    
+    /** token 预算 */
+    token_budget?: number;
+    
+    /** 是否递归扫描 */
+    recursive_scanning?: boolean;
+    
+    /** 扩展字段 */
+    extensions: Record<string, any>;
+    
+    /** 设定条目 */
+    entries: LorebookEntryV3[];
+}
+
+/** ---- Lorebook Entry V3 ---- */
+export interface LorebookEntryV3 {
+    /** 条目名称 */
+    name?: string;
+    
+    /** 触发关键词 */
+    keys: Array<string>;
+    
+    /** 内容 */
+    content: string;
+    
+    /** 扩展字段 */
+    extensions: Record<string, any>;
+    
+    /** 是否启用 */
+    enabled: boolean;
+    
+    /** 插入顺序 */
+    insertion_order: number;
+    
+    /** 是否区分大小写 */
+    case_sensitive?: boolean;
+    
+    /** 是否使用正则表达式 */
+    use_regex: boolean;
+    
+    /** 是否常驻 */
+    constant?: boolean;
+    
+    /** 优先级 */
+    priority?: number;
+    
+    /** 唯一标识 */
+    id?: number | string;
+    
+    /** 备注 */
+    comment?: string;
+    
+    /** 选择性触发 */
+    selective?: boolean;
+    
+    /** 次级关键词 */
+    secondary_keys?: Array<string>;
+    
+    /** 插入位置 */
+    position?: 'before_char' | 'after_char';
+}
+
+/** ---- Union Type ---- */
+export type CharaCardV3 = CharacterCardV3 | CharaCardV2;
+
+/** ---- Asset Types ---- */
+export const AssetTypes = {
+    ICON: 'icon',
+    BACKGROUND: 'background',
+    USER_ICON: 'user_icon',
+    EMOTION: 'emotion',
+} as const;
+
+export type AssetType = typeof AssetTypes[keyof typeof AssetTypes];
+
 /** ---- data ---- */
 export interface CardData {
     /** 角色名 */
@@ -220,7 +370,7 @@ export type LooseCharaCard = CharaCardV2 & {
 /** ---- 工具类型：用于解析和验证 ---- */
 export interface CharaCardParseResult {
     success: boolean;
-    data?: CharaCardV2;
+    data?: CharaCardV3;
     error?: string;
 }
 
@@ -229,14 +379,22 @@ export interface CharaCardOperations {
     /** 解析角色卡片 */
     parse(input: string | object): CharaCardParseResult;
     /** 验证角色卡片格式 */
-    validate(card: unknown): card is CharaCardV2;
+    validate(card: unknown): card is CharaCardV3;
     /** 转换为标准格式 */
-    normalize(card: LooseCharaCard): CharaCardV2;
+    normalize(card: LooseCharaCard): CharaCardV3;
     /** 提取角色基本信息 */
-    extractBasicInfo(card: CharaCardV2): {
+    extractBasicInfo(card: CharaCardV3): {
         name: string;
         description?: string;
         personality?: string;
         scenario?: string;
+        avatar?: string;
+        nickname?: string;
     };
+    /** 提取头像 URL */
+    extractAvatar(card: CharaCardV3): string | null;
+    /** 检查是否为 V3 格式 */
+    isV3(card: unknown): card is CharacterCardV3;
+    /** 从 V2 转换为 V3 */
+    convertV2ToV3(v2Card: CharaCardV2): CharacterCardV3;
 }

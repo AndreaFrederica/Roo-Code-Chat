@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer'
-import type { CharaCardV2 } from '@roo-code/types'
+import type { CharaCardV2, CharaCardV3 } from '@roo-code/types'
+import { isCharacterCardV3 } from './characterCardV3'
 
 /**
  * PNG 文件签名
@@ -38,9 +39,10 @@ interface TextChunk {
  */
 export interface SillyTavernPngDecodeResult {
 	success: boolean
-	data?: CharaCardV2
+	data?: CharaCardV2 | CharaCardV3
 	error?: string
 	rawJson?: string
+	cardVersion?: 'v2' | 'v3'
 }
 
 /**
@@ -91,10 +93,14 @@ export class SillyTavernPngDecoder {
 				}
 			}
 
+			// 检测卡片版本
+			const cardVersion = isCharacterCardV3(characterData) ? 'v3' : 'v2'
+
 			return {
 				success: true,
 				data: characterData,
-				rawJson: jsonString
+				rawJson: jsonString,
+				cardVersion
 			}
 		} catch (error) {
 			return {
@@ -223,13 +229,18 @@ export class SillyTavernPngDecoder {
 	/**
 	 * 解析角色 JSON 数据
 	 */
-	private static parseCharacterJson(jsonString: string): CharaCardV2 | null {
+	private static parseCharacterJson(jsonString: string): CharaCardV2 | CharaCardV3 | null {
 		try {
 			const parsed = JSON.parse(jsonString)
 			
 			// 验证是否为有效的 SillyTavern 角色卡片格式
 			if (this.validateCharacterCard(parsed)) {
-				return parsed as CharaCardV2
+				// 根据格式返回相应的类型
+				if (isCharacterCardV3(parsed)) {
+					return parsed as CharaCardV3
+				} else {
+					return parsed as CharaCardV2
+				}
 			}
 			
 			return null
@@ -258,8 +269,8 @@ export class SillyTavernPngDecoder {
 			return false
 		}
 
-		// 可选：检查 spec 字段
-		if (data.spec && data.spec !== 'chara_card_v2') {
+		// 支持 V2 和 V3 格式
+		if (data.spec && !['chara_card_v2', 'chara_card_v3'].includes(data.spec)) {
 			// 允许其他格式，但记录警告
 			console.warn('Non-standard character card spec:', data.spec)
 		}

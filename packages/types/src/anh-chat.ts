@@ -2,6 +2,7 @@ import { z } from "zod"
 import * as crypto from "crypto"
 import type {
 	CharaCardV2,
+	CharaCardV3,
 	CardData,
 	Extensions,
 	CharacterBook as STCharacterBook,
@@ -379,8 +380,11 @@ export interface SillyTavernCompatibility {
 	/** 将anh-chat角色转换为SillyTavern格式 */
 	toSillyTavern(role: Role): CharaCardV2
 
-	/** 将SillyTavern角色转换为anh-chat格式 */
+	/** 将SillyTavern V2角色转换为anh-chat格式 */
 	fromSillyTavern(card: CharaCardV2, uuid?: string): Role
+
+	/** 将SillyTavern V3角色转换为anh-chat格式 */
+	fromSillyTavernV3(card: CharaCardV3, uuid?: string): Role
 
 	/** 检查角色是否包含SillyTavern字段 */
 	hasSillyTavernFields(role: Role): boolean
@@ -400,6 +404,14 @@ export interface SillyTavernCompatibility {
 		tags?: string[]
 		creator?: string
 		character_version?: string
+		avatar?: string
+		cardVersion?: 'v2' | 'v3'
+		originalFormat?: {
+			spec?: string
+			spec_version?: string
+			converted_at: number
+			converted_from: string
+		}
 	}
 }
 
@@ -464,6 +476,63 @@ export const createSillyTavernCompatibility = (): SillyTavernCompatibility => ({
 		}
 	},
 
+	fromSillyTavernV3: (card: CharaCardV3, uuid?: string): Role => {
+		// 如果没有提供UUID，则基于卡片内容生成确定性UUID
+		const generatedUuid =
+			uuid ||
+			(() => {
+				// 使用V3卡片内容生成确定性UUID
+				const content = JSON.stringify(card)
+				return (HashUuidGenerator as any).fromSillyTavernCard({ data: card.data })
+			})()
+
+		const v3Data = card.data as any
+		
+		// 从V3的assets中提取头像
+		const avatar = v3Data.assets?.find((asset: any) => asset.type === 'icon')?.uri || null
+		
+		// 构建别名数组，包含nickname（如果存在）
+		const aliases: string[] = []
+		if (v3Data.nickname && v3Data.nickname.trim()) {
+			aliases.push(v3Data.nickname.trim())
+		}
+
+		return {
+			uuid: generatedUuid,
+			name: card.data.name,
+			type: "SillyTavernRole" as RoleType, // 默认类型
+			scope: "workspace", // 默认为工作区角色
+			description: card.data.description,
+			personality: card.data.personality,
+			first_mes: card.data.first_mes,
+			avatar: avatar || undefined,
+			mes_example: card.data.mes_example,
+			scenario: card.data.scenario,
+			creator_notes: card.data.creator_notes,
+			system_prompt: card.data.system_prompt,
+			post_history_instructions: card.data.post_history_instructions,
+			alternate_greetings: card.data.alternate_greetings || v3Data.group_only_greetings,
+			tags: card.data.tags,
+			creator: card.data.creator,
+			character_version: card.data.character_version,
+			extensions: card.data.extensions,
+			character_book: card.data.character_book as any,
+			spec: card.spec,
+			spec_version: card.spec_version,
+			// V3新增字段
+			aliases: aliases.length > 0 ? aliases : undefined,
+			createdAt: v3Data.creation_date || Date.now(),
+			updatedAt: v3Data.modification_date || Date.now(),
+			// 存储V3特有字段
+			nickname: v3Data.nickname,
+			creator_notes_multilingual: v3Data.creator_notes_multilingual,
+			source: v3Data.source,
+			group_only_greetings: v3Data.group_only_greetings,
+			// 存储原始格式信息
+			original_format: v3Data.original_format,
+		}
+	},
+
 	hasSillyTavernFields: (role: Role): boolean => {
 		return !!(
 			role.personality ||
@@ -498,6 +567,9 @@ export const createSillyTavernCompatibility = (): SillyTavernCompatibility => ({
 		tags: role.tags,
 		creator: role.creator,
 		character_version: role.character_version,
+		avatar: role.avatar || undefined,
+		cardVersion: role.spec === "chara_card_v3" ? 'v3' as const : 'v2' as const,
+		originalFormat: role.original_format as any,
 	}),
 })
 

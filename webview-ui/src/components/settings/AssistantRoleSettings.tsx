@@ -52,6 +52,12 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 	const [loadError, setLoadError] = useState(false)
 	const [open, setOpen] = useState(false)
 	const [searchValue, setSearchValue] = useState("")
+	const [confirmDialog, setConfirmDialog] = useState<{
+		role: Role
+		message: string
+		onConfirm: () => void
+		onCancel: () => void
+	} | null>(null)
 	const searchInputRef = useRef<HTMLInputElement>(null)
 	const selectedItemRef = useRef<HTMLDivElement>(null)
 	const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -254,20 +260,36 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 		}
 	}, [open, selectedRole])
 
+	// 设置面板中的角色切换允许强制切换，但显示确认对话框
 	const allowImmediateSwitch = clineMessages.length === 0
 	const showSearch = !loadError && allRoles.length > SEARCH_THRESHOLD
 
 	const handleRoleChange = useCallback(
 		(role: Role) => {
 			if (!allowImmediateSwitch) {
-				const confirmed = window.confirm(
-					t("settings:assistantRole.forceSwitchConfirm", { role: role.name }),
-				)
-				if (!confirmed) {
-					return
-				}
+				const confirmMessage = t("settings:assistantRole.forceSwitchConfirm", { role: role.name })
+				
+				setConfirmDialog({
+					role,
+					message: confirmMessage,
+					onConfirm: () => {
+						executeRoleSwitch(role)
+						setConfirmDialog(null)
+					},
+					onCancel: () => {
+						setConfirmDialog(null)
+					}
+				})
+				return
 			}
 
+			executeRoleSwitch(role)
+		},
+		[allowImmediateSwitch, t, clineMessages.length],
+	)
+
+	const executeRoleSwitch = useCallback(
+		(role: Role) => {
 			setOpen(false)
 			setSearchValue("")
 
@@ -284,7 +306,7 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 			setCachedStateField("currentAnhRole", resolvedRole)
 			setCurrentAnhRole?.(resolvedRole)
 		},
-		[allowImmediateSwitch, roleDetails, setCachedStateField, setCurrentAnhRole, t],
+		[roleDetails, setCachedStateField, setCurrentAnhRole],
 	)
 
 	const profileEntries = useMemo(() => {
@@ -352,7 +374,13 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 						</StandardTooltip>
 
 						{open && (
-							<div className="absolute top-full left-0 right-0 z-50 mt-1 bg-vscode-dropdown-background border border-vscode-dropdown-border rounded-md shadow-lg">
+							<div 
+								className="absolute top-full left-0 right-0 z-50 mt-1 bg-vscode-dropdown-background border border-vscode-dropdown-border rounded-md shadow-lg"
+								onClick={(e) => {
+									e.preventDefault()
+									e.stopPropagation()
+								}}
+							>
 								<div className="flex flex-col w-full">
 									{loadError ? (
 										<div className="p-3 border-b border-vscode-dropdown-border">
@@ -400,7 +428,11 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 														<div
 															key={`${role.uuid}-${role.scope}`}
 															ref={isSelected ? selectedItemRef : null}
-															onClick={() => handleRoleChange(role)}
+															onClick={(e) => {
+																e.preventDefault()
+																e.stopPropagation()
+																handleRoleChange(role)
+															}}
 															className={cn(
 																"px-3 py-1.5 text-sm cursor-pointer flex items-center gap-2",
 																"hover:bg-vscode-list-hoverBackground",
@@ -502,8 +534,40 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 					</div>
 				</div>
 			</div>
+
+			{/* Custom Confirm Dialog */}
+			{confirmDialog && (
+				<div className="fixed inset-0 z-[9999] flex items-center justify-center">
+					<div 
+						className="absolute inset-0 bg-black/50"
+						onClick={confirmDialog.onCancel}
+					/>
+					<div className="relative bg-vscode-editor-background border border-vscode-widget-border rounded-lg shadow-lg p-6 max-w-md mx-4">
+						<h3 className="text-lg font-semibold mb-4 text-vscode-foreground">
+							确认角色切换
+						</h3>
+						<p className="text-sm text-vscode-descriptionForeground mb-6">
+							{confirmDialog.message}
+						</p>
+						<div className="flex justify-end gap-3">
+							<button
+								type="button"
+								onClick={confirmDialog.onCancel}
+								className="px-4 py-2 text-sm border border-vscode-input-border rounded-md text-vscode-foreground hover:bg-vscode-input-hoverBackground transition-colors"
+							>
+								取消
+							</button>
+							<button
+								type="button"
+								onClick={confirmDialog.onConfirm}
+								className="px-4 py-2 text-sm bg-vscode-button-background text-vscode-button-foreground border border-vscode-button-border rounded-md hover:bg-vscode-button-hoverBackground transition-colors"
+							>
+								确认
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</Section>
 	)
 }
-
-

@@ -114,8 +114,40 @@ const HistoryPreview = () => {
 	const renderRoleItem = (role: RoleItem) => {
 		const isSelected = selectedRoleId === role.id
 		const latestTask = role.tasks[0]
-		const avatar = role.isAll ? "📋" : role.name.charAt(0).toUpperCase()
 		const unreadCount = role.tasks.length
+
+		// Get avatar from character card V3 or fallback to text avatar
+		const getAvatarContent = () => {
+			if (role.isAll) {
+				return "📋"
+			}
+			
+			// Try to get avatar from the latest task that has role information
+			const taskWithAvatar = role.tasks.find(task => task.anhRoleAvatar)
+			if (taskWithAvatar?.anhRoleAvatar) {
+				return (
+					<img 
+						src={taskWithAvatar.anhRoleAvatar} 
+						alt={role.name}
+						className="w-full h-full object-cover rounded-full"
+						onError={(e) => {
+							// Fallback to text avatar if image fails to load
+							const target = e.target as HTMLImageElement
+							target.style.display = 'none'
+							const parent = target.parentElement
+							if (parent) {
+								const fallback = document.createElement('div')
+								fallback.className = 'w-full h-full flex items-center justify-center text-sm font-medium bg-gradient-to-br from-blue-500 to-purple-600 text-white'
+								fallback.textContent = role.name.charAt(0).toUpperCase()
+								parent.appendChild(fallback)
+							}
+						}}
+					/>
+				)
+			}
+			
+			return role.name.charAt(0).toUpperCase()
+		}
 
 		return (
 			<div
@@ -129,12 +161,14 @@ const HistoryPreview = () => {
 
 				{/* Avatar */}
 				<div className="relative flex-shrink-0">
-					<div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+					<div className={`w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-sm font-medium ${
 						role.isAll
 							? 'bg-gradient-to-br from-green-500 to-blue-600 text-white'
-							: 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
+							: role.tasks.some(task => task.anhRoleAvatar)
+								? 'bg-gray-200'
+								: 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
 					}`}>
-						{avatar}
+						{getAvatarContent()}
 					</div>
 					{unreadCount > 1 && (
 						<div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">

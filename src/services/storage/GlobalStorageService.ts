@@ -1066,46 +1066,62 @@ export class GlobalStorageService {
 	}
 
 	/**
-	 * 自动检测并导入全局目录下的SillyTavern PNG卡片
+	 * 自动检测并导入全局目录下的SillyTavern卡片（PNG和JSON）
 	 */
 	private async autoDetectGlobalSillyTavernCards() {
 		try {
-			debugLog(`Scanning for SillyTavern PNG files in global roles directory: ${this.globalRolesPath}`)
+			debugLog(`Scanning for SillyTavern files in global roles directory: ${this.globalRolesPath}`)
 
-			// 扫描全局角色目录下的PNG文件
+			// 扫描全局角色目录下的文件
 			const files = await fs.readdir(this.globalRolesPath)
-			const pngFiles = files.filter(file => file.toLowerCase().endsWith('.png'))
+			const supportedFiles = files.filter(file => {
+				const ext = file.toLowerCase().split('.').pop()
+				return ext === 'png' || ext === 'json'
+			})
 
-			debugLog(`Found ${pngFiles.length} PNG files in global directory: ${pngFiles.join(', ')}`)
+			debugLog(`Found ${supportedFiles.length} supported files in global directory: ${supportedFiles.join(', ')}`)
 
-			for (const pngFile of pngFiles) {
-				const pngPath = path.join(this.globalRolesPath, pngFile)
-				debugLog(`Processing global PNG file: ${pngPath}`)
-
+			for (const file of supportedFiles) {
+				const filePath = path.join(this.globalRolesPath, file)
+				const ext = file.toLowerCase().split('.').pop()
+				
+				if (!ext) continue // 跳过没有扩展名的文件
+				
+				debugLog(`Processing global ${ext.toUpperCase()} file: ${filePath}`)
+				
 				try {
-					// 获取PNG文件的修改时间
-					const pngStats = await fs.stat(pngPath)
-					const pngModifiedTime = pngStats.mtime.getTime()
-
-					// 尝试解析PNG文件
-					const parseResult = await SillyTavernParser.parseFromPngFile(pngPath)
-					debugLog(`Parse result for global ${pngFile}:`, parseResult.success ? 'SUCCESS' : 'FAILED', parseResult.error || '')
-
+					// 获取文件的修改时间
+					const fileStats = await fs.stat(filePath)
+					const fileModifiedTime = fileStats.mtime.getTime()
+					
+					let parseResult: any
+					
+					// 根据文件扩展名选择解析方法
+					if (ext === 'png') {
+						parseResult = await SillyTavernParser.parseFromPngFile(filePath)
+					} else if (ext === 'json') {
+						// 读取JSON文件内容
+						const jsonContent = await fs.readFile(filePath, 'utf8')
+						parseResult = SillyTavernParser.parseFromJson(jsonContent)
+					}
+					
+					debugLog(`Parse result for global ${file}:`, parseResult.success ? 'SUCCESS' : 'FAILED', parseResult.error || '', parseResult.cardVersion || '')
+					
 					if (parseResult.success && parseResult.role) {
 						const role = parseResult.role
-
+						
 						// 检查是否已经存在相同名称的角色
 						const existingRole = Array.from(this.globalRolesCache.values())
 							.find(existing => existing.name === role.name)
-
+						
 						if (!existingRole) {
-							// 使用转换器将SillyTavern角色转换为完整的anh格式
-							// parseResult.role 已经是通过 SillyTavernParser.convertToRole 转换后的完整anh角色
+							// parseResult.role 已经是通过 SillyTavernParser 完全转换后的 anh 角色
+							// 不需要再次转换，只需要确保字段完整性
 							const anhRole: Role = {
 								...role,
 								// 标记为SillyTavern类型
 								type: "SillyTavernRole",
-								// 确保必要的anh字段存在
+								// 确保必要的anh字段存在（如果转换器没有提供的话）
 								profile: role.profile || {
 									greeting: role.first_mes || `Hello, I'm ${role.name}.`,
 									appearance: role.description || "",
@@ -1117,21 +1133,21 @@ export class GlobalStorageService {
 								},
 								modeOverrides: role.modeOverrides || {},
 								scope: "global" as const, // 标记为全局角色
-								createdAt: role.createdAt || pngModifiedTime,
-								updatedAt: role.updatedAt || pngModifiedTime
+								createdAt: role.createdAt || fileModifiedTime,
+								updatedAt: role.updatedAt || fileModifiedTime
 							}
 
-							// 将PNG角色添加到全局缓存（内存中，不写入文件）
+							// 将角色添加到全局缓存（内存中，不写入文件）
 							this.globalRolesCache.set(anhRole.uuid, anhRole)
-
-							debugLog(`Auto-imported global SillyTavern card: ${anhRole.name} from ${pngFile} (memory only, converted to anh format)`)
+							
+							debugLog(`Auto-imported global SillyTavern card: ${anhRole.name} from ${file} (${parseResult.cardVersion || 'unknown'} version, memory only, converted to anh format)`)
 						} else {
-							debugLog(`Skipped global ${pngFile}: role ${role.name} already exists`)
+							debugLog(`Skipped global ${file}: role ${role.name} already exists`)
 						}
 					}
 				} catch (parseError) {
-					// 如果解析失败，可能不是有效的SillyTavern PNG，跳过
-					debugLog(`Skipped global ${pngFile}: parsing failed -`, parseError)
+					// 如果解析失败，可能不是有效的SillyTavern文件，跳过
+					debugLog(`Skipped global ${file}: parsing failed -`, parseError)
 				}
 			}
 		} catch (error) {

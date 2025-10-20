@@ -27,6 +27,8 @@ export const historyItemSchema = z.object({
 	anhLastMessage: z.string().optional(),
 	// Task scope - indicates if this is a global or workspace-specific task
 	scope: z.enum(["global", "workspace"]).optional().default("workspace"),
+	// Character Card V3 avatar support
+	anhRoleAvatar: z.string().optional(),
 })
 
 export type HistoryItem = z.infer<typeof historyItemSchema>
