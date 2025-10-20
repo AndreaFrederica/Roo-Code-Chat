@@ -1,5 +1,8 @@
 import type { Metadata } from "next"
 import { SEO } from "@/lib/seo"
+import fs from "fs"
+import path from "path"
+
 
 const TITLE = "Terms of Service"
 const DESCRIPTION =
@@ -38,7 +41,14 @@ export const metadata: Metadata = {
 	keywords: [...SEO.keywords, "terms of service", "legal", "agreement", "subscription"],
 }
 
+function getTermsContent() {
+	const filePath = path.join(process.cwd(), "src/app/terms/terms.md")
+	return fs.readFileSync(filePath, "utf8")
+}
+
 export default function Terms() {
+	const content = getTermsContent()
+
 	return (
 		<>
 			<div className="container mx-auto px-4 py-12 sm:px-6 lg:px-8">
@@ -86,10 +96,9 @@ export default function Terms() {
 							<br />
 							The{" "}
 							<a
-								href="https://commonpaper.com/standards/cloud-service-agreement/2.0/"
+								className="text-primary hover:underline"
 								target="_blank"
-								rel="noopener noreferrer"
-								className="text-primary hover:underline">
+								rel="noopener noreferrer">
 								<em>Common Paper Cloud Service Standard Terms v 2.0</em>
 							</a>{" "}
 							(the &quot;<strong>Standard Terms</strong>&quot;) are incorporated by reference. If these
@@ -287,8 +296,8 @@ export default function Terms() {
 						</a>
 						) explains how ANH CHAT collects and handles personal information. If Customer requires a DPA,
 						email{" "}
-						<a href="mailto:support@roocode.com" className="text-primary hover:underline">
-							support@roocode.com
+						<a href="mailto:andreafrederica@outlook.com" className="text-primary hover:underline">
+							andreafrederica@outlook.com
 						</a>
 						.
 					</p>
@@ -337,12 +346,12 @@ export default function Terms() {
 					<h2 className="mt-12 text-2xl font-bold">10. Contact</h2>
 					<p>
 						<strong>ANH CHAT, Inc.</strong>
-						<br />
+						{/* <br />
 						98 Graceland Dr, San Rafael, CA 94901 USA
-						<br />
+						<br /> */}
 						Email:{" "}
-						<a href="mailto:support@roocode.com" className="text-primary hover:underline">
-							support@roocode.com
+						<a href="mailto:andreafrederica@outlook.com" className="text-primary hover:underline">
+							andreafrederica@outlook.com
 						</a>
 					</p>
 				</div>

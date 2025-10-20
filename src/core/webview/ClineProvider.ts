@@ -3102,6 +3102,7 @@ export class ClineProvider
 			...config,
 			provider: this,
 			sessionId: vscode.env.sessionId,
+			isCloudAgent: CloudService.instance.isCloudAgent,
 		})
 
 		const bridge = BridgeOrchestrator.getInstance()
@@ -3736,6 +3737,7 @@ export class ClineProvider
 			language,
 			mode,
 			taskId: task?.taskId,
+			parentTaskId: task?.parentTask?.taskId,
 			apiProvider: apiConfiguration?.apiProvider,
 			modelId: task?.api?.getModel().id,
 			diffStrategy: task?.diffStrategy?.getName(),

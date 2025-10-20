@@ -11,12 +11,12 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/RooCodeInc/Roo-Code.git"
+		"url": "git+https://github.com/AndreaFrederica/Roo-Code-Chat.git"
 	},
 	"bugs": {
-		"url": "https://github.com/RooCodeInc/Roo-Code/issues"
+		"url": "https://github.com/AndreaFrederica/Roo-Code-Chat/issues"
 	},
-	"homepage": "https://roocode.com",
-	"keywords": ["roo", "roo-code", "ai"],
+	"homepage": "https://blog.sirrus.cc",
+	"keywords": ["anh", "anh-chat", "ai"],
 	"files": ["dist"]
 }
