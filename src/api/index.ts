@@ -87,84 +87,123 @@ export interface ApiHandler {
 	countTokens(content: Array<Anthropic.Messages.ContentBlockParam>): Promise<number>
 }
 
-export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
+export function buildApiHandler(
+	configuration: ProviderSettings, 
+	customUserAgent?: string,
+	customUserAgentMode?: "segments" | "full",
+	customUserAgentFull?: string
+): ApiHandler {
 	const { apiProvider, ...options } = configuration
+	
+	// Pass all custom user agent parameters to options if provided
+	const enhancedOptions = {
+		...options,
+		...(customUserAgent && { customUserAgent }),
+		...(customUserAgentMode && { customUserAgentMode }),
+		...(customUserAgentFull && { customUserAgentFull })
+	}
 
 	switch (apiProvider) {
 		case "anthropic":
-			return new AnthropicHandler(options)
+			return new AnthropicHandler(enhancedOptions)
 		case "claude-code":
-			return new ClaudeCodeHandler(options)
+			return new ClaudeCodeHandler(enhancedOptions)
 		case "glama":
-			return new GlamaHandler(options)
+			return new GlamaHandler(enhancedOptions)
 		case "openrouter":
-			return new OpenRouterHandler(options)
+			return new OpenRouterHandler(enhancedOptions)
 		case "bedrock":
-			return new AwsBedrockHandler(options)
+			return new AwsBedrockHandler(enhancedOptions)
 		case "vertex":
-			return options.apiModelId?.startsWith("claude")
-				? new AnthropicVertexHandler(options)
-				: new VertexHandler(options)
+			return enhancedOptions.apiModelId?.startsWith("claude")
+				? new AnthropicVertexHandler(enhancedOptions)
+				: new VertexHandler(enhancedOptions)
 		case "openai":
-			return new OpenAiHandler(options)
+			return new OpenAiHandler(enhancedOptions)
 		case "ollama":
-			return new NativeOllamaHandler(options)
+			return new NativeOllamaHandler(enhancedOptions)
 		case "lmstudio":
-			return new LmStudioHandler(options)
+			return new LmStudioHandler(enhancedOptions)
 		case "gemini":
-			return new GeminiHandler(options)
+			return new GeminiHandler(enhancedOptions)
 		case "openai-native":
-			return new OpenAiNativeHandler(options)
+			return new OpenAiNativeHandler(enhancedOptions)
 		case "deepseek":
-			return new DeepSeekHandler(options)
+			return new DeepSeekHandler(enhancedOptions)
 		case "doubao":
-			return new DoubaoHandler(options)
+			return new DoubaoHandler(enhancedOptions)
 		case "qwen-code":
-			return new QwenCodeHandler(options)
+			return new QwenCodeHandler(enhancedOptions)
 		case "moonshot":
-			return new MoonshotHandler(options)
+			return new MoonshotHandler(enhancedOptions)
 		case "vscode-lm":
-			return new VsCodeLmHandler(options)
+			return new VsCodeLmHandler(enhancedOptions)
 		case "mistral":
-			return new MistralHandler(options)
+			return new MistralHandler(enhancedOptions)
 		case "unbound":
-			return new UnboundHandler(options)
+			return new UnboundHandler(enhancedOptions)
 		case "requesty":
-			return new RequestyHandler(options)
+			return new RequestyHandler(enhancedOptions)
 		case "human-relay":
 			return new HumanRelayHandler()
 		case "fake-ai":
-			return new FakeAIHandler(options)
+			return new FakeAIHandler(enhancedOptions)
 		case "xai":
-			return new XAIHandler(options)
+			return new XAIHandler(enhancedOptions)
 		case "groq":
-			return new GroqHandler(options)
+			return new GroqHandler(enhancedOptions)
 		case "deepinfra":
-			return new DeepInfraHandler(options)
+			return new DeepInfraHandler(enhancedOptions)
 		case "huggingface":
-			return new HuggingFaceHandler(options)
+			return new HuggingFaceHandler(enhancedOptions)
 		case "chutes":
-			return new ChutesHandler(options)
+			return new ChutesHandler(enhancedOptions)
 		case "litellm":
-			return new LiteLLMHandler(options)
+			return new LiteLLMHandler(enhancedOptions)
 		case "cerebras":
-			return new CerebrasHandler(options)
+			return new CerebrasHandler(enhancedOptions)
 		case "sambanova":
-			return new SambaNovaHandler(options)
+			return new SambaNovaHandler(enhancedOptions)
 		case "zai":
-			return new ZAiHandler(options)
+			return new ZAiHandler(enhancedOptions)
 		case "fireworks":
-			return new FireworksHandler(options)
+			return new FireworksHandler(enhancedOptions)
 		case "io-intelligence":
-			return new IOIntelligenceHandler(options)
+			return new IOIntelligenceHandler(enhancedOptions)
 		case "roo":
 			// Never throw exceptions from provider constructors
 			// The provider-proxy server will handle authentication and return appropriate error codes
-			return new RooHandler(options)
+			return new RooHandler(enhancedOptions)
 		case "featherless":
-			return new FeatherlessHandler(options)
+			return new FeatherlessHandler(enhancedOptions)
 		case "vercel-ai-gateway":
-			return new VercelAiGatewayHandler(options)
+			return new VercelAiGatewayHandler(enhancedOptions)
+		case "siliconflow":
+			return new OpenAiHandler({
+				...enhancedOptions,
+				openAiApiKey: enhancedOptions.siliconFlowApiKey ?? "not-provided",
+				openAiModelId: enhancedOptions.siliconFlowModelId ?? "Qwen/Qwen2.5-7B-Instruct",
+				openAiBaseUrl: enhancedOptions.siliconFlowBaseUrl ?? "https://api.siliconflow.cn/v1",
+				openAiStreamingEnabled: true,
+			})
+		case "volcengine":
+			return new OpenAiHandler({
+				...enhancedOptions,
+				openAiApiKey: enhancedOptions.volcEngineApiKey ?? "not-provided",
+				openAiModelId: enhancedOptions.volcEngineModelId ?? "doubao-pro-4k",
+				openAiBaseUrl: enhancedOptions.volcEngineBaseUrl ?? "https://ark.cn-beijing.volces.com/api/v3",
+				openAiStreamingEnabled: true,
+			})
+		case "dashscope":
+			return new OpenAiHandler({
+				...enhancedOptions,
+				openAiApiKey: enhancedOptions.dashScopeApiKey ?? "not-provided",
+				openAiModelId: enhancedOptions.dashScopeModelId ?? "qwen-turbo",
+				openAiBaseUrl: enhancedOptions.dashScopeBaseUrl ?? "https://dashscope.aliyuncs.com/compatible-mode/v1",
+				openAiStreamingEnabled: true,
+			})
+		case "gemini-cli":
+			return new GeminiHandler(enhancedOptions)
 		default:
 			apiProvider satisfies "gemini-cli" | undefined
 			return new AnthropicHandler(options)

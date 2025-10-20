@@ -55,6 +55,10 @@ interface ExtendedExtensionState extends ExtensionState {
 	_isResetting?: boolean
 	_isSavingTSProfile?: boolean
 	worldsetHasChanges?: boolean
+	enableRooCloudServices?: boolean
+	customUserAgent?: string
+	customUserAgentMode?: "segments" | "full"
+	customUserAgentFull?: string
 }
 
 export interface ExtensionStateContextType extends ExtendedExtensionState {
@@ -241,6 +245,14 @@ export interface ExtensionStateContextType extends ExtendedExtensionState {
 	resetWorldsetChanges: () => void
 	memorySystemEnabled?: boolean
 	memoryToolsEnabled?: boolean
+	enableRooCloudServices?: boolean
+	setEnableRooCloudServices: (value: boolean) => void
+	customUserAgent?: string
+	setCustomUserAgent: (value: string) => void
+	customUserAgentMode?: "segments" | "full"
+	setCustomUserAgentMode: (value: "segments" | "full") => void
+	customUserAgentFull?: string
+	setCustomUserAgentFull: (value: string) => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -524,6 +536,22 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update allowNoToolsInChatMode if present in state message
 					if ((newState as any).allowNoToolsInChatMode !== undefined) {
 						setState((prevState) => ({ ...prevState, allowNoToolsInChatMode: (newState as any).allowNoToolsInChatMode }))
+					}
+					// Update enableRooCloudServices if present in state message
+					if ((newState as any).enableRooCloudServices !== undefined) {
+						setState((prevState) => ({ ...prevState, enableRooCloudServices: (newState as any).enableRooCloudServices }))
+					}
+					// Update customUserAgent if present in state message
+					if ((newState as any).customUserAgent !== undefined) {
+						setState((prevState) => ({ ...prevState, customUserAgent: (newState as any).customUserAgent }))
+					}
+					// Update customUserAgentMode if present in state message
+					if ((newState as any).customUserAgentMode !== undefined) {
+						setState((prevState) => ({ ...prevState, customUserAgentMode: (newState as any).customUserAgentMode }))
+					}
+					// Update customUserAgentFull if present in state message
+					if ((newState as any).customUserAgentFull !== undefined) {
+						setState((prevState) => ({ ...prevState, customUserAgentFull: (newState as any).customUserAgentFull }))
 					}
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {
@@ -978,6 +1006,22 @@ const contextValue: ExtensionStateContextType = {
 	},
 	memorySystemEnabled: state.memorySystemEnabled ?? true,
 	memoryToolsEnabled: state.memoryToolsEnabled ?? true,
+	enableRooCloudServices: state.enableRooCloudServices ?? false,
+	setEnableRooCloudServices: (value: boolean) => {
+		vscode.postMessage({ type: "enableRooCloudServices", bool: value })
+	},
+	customUserAgent: state.customUserAgent ?? "",
+	setCustomUserAgent: (value: string) => {
+		vscode.postMessage({ type: "customUserAgent", text: value })
+	},
+	customUserAgentMode: state.customUserAgentMode ?? "segments",
+	setCustomUserAgentMode: (value: "segments" | "full") => {
+		vscode.postMessage({ type: "customUserAgentMode", text: value })
+	},
+	customUserAgentFull: state.customUserAgentFull ?? "",
+	setCustomUserAgentFull: (value: string) => {
+		vscode.postMessage({ type: "customUserAgentFull", text: value })
+	},
 }
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>

@@ -319,6 +319,10 @@
 		"headerName": "标头名称",
 		"headerValue": "标头值",
 		"noCustomHeaders": "暂无自定义标头。点击 + 按钮添加。",
+		"temperature": "温度",
+		"getSiliconflowApiKey": "获取 SiliconFlow API 密钥",
+		"getVolcengineApiKey": "获取火山引擎 API 密钥",
+		"getDashscopeApiKey": "获取 DashScope API 密钥",
 		"requestyApiKey": "Requesty API 密钥",
 		"refreshModels": {
 			"label": "刷新模型",
@@ -970,6 +974,10 @@
 		"allowNoToolsInChatMode": {
 			"label": "聊天模式下允许不使用工具",
 			"description": "启用后，在聊天模式下即使没有使用工具也不会显示警告提示"
+		},
+		"enableRooCloudServices": {
+			"label": "启用 Roo 云服务提供的 API",
+			"description": "启用后，将显示 Roo 云服务相关的功能和入口。默认关闭以避免依赖外部服务。"
 		},
 		"anhHistoryDisplayMode": {
 			"label": "历史记录显示模式",

@@ -440,6 +440,9 @@ export type ExtensionState = Pick<
 	| "memorySystemEnabled"
 	| "memoryToolsEnabled"
 	| "allowNoToolsInChatMode"
+	| "customUserAgent"
+	| "customUserAgentMode"
+	| "customUserAgentFull"
 > & {
 	enabledTSProfiles?: string[]
 	anhTsProfileAutoInject?: boolean

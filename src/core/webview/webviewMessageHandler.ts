@@ -928,6 +928,9 @@ export const webviewMessageHandler = async (
 				glama: {},
 				ollama: {},
 				lmstudio: {},
+				siliconflow: {},
+				volcengine: {},
+				dashscope: {},
 			}
 
 			const safeGetModels = async (options: GetModelsOptions): Promise<ModelRecord> => {
@@ -1428,6 +1431,36 @@ export const webviewMessageHandler = async (
 		case "enableCheckpoints":
 			const enableCheckpoints = message.bool ?? true
 			await updateGlobalState("enableCheckpoints", enableCheckpoints)
+			await provider.postStateToWebview()
+			break
+		case "enableRooCloudServices":
+			const enableRooCloudServices = message.bool ?? true
+			await updateGlobalState("enableRooCloudServices", enableRooCloudServices)
+			
+			// When disabling Roo cloud services, also disable telemetry
+			if (!enableRooCloudServices) {
+				const telemetrySetting = "disabled"
+				await updateGlobalState("telemetrySetting", telemetrySetting)
+				if (TelemetryService.hasInstance()) {
+					TelemetryService.instance.updateTelemetryState(false)
+				}
+			}
+			
+			await provider.postStateToWebview()
+			break
+		case "customUserAgent":
+			const customUserAgent = message.text ?? ""
+			await updateGlobalState("customUserAgent", customUserAgent)
+			await provider.postStateToWebview()
+			break
+		case "customUserAgentMode":
+			const customUserAgentMode = (message.text === "full" || message.text === "segments") ? message.text : "segments"
+			await updateGlobalState("customUserAgentMode", customUserAgentMode)
+			await provider.postStateToWebview()
+			break
+		case "customUserAgentFull":
+			const customUserAgentFull = message.text ?? ""
+			await updateGlobalState("customUserAgentFull", customUserAgentFull)
 			await provider.postStateToWebview()
 			break
 		case "browserViewportSize":

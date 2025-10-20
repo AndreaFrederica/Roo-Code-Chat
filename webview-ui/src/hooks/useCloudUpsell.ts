@@ -13,9 +13,12 @@ export const useCloudUpsell = (options: UseCloudUpsellOptions = {}) => {
 	const { onAuthSuccess, autoOpenOnAuth = false } = options
 	const [isOpen, setIsOpen] = useState(false)
 	const [shouldOpenOnAuth, setShouldOpenOnAuth] = useState(false)
-	const { cloudIsAuthenticated, sharingEnabled } = useExtensionState()
+	const { cloudIsAuthenticated, sharingEnabled, enableRooCloudServices } = useExtensionState()
 	const wasUnauthenticatedRef = useRef(false)
 	const initiatedAuthRef = useRef(false)
+
+	// Don't show upsell if Roo cloud services are disabled
+	const shouldShowUpsell = enableRooCloudServices || false
 
 	// Track authentication state changes
 	useEffect(() => {
@@ -40,8 +43,9 @@ export const useCloudUpsell = (options: UseCloudUpsellOptions = {}) => {
 	}, [cloudIsAuthenticated, sharingEnabled, onAuthSuccess, autoOpenOnAuth, shouldOpenOnAuth])
 
 	const openUpsell = useCallback(() => {
+		if (!shouldShowUpsell) return
 		setIsOpen(true)
-	}, [])
+	}, [shouldShowUpsell])
 
 	const closeUpsell = useCallback(() => {
 		setIsOpen(false)
@@ -49,6 +53,8 @@ export const useCloudUpsell = (options: UseCloudUpsellOptions = {}) => {
 	}, [])
 
 	const handleConnect = useCallback(() => {
+		if (!shouldShowUpsell) return
+		
 		// Mark that authentication was initiated from this hook
 		initiatedAuthRef.current = true
 		setShouldOpenOnAuth(true)
@@ -58,7 +64,7 @@ export const useCloudUpsell = (options: UseCloudUpsellOptions = {}) => {
 
 		// Close the upsell dialog
 		closeUpsell()
-	}, [closeUpsell])
+	}, [closeUpsell, shouldShowUpsell])
 
 	return {
 		isOpen,

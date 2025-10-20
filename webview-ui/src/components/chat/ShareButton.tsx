@@ -32,7 +32,12 @@ export const ShareButton = ({ item, disabled = false, showLabel = false }: Share
 	const [shareSuccess, setShareSuccess] = useState<{ visibility: ShareVisibility; url: string } | null>(null)
 	const [wasConnectInitiatedFromShare, setWasConnectInitiatedFromShare] = useState(false)
 	const { t } = useTranslation()
-	const { cloudUserInfo } = useExtensionState()
+	const { cloudUserInfo, enableRooCloudServices } = useExtensionState()
+
+	// Don't render if Roo cloud services are disabled
+	if (!enableRooCloudServices) {
+		return null
+	}
 
 	// Use enhanced cloud upsell hook with auto-open on auth success
 	const {

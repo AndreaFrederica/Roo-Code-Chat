@@ -1583,7 +1583,10 @@ export class ClineProvider
 				const task = this.getCurrentTask()
 
 				if (task) {
-					task.api = buildApiHandler(providerSettings)
+					const customUserAgent = this.contextProxy.getGlobalState("customUserAgent")
+					const customUserAgentMode = this.contextProxy.getGlobalState("customUserAgentMode")
+					const customUserAgentFull = this.contextProxy.getGlobalState("customUserAgentFull")
+					task.api = buildApiHandler(providerSettings, customUserAgent, customUserAgentMode, customUserAgentFull)
 				}
 			} else {
 				await this.updateGlobalState("listApiConfigMeta", await this.providerSettingsManager.listConfig())
@@ -1644,7 +1647,10 @@ export class ClineProvider
 		const task = this.getCurrentTask()
 
 		if (task) {
-			task.api = buildApiHandler(providerSettings)
+			const customUserAgent = this.contextProxy.getGlobalState("customUserAgent")
+			const customUserAgentMode = this.contextProxy.getGlobalState("customUserAgentMode")
+			const customUserAgentFull = this.contextProxy.getGlobalState("customUserAgentFull")
+			task.api = buildApiHandler(providerSettings, customUserAgent, customUserAgentMode, customUserAgentFull)
 		}
 
 		await this.postStateToWebview()
@@ -2570,6 +2576,9 @@ export class ClineProvider
 						configs: {},
 						lastUpdated: 0,
 					},
+			customUserAgent: this.contextProxy.getGlobalState("customUserAgent"),
+			customUserAgentMode: this.contextProxy.getGlobalState("customUserAgentMode"),
+			customUserAgentFull: this.contextProxy.getGlobalState("customUserAgentFull"),
 		}
 	}
 
@@ -2759,7 +2768,7 @@ export class ClineProvider
 			maxWorkspaceFiles: stateValues.maxWorkspaceFiles ?? 200,
 			openRouterUseMiddleOutTransform: stateValues.openRouterUseMiddleOutTransform,
 			browserToolEnabled: stateValues.browserToolEnabled ?? true,
-			telemetrySetting: stateValues.telemetrySetting || "unset",
+			telemetrySetting: stateValues.telemetrySetting || "disabled",
 			showRooIgnoredFiles: stateValues.showRooIgnoredFiles ?? false,
 			maxReadFileLine: stateValues.maxReadFileLine ?? -1,
 			maxImageFileSize: stateValues.maxImageFileSize ?? 5,

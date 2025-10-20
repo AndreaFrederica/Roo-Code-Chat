@@ -3,7 +3,7 @@
 	"displayName": "%extension.displayName%",
 	"description": "%extension.description%",
 	"publisher": "AndreaFrederica",
-	"version": "3.29.7",
+	"version": "3.28.18",
 	"icon": "assets/icons/icon.png",
 	"galleryBanner": {
 		"color": "#617A91",
@@ -291,7 +291,7 @@
 				{
 					"command": "anh-cline.cloudButtonClicked",
 					"group": "navigation@5",
-					"when": "view == anh-cline.SidebarProvider"
+					"when": "view == anh-cline.SidebarProvider && config.anh-cline.enableRooCloudServices"
 				},
 				{
 					"command": "anh-cline.historyButtonClicked",
@@ -338,7 +338,7 @@
 				{
 					"command": "anh-cline.cloudButtonClicked",
 					"group": "navigation@5",
-					"when": "activeWebviewPanelId == anh-cline.TabPanelProvider"
+					"when": "activeWebviewPanelId == anh-cline.TabPanelProvider && config.anh-cline.enableRooCloudServices"
 				},
 				{
 					"command": "anh-cline.historyButtonClicked",

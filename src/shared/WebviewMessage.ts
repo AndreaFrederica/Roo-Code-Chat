@@ -296,6 +296,10 @@ export interface WebviewMessage {
 		| "memorySystemEnabled"
 		| "memoryToolsEnabled"
 		| "memoryManagement"
+		| "enableRooCloudServices"
+		| "customUserAgent"
+		| "customUserAgentMode"
+		| "customUserAgentFull"
 		| "loadTsProfileContent"
 		| "loadTsProfileMixin"
 		| "saveTsProfileMixin"
@@ -334,6 +338,7 @@ export interface WebviewMessage {
 		| "listGlobalRoleMemories"
 	| "loadGlobalRoleMemory"
 	| "saveGlobalRoleMemory"
+	| "updateGlobalSetting"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"

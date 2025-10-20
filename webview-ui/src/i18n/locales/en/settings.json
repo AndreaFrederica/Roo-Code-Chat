@@ -107,6 +107,10 @@
 			"label": "Hide role descriptions",
 			"description": "When enabled, character role descriptions will be hidden from the interface"
 		},
+		"enableRooCloudServices": {
+			"label": "Enable Roo Cloud Services API",
+			"description": "When enabled, Roo cloud service related features and entries will be displayed. Disabled by default to avoid external service dependencies."
+		},
 		"anhHistoryDisplayMode": {
 			"label": "History display mode",
 			"description": "Choose how to display task history in the sidebar"
@@ -361,6 +365,10 @@
 		"headerName": "Header name",
 		"headerValue": "Header value",
 		"noCustomHeaders": "No custom headers defined. Click the + button to add one.",
+		"temperature": "Temperature",
+		"getSiliconflowApiKey": "Get SiliconFlow API Key",
+		"getVolcengineApiKey": "Get VolcEngine API Key",
+		"getDashscopeApiKey": "Get DashScope API Key",
 		"requestyApiKey": "Requesty API Key",
 		"refreshModels": {
 			"label": "Refresh Models",

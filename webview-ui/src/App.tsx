@@ -80,6 +80,7 @@ const App = () => {
 		cloudOrganizations,
 		renderContext,
 		mdmCompliant,
+		enableRooCloudServices,
 	} = useExtensionState()
 
 	// Create a persistent state manager
@@ -113,6 +114,11 @@ const App = () => {
 
 	const switchTab = useCallback(
 		(newTab: Tab) => {
+			// Don't allow switching to cloud tab if Roo cloud services are disabled
+			if (newTab === "cloud" && !enableRooCloudServices) {
+				return
+			}
+			
 			// Only check MDM compliance if mdmCompliant is explicitly false (meaning there's an MDM policy and user is non-compliant)
 			// If mdmCompliant is undefined or true, allow tab switching
 			if (mdmCompliant === false && newTab !== "cloud") {
@@ -130,7 +136,7 @@ const App = () => {
 				setTab(newTab)
 			}
 		},
-		[mdmCompliant],
+		[mdmCompliant, enableRooCloudServices],
 	)
 
 	const [currentSection, setCurrentSection] = useState<string | undefined>(undefined)
@@ -271,7 +277,7 @@ const App = () => {
 					targetTab={currentMarketplaceTab as "mcp" | "mode" | undefined}
 				/>
 			)}
-			{tab === "cloud" && (
+			{tab === "cloud" && enableRooCloudServices && (
 				<CloudView
 					userInfo={cloudUserInfo}
 					isAuthenticated={cloudIsAuthenticated}

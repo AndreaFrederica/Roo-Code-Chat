@@ -60,23 +60,18 @@ export const DEFAULT_WORKSPACE_CONTEXT_SETTINGS: Record<WorkspaceContextSettingK
 }
 
 /**
- * Default delay in milliseconds after writes to allow diagnostics to detect potential problems.
- * This delay is particularly important for Go and other languages where tools like goimports
- * need time to automatically clean up unused imports.
+ * Default write delay in milliseconds
  */
 export const DEFAULT_WRITE_DELAY_MS = 1000
 
 /**
- * Default terminal output character limit constant.
- * This provides a reasonable default that aligns with typical terminal usage
- * while preventing context window explosions from extremely long lines.
+ * Default terminal output character limit
  */
 export const DEFAULT_TERMINAL_OUTPUT_CHARACTER_LIMIT = 50_000
 
 /**
- * GlobalSettings
+ * Global settings schema
  */
-
 export const globalSettingsSchema = z.object({
 	currentApiConfigName: z.string().optional(),
 	listApiConfigMeta: z.array(providerSettingsEntrySchema).optional(),
@@ -87,7 +82,7 @@ export const globalSettingsSchema = z.object({
 	taskHistory: z.array(historyItemSchema).optional(),
 	dismissedUpsells: z.array(z.string()).optional(),
 
-	// Image generation settings (experimental) - flattened for simplicity
+	// Image generation settings
 	openRouterImageApiKey: z.string().optional(),
 	openRouterImageGenerationSelectedModel: z.string().optional(),
 
@@ -122,14 +117,10 @@ export const globalSettingsSchema = z.object({
 	autoCondenseContextPercent: z.number().optional(),
 	maxConcurrentFileReads: z.number().optional(),
 
-	/**
-	 * Whether to include diagnostic messages (errors, warnings) in tool outputs
-	 * @default true
-	 */
+	// Diagnostic settings
 	includeDiagnosticMessages: z.boolean().optional(),
 	/**
-	 * Maximum number of diagnostic messages to include in tool outputs
-	 * @default 50
+	 * Maximum number of diagnostic messages to include in context
 	 */
 	maxDiagnosticMessages: z.number().optional(),
 
@@ -199,7 +190,7 @@ export const globalSettingsSchema = z.object({
 	lastModeExportPath: z.string().optional(),
 	lastModeImportPath: z.string().optional(),
 
-	// ANH (Advanced Novel Helper) settings
+	// ANH Chat settings
 	currentAnhRole: roleSchema.optional(),
 	anhPersonaMode: z.enum(["hybrid", "chat"]).optional(),
 	anhToneStrict: z.boolean().optional(),
@@ -213,20 +204,20 @@ export const globalSettingsSchema = z.object({
 		.optional(),
 	anhExtensionsHasChanges: z.boolean().optional(),
 
-	// TSProfile (Tavern Style Profile) settings
+	// TS Profile settings
 	enabledTSProfiles: z.array(z.string()).optional(),
 	anhTsProfileAutoInject: z.boolean().optional(),
 	anhTsProfileVariables: z.record(z.string(), z.string()).optional(),
 	tsProfilesHasChanges: z.boolean().optional(),
 	
-	// User avatar role settings
+	// User avatar settings
 	userAvatarRole: roleSchema.optional(),
 	enableUserAvatar: z.boolean().optional(),
 	userAvatarHideFullData: z.boolean().optional(),
 	userAvatarVisibility: userAvatarVisibilitySchema.optional(),
 	hideRoleDescription: z.boolean().optional(),
 
-	// UI Display settings
+	// Display mode settings
 	displayMode: z.enum(["coding", "chat"]).optional(),
 
 	// Worldset settings
@@ -253,6 +244,12 @@ export const globalSettingsSchema = z.object({
 	// Memory system settings
 	memoryToolsEnabled: z.boolean().optional(),
 	memorySystemEnabled: z.boolean().optional(),
+
+	// Roo Cloud Services settings
+	enableRooCloudServices: z.boolean().optional(),
+	customUserAgent: z.string().optional(),
+	customUserAgentMode: z.enum(["segments", "full"]).optional(),
+	customUserAgentFull: z.string().optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>
@@ -262,13 +259,12 @@ export const GLOBAL_SETTINGS_KEYS = globalSettingsSchema.keyof().options
 /**
  * RooCodeSettings
  */
-
 export const rooCodeSettingsSchema = providerSettingsSchema.merge(globalSettingsSchema)
 
 export type RooCodeSettings = GlobalSettings & ProviderSettings
 
 /**
- * SecretState
+ * Secret state keys
  */
 export const SECRET_STATE_KEYS = [
 	"apiKey",
@@ -309,16 +305,22 @@ export const SECRET_STATE_KEYS = [
 	"vercelAiGatewayApiKey",
 ] as const
 
-// Global secrets that are part of GlobalSettings (not ProviderSettings)
+/**
+ * Global secret keys
+ */
 export const GLOBAL_SECRET_KEYS = [
 	"openRouterImageApiKey", // For image generation
 ] as const
 
-// Type for the actual secret storage keys
+/**
+ * Secret state types
+ */
 type ProviderSecretKey = (typeof SECRET_STATE_KEYS)[number]
 type GlobalSecretKey = (typeof GLOBAL_SECRET_KEYS)[number]
 
-// Type representing all secrets that can be stored
+/**
+ * Secret state
+ */
 export type SecretState = Pick<ProviderSettings, Extract<ProviderSecretKey, keyof ProviderSettings>> & {
 	[K in GlobalSecretKey]?: string
 }
@@ -327,9 +329,8 @@ export const isSecretStateKey = (key: string): key is Keys<SecretState> =>
 	SECRET_STATE_KEYS.includes(key as ProviderSecretKey) || GLOBAL_SECRET_KEYS.includes(key as GlobalSecretKey)
 
 /**
- * GlobalState
+ * Global state
  */
-
 export type GlobalState = Omit<RooCodeSettings, Keys<SecretState>>
 
 export const GLOBAL_STATE_KEYS = [...GLOBAL_SETTINGS_KEYS, ...PROVIDER_SETTINGS_KEYS].filter(
@@ -340,10 +341,8 @@ export const isGlobalStateKey = (key: string): key is Keys<GlobalState> =>
 	GLOBAL_STATE_KEYS.includes(key as Keys<GlobalState>)
 
 /**
- * Evals
+ * Default settings for evals
  */
-
-// Default settings when running evals (unless overridden).
 export const EVALS_SETTINGS: RooCodeSettings = {
 	apiProvider: "openrouter",
 	openRouterUseMiddleOutTransform: false,
@@ -431,6 +430,12 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 	mode: "code", // "architect",
 
 	customModes: [],
+
+	// Roo Cloud Services settings
+	enableRooCloudServices: false,
+	customUserAgent: "",
+	customUserAgentMode: "segments",
+	customUserAgentFull: "",
 }
 
 export const EVALS_TIMEOUT = 5 * 60 * 1_000

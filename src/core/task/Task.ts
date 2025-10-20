@@ -402,7 +402,10 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		})
 
 		this.apiConfiguration = apiConfiguration
-		this.api = buildApiHandler(apiConfiguration)
+		const customUserAgent = provider.contextProxy.getGlobalState("customUserAgent")
+		const customUserAgentMode = provider.contextProxy.getGlobalState("customUserAgentMode")
+		const customUserAgentFull = provider.contextProxy.getGlobalState("customUserAgentFull")
+		this.api = buildApiHandler(apiConfiguration, customUserAgent, customUserAgentMode, customUserAgentFull)
 		this.autoApprovalHandler = new AutoApprovalHandler()
 
 		this.urlContentFetcher = new UrlContentFetcher(provider.context)
@@ -1153,7 +1156,11 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				})
 				// Ensure profile and apiProvider exist before trying to build handler
 				if (profile && profile.apiProvider) {
-					condensingApiHandler = buildApiHandler(profile)
+					const provider = this.providerRef.deref()
+					const customUserAgent = provider?.contextProxy.getGlobalState("customUserAgent")
+					const customUserAgentMode = provider?.contextProxy.getGlobalState("customUserAgentMode")
+					const customUserAgentFull = provider?.contextProxy.getGlobalState("customUserAgentFull")
+					condensingApiHandler = buildApiHandler(profile, customUserAgent, customUserAgentMode, customUserAgentFull)
 				}
 			}
 		}
@@ -2985,7 +2992,11 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 				// Ensure profile and apiProvider exist before trying to build handler.
 				if (profile && profile.apiProvider) {
-					condensingApiHandler = buildApiHandler(profile)
+					const provider = this.providerRef.deref()
+					const customUserAgent = provider?.contextProxy.getGlobalState("customUserAgent")
+					const customUserAgentMode = provider?.contextProxy.getGlobalState("customUserAgentMode")
+					const customUserAgentFull = provider?.contextProxy.getGlobalState("customUserAgentFull")
+					condensingApiHandler = buildApiHandler(profile, customUserAgent, customUserAgentMode, customUserAgentFull)
 				}
 			}
 		}

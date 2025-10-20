@@ -20,17 +20,12 @@ import { Tab, TabContent } from "../common/Tab"
 import RooHero from "./RooHero"
 
 const WelcomeView = () => {
-	const { apiConfiguration, currentApiConfigName, setApiConfiguration, uriScheme, machineId } = useExtensionState()
+	const { apiConfiguration, currentApiConfigName, setApiConfiguration, uriScheme, machineId, enableRooCloudServices } = useExtensionState()
 	const { t } = useAppTranslation()
 	const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined)
-	const [showRooProvider, setShowRooProvider] = useState(false)
 
-	// Check PostHog feature flag for Roo provider
-	useEffect(() => {
-		posthog.onFeatureFlags(function () {
-			setShowRooProvider(posthog?.getFeatureFlag("roo-provider-featured") === "test")
-		})
-	}, [])
+	// Use the enableRooCloudServices setting instead of PostHog feature flag
+	const showRooProvider = enableRooCloudServices || false
 
 	// Memoize the setApiConfigurationField function to pass to ApiOptions
 	const setApiConfigurationFieldForApiOptions = useCallback(

@@ -1,5 +1,6 @@
 // npx vitest run src/utils/__tests__/enhance-prompt.spec.ts
 
+import { vi, describe, it, expect, beforeEach } from "vitest"
 import type { ProviderSettings } from "@roo-code/types"
 
 import { singleCompletionHandler } from "../single-completion-handler"
@@ -41,7 +42,7 @@ describe("enhancePrompt", () => {
 		const result = await singleCompletionHandler(mockApiConfig, "Test prompt")
 
 		expect(result).toBe("Enhanced prompt")
-		const handler = buildApiHandler(mockApiConfig)
+		const handler = buildApiHandler(mockApiConfig, undefined)
 		expect((handler as any).completePrompt).toHaveBeenCalledWith(`Test prompt`)
 	})
 
@@ -63,7 +64,7 @@ describe("enhancePrompt", () => {
 		)
 
 		expect(result).toBe("Enhanced prompt")
-		const handler = buildApiHandler(mockApiConfig)
+		const handler = buildApiHandler(mockApiConfig, undefined)
 		expect((handler as any).completePrompt).toHaveBeenCalledWith(`${customEnhancePrompt}\n\nTest prompt`)
 	})
 
@@ -120,7 +121,7 @@ describe("enhancePrompt", () => {
 
 		const result = await singleCompletionHandler(openRouterConfig, "Test prompt")
 
-		expect(buildApiHandler).toHaveBeenCalledWith(openRouterConfig)
+		expect(buildApiHandler).toHaveBeenCalledWith(openRouterConfig, undefined)
 		expect(result).toBe("Enhanced prompt")
 	})
 

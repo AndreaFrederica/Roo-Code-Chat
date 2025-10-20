@@ -25,6 +25,7 @@ import {
 	vscodeLlmModels,
 	xaiModels,
 	internationalZAiModels,
+	mainlandZAiModels,
 } from "./providers/index.js"
 
 /**
@@ -49,6 +50,9 @@ export const dynamicProviders = [
 	"requesty",
 	"unbound",
 	"glama",
+	"siliconflow",
+	"volcengine",
+	"dashscope",
 ] as const
 
 export type DynamicProvider = (typeof dynamicProviders)[number]
@@ -135,7 +139,9 @@ export const providerNames = [
 	"qwen-code",
 	"roo",
 	"sambanova",
+	"siliconflow",
 	"vertex",
+	"volcengine",
 	"xai",
 	"zai",
 ] as const
@@ -275,6 +281,7 @@ const vsCodeLmSchema = baseProviderSettingsSchema.extend({
 const lmStudioSchema = baseProviderSettingsSchema.extend({
 	lmStudioModelId: z.string().optional(),
 	lmStudioBaseUrl: z.string().optional(),
+	lmStudioApiKey: z.string().optional(),
 	lmStudioDraftModelId: z.string().optional(),
 	lmStudioSpeculativeDecodingEnabled: z.boolean().optional(),
 })
@@ -412,6 +419,24 @@ const vercelAiGatewaySchema = baseProviderSettingsSchema.extend({
 	vercelAiGatewayModelId: z.string().optional(),
 })
 
+const siliconFlowSchema = baseProviderSettingsSchema.extend({
+	siliconFlowApiKey: z.string().optional(),
+	siliconFlowModelId: z.string().optional(),
+	siliconFlowBaseUrl: z.string().optional(),
+})
+
+const volcEngineSchema = baseProviderSettingsSchema.extend({
+	volcEngineApiKey: z.string().optional(),
+	volcEngineModelId: z.string().optional(),
+	volcEngineBaseUrl: z.string().optional(),
+})
+
+const dashScopeSchema = baseProviderSettingsSchema.extend({
+	dashScopeApiKey: z.string().optional(),
+	dashScopeModelId: z.string().optional(),
+	dashScopeBaseUrl: z.string().optional(),
+})
+
 const defaultSchema = z.object({
 	apiProvider: z.undefined(),
 })
@@ -453,6 +478,9 @@ export const providerSettingsSchemaDiscriminated = z.discriminatedUnion("apiProv
 	qwenCodeSchema.merge(z.object({ apiProvider: z.literal("qwen-code") })),
 	rooSchema.merge(z.object({ apiProvider: z.literal("roo") })),
 	vercelAiGatewaySchema.merge(z.object({ apiProvider: z.literal("vercel-ai-gateway") })),
+	siliconFlowSchema.merge(z.object({ apiProvider: z.literal("siliconflow") })),
+	volcEngineSchema.merge(z.object({ apiProvider: z.literal("volcengine") })),
+	dashScopeSchema.merge(z.object({ apiProvider: z.literal("dashscope") })),
 	defaultSchema,
 ])
 
@@ -494,6 +522,9 @@ export const providerSettingsSchema = z.object({
 	...qwenCodeSchema.shape,
 	...rooSchema.shape,
 	...vercelAiGatewaySchema.shape,
+	...siliconFlowSchema.shape,
+	...volcEngineSchema.shape,
+	...dashScopeSchema.shape,
 	...codebaseIndexProviderSchema.shape,
 })
 
@@ -528,6 +559,9 @@ export const modelIdKeys = [
 	"ioIntelligenceModelId",
 	"vercelAiGatewayModelId",
 	"deepInfraModelId",
+	"siliconFlowModelId",
+	"volcEngineModelId",
+	"dashScopeModelId",
 ] as const satisfies readonly (keyof ProviderSettings)[]
 
 export type ModelIdKey = (typeof modelIdKeys)[number]
@@ -579,6 +613,9 @@ export const modelIdKeysByProvider: Record<TypicalProvider, ModelIdKey> = {
 	"io-intelligence": "ioIntelligenceModelId",
 	roo: "apiModelId",
 	"vercel-ai-gateway": "vercelAiGatewayModelId",
+	siliconflow: "siliconFlowModelId",
+	volcengine: "volcEngineModelId",
+	dashscope: "dashScopeModelId",
 }
 
 /**
@@ -694,7 +731,7 @@ export const MODELS_BY_PROVIDER: Record<
 		models: Object.keys(vscodeLlmModels),
 	},
 	xai: { id: "xai", label: "xAI (Grok)", models: Object.keys(xaiModels) },
-	zai: { id: "zai", label: "Zai", models: Object.keys(internationalZAiModels) },
+	zai: { id: "zai", label: "Zai", models: [...Object.keys(internationalZAiModels), ...Object.keys(mainlandZAiModels)] },
 
 	// Dynamic providers; models pulled from remote APIs.
 	glama: { id: "glama", label: "Glama", models: [] },
@@ -705,6 +742,9 @@ export const MODELS_BY_PROVIDER: Record<
 	unbound: { id: "unbound", label: "Unbound", models: [] },
 	deepinfra: { id: "deepinfra", label: "DeepInfra", models: [] },
 	"vercel-ai-gateway": { id: "vercel-ai-gateway", label: "Vercel AI Gateway", models: [] },
+	siliconflow: { id: "siliconflow", label: "SiliconFlow", models: [] },
+	volcengine: { id: "volcengine", label: "VolcEngine", models: [] },
+	dashscope: { id: "dashscope", label: "DashScope", models: [] },
 
 	// Local providers; models discovered from localhost endpoints.
 	lmstudio: { id: "lmstudio", label: "LM Studio", models: [] },

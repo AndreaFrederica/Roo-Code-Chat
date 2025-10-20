@@ -60,7 +60,10 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	// Create a temporary API handler to check if the model supports computer use
 	// This avoids relying on an active Cline instance which might not exist during preview
 	try {
-		const tempApiHandler = buildApiHandler(apiConfiguration)
+		const customUserAgent = provider.contextProxy.getGlobalState("customUserAgent")
+		const customUserAgentMode = provider.contextProxy.getGlobalState("customUserAgentMode")
+		const customUserAgentFull = provider.contextProxy.getGlobalState("customUserAgentFull")
+		const tempApiHandler = buildApiHandler(apiConfiguration, customUserAgent, customUserAgentMode, customUserAgentFull)
 		modelSupportsComputerUse = tempApiHandler.getModel().info.supportsComputerUse ?? false
 	} catch (error) {
 		console.error("Error checking if model supports computer use:", error)

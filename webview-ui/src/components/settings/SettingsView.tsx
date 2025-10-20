@@ -289,6 +289,10 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		anhTsProfileAutoInject,
 		anhTsProfileVariables,
 		tsProfilesHasChanges,
+		enableRooCloudServices,
+		customUserAgent,
+		customUserAgentMode,
+		customUserAgentFull,
 	} = cachedState
 
 	const apiConfiguration = useMemo(() => cachedState.apiConfiguration ?? {}, [cachedState.apiConfiguration])
@@ -556,6 +560,14 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({ type: "memorySystemEnabled", bool: cachedState.memorySystemEnabled ?? true })
 			vscode.postMessage({ type: "memoryToolsEnabled", bool: cachedState.memoryToolsEnabled ?? true })
 
+			// Roo Cloud Services setting
+			vscode.postMessage({ type: "enableRooCloudServices", bool: enableRooCloudServices ?? false })
+
+			// Custom User Agent settings
+			vscode.postMessage({ type: "customUserAgent", text: customUserAgent ?? "" })
+			vscode.postMessage({ type: "customUserAgentMode", text: customUserAgentMode ?? "segments" })
+			vscode.postMessage({ type: "customUserAgentFull", text: customUserAgentFull ?? "" })
+
 			setChangeDetected(false)
 		}
 
@@ -685,6 +697,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		anhTsProfileVariables,
 		cachedState.memorySystemEnabled,
 		cachedState.memoryToolsEnabled,
+		enableRooCloudServices,
 		setChangeDetected,
 		componentChanges,
 		setComponentChanges,
@@ -1209,6 +1222,11 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							setImageGenerationSelectedModel={setImageGenerationSelectedModel}
 							allowNoToolsInChatMode={allowNoToolsInChatMode}
 							setAllowNoToolsInChatMode={(value) => setCachedStateField("allowNoToolsInChatMode", value)}
+							onSettingChange={(key, value) => setCachedStateField(key as any, value)}
+							enableRooCloudServices={enableRooCloudServices}
+							customUserAgent={customUserAgent}
+							customUserAgentMode={customUserAgentMode}
+							customUserAgentFull={customUserAgentFull}
 						/>
 					)}
 

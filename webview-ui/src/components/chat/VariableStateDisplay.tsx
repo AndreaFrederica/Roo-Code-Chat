@@ -152,7 +152,7 @@ export function VariableStateDisplay({ variables = [], className }: VariableStat
 						fontSize: "12px",
 					}}
 				>
-					{mostImportantVar.variable}: {formatValue(mostImportantVar.command.value)}
+					{mostImportantVar.name}: {formatValue(mostImportantVar.command.value)}
 				</span>
 				<div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
 					<span

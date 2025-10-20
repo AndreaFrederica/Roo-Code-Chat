@@ -95,7 +95,10 @@ import {
 	Featherless,
 	VercelAiGateway,
 	DeepInfra,
+	GenericProviderTemplate,
 } from "./providers"
+
+import { OPENAI_COMPATIBLE_PROVIDER_CONFIGS } from "./providers/ProviderConfigPresets"
 
 import { MODELS_BY_PROVIDER, PROVIDERS } from "./constants"
 import { inputEventTransform, noTransform } from "./transforms"
@@ -133,7 +136,7 @@ const ApiOptions = ({
 	setErrorMessage,
 }: ApiOptionsProps) => {
 	const { t } = useAppTranslation()
-	const { organizationAllowList, cloudIsAuthenticated } = useExtensionState()
+	const { organizationAllowList, cloudIsAuthenticated, enableRooCloudServices } = useExtensionState()
 
 	const [customHeaders, setCustomHeaders] = useState<[string, string][]>(() => {
 		const headers = apiConfiguration?.openAiHeaders || {}
@@ -399,7 +402,12 @@ const ApiOptions = ({
 	// Convert providers to SearchableSelect options
 	const providerOptions = useMemo(() => {
 		// First filter by organization allow list
-		const allowedProviders = filterProviders(PROVIDERS, organizationAllowList)
+		let allowedProviders = filterProviders(PROVIDERS, organizationAllowList)
+
+		// Filter out Roo provider if cloud services are disabled
+		if (!enableRooCloudServices) {
+			allowedProviders = allowedProviders.filter(({ value }) => value !== "roo")
+		}
 
 		// Then filter out static providers that have no models (unless currently selected)
 		const providersWithModels = allowedProviders.filter(({ value }) => {
@@ -428,7 +436,7 @@ const ApiOptions = ({
 			value,
 			label,
 		}))
-	}, [organizationAllowList, apiConfiguration.apiProvider])
+	}, [organizationAllowList, apiConfiguration.apiProvider, enableRooCloudServices])
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -651,6 +659,36 @@ const ApiOptions = ({
 				/>
 			)}
 
+			{selectedProvider === "siliconflow" && (
+				<GenericProviderTemplate
+					config={OPENAI_COMPATIBLE_PROVIDER_CONFIGS.siliconflow}
+					apiConfiguration={apiConfiguration}
+					setApiConfigurationField={setApiConfigurationField}
+					organizationAllowList={organizationAllowList}
+					modelValidationError={modelValidationError}
+				/>
+			)}
+
+			{selectedProvider === "volcengine" && (
+				<GenericProviderTemplate
+					config={OPENAI_COMPATIBLE_PROVIDER_CONFIGS.volcengine}
+					apiConfiguration={apiConfiguration}
+					setApiConfigurationField={setApiConfigurationField}
+					organizationAllowList={organizationAllowList}
+					modelValidationError={modelValidationError}
+				/>
+			)}
+
+			{selectedProvider === "dashscope" && (
+				<GenericProviderTemplate
+					config={OPENAI_COMPATIBLE_PROVIDER_CONFIGS.dashscope}
+					apiConfiguration={apiConfiguration}
+					setApiConfigurationField={setApiConfigurationField}
+					organizationAllowList={organizationAllowList}
+					modelValidationError={modelValidationError}
+				/>
+			)}
+
 			{selectedProvider === "human-relay" && (
 				<>
 					<div className="text-sm text-vscode-descriptionForeground">
@@ -666,7 +704,7 @@ const ApiOptions = ({
 				<Fireworks apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
 			)}
 
-			{selectedProvider === "roo" && (
+			{selectedProvider === "roo" && enableRooCloudServices && (
 				<div className="flex flex-col gap-3">
 					{cloudIsAuthenticated ? (
 						<div className="text-sm text-vscode-descriptionForeground">

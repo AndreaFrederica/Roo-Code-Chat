@@ -32,6 +32,30 @@ export const internationalZAiModels = {
 		description:
 			"GLM-4.5-Air is the lightweight version of GLM-4.5. It balances performance and cost-effectiveness, and can flexibly switch to hybrid thinking models.",
 	},
+	"glm-4.5-flash": {
+		maxTokens: 98_304,
+		contextWindow: 131_072,
+		supportsImages: false,
+		supportsPromptCache: true,
+		inputPrice: 0,
+		outputPrice: 0,
+		cacheWritesPrice: 0,
+		cacheReadsPrice: 0,
+		description:
+			"GLM-4.5-Flash is a free model with 128K context processing capability. It supports both thinking mode and non-thinking mode, providing flexible reasoning depth control.",
+	},
+	"glm-4.5v": {
+		maxTokens: 16_384,
+		contextWindow: 65_536,
+		supportsImages: true,
+		supportsPromptCache: true,
+		inputPrice: 2.0,
+		outputPrice: 6.0,
+		cacheWritesPrice: 0,
+		cacheReadsPrice: 0.4,
+		description:
+			"GLM-4.5V is Zhipu's flagship vision reasoning model with 106B total parameters and 12B active parameters. It supports video, image, text, and file inputs with 64K multimodal long context.",
+	},
 	"glm-4.6": {
 		maxTokens: 98_304,
 		contextWindow: 204_800,
@@ -112,6 +136,30 @@ export const mainlandZAiModels = {
 				cacheReadsPrice: 0.02,
 			},
 		],
+	},
+	"glm-4.5-flash": {
+		maxTokens: 98_304,
+		contextWindow: 131_072,
+		supportsImages: false,
+		supportsPromptCache: true,
+		inputPrice: 0,
+		outputPrice: 0,
+		cacheWritesPrice: 0,
+		cacheReadsPrice: 0,
+		description:
+			"GLM-4.5-Flash is a free model with 128K context processing capability. It supports both thinking mode and non-thinking mode, providing flexible reasoning depth control.",
+	},
+	"glm-4.5v": {
+		maxTokens: 16_384,
+		contextWindow: 65_536,
+		supportsImages: true,
+		supportsPromptCache: true,
+		inputPrice: 0.6,
+		outputPrice: 1.8,
+		cacheWritesPrice: 0,
+		cacheReadsPrice: 0.12,
+		description:
+			"GLM-4.5V is Zhipu's flagship vision reasoning model with 106B total parameters and 12B active parameters. It supports video, image, text, and file inputs with 64K multimodal long context.",
 	},
 	"glm-4.6": {
 		maxTokens: 98_304,

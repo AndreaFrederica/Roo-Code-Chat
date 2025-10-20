@@ -8,7 +8,7 @@ import type { ApiHandlerOptions } from "../../shared/api"
 import { ApiStream } from "../transform/stream"
 
 import type { ApiHandlerCreateMessageMetadata } from "../index"
-import { DEFAULT_HEADERS } from "./constants"
+import { ROO_CLOUD_HEADERS } from "./constants"
 import { BaseOpenAiCompatibleProvider } from "./base-openai-compatible-provider"
 
 export class RooHandler extends BaseOpenAiCompatibleProvider<RooModelId> {
@@ -41,13 +41,13 @@ export class RooHandler extends BaseOpenAiCompatibleProvider<RooModelId> {
 					this.client = new OpenAI({
 						baseURL: this.baseURL,
 						apiKey: cloudService.authService?.getSessionToken() ?? "unauthenticated",
-						defaultHeaders: DEFAULT_HEADERS,
+						defaultHeaders: ROO_CLOUD_HEADERS,
 					})
 				} else if (state.state === "logged-out") {
 					this.client = new OpenAI({
 						baseURL: this.baseURL,
 						apiKey: "unauthenticated",
-						defaultHeaders: DEFAULT_HEADERS,
+						defaultHeaders: ROO_CLOUD_HEADERS,
 					})
 				}
 			}
