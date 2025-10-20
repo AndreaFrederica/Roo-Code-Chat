@@ -144,5 +144,17 @@ export function getBlockIndicesByType(blocks: Block[], targetType: string): numb
 /** 获取块的默认折叠状态 */
 export function getDefaultCollapsedState(block: Block, globalDefault: boolean): boolean {
   if (block.type === "text") return false
-  return block.defaultCollapsed ?? globalDefault
+
+  // 特殊处理：如果块有特定的默认折叠设置，优先使用
+  if (block.defaultCollapsed !== undefined) {
+    return block.defaultCollapsed
+  }
+
+  // 对于 variables 类型，默认折叠
+  if (block.type === "variables") {
+    return true
+  }
+
+  // 其他类型使用全局默认设置
+  return globalDefault
 }

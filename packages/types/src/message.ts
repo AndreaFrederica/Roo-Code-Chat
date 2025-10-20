@@ -234,6 +234,11 @@ export const clineMessageSchema = z.object({
 			color: z.string().optional(),
 		}).optional(),
 	}).optional(),
+	tool: z.object({
+		variableState: z.record(z.string(), z.any()).optional(),
+		variables: z.array(z.string()).optional(),
+		todos: z.array(z.any()).optional(),
+	}).optional(),
 })
 
 export type ClineMessage = z.infer<typeof clineMessageSchema>

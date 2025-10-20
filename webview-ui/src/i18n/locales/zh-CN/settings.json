@@ -971,6 +971,17 @@
 			"label": "隐藏角色描述",
 			"description": "启用后，角色描述将在界面中被隐藏"
 		},
+		"variableStateDisplay": {
+			"title": "变量状态显示",
+			"rows": {
+				"label": "最大显示行数",
+				"description": "控制变量状态在折叠状态下显示的最大行数 (1-10)"
+			},
+			"columns": {
+				"label": "最大显示列数",
+				"description": "控制变量状态在折叠状态下显示的最大列数 (1-5)"
+			}
+		},
 		"allowNoToolsInChatMode": {
 			"label": "聊天模式下允许不使用工具",
 			"description": "启用后，在聊天模式下即使没有使用工具也不会显示警告提示"

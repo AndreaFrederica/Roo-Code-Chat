@@ -107,6 +107,17 @@
 			"label": "Hide role descriptions",
 			"description": "When enabled, character role descriptions will be hidden from the interface"
 		},
+		"variableStateDisplay": {
+			"title": "Variable State Display",
+			"rows": {
+				"label": "Max display rows",
+				"description": "Control the maximum number of rows for variable state display when collapsed (1-10)"
+			},
+			"columns": {
+				"label": "Max display columns",
+				"description": "Control the maximum number of columns for variable state display when collapsed (1-5)"
+			}
+		},
 		"enableRooCloudServices": {
 			"label": "Enable Roo Cloud Services API",
 			"description": "When enabled, Roo cloud service related features and entries will be displayed. Disabled by default to avoid external service dependencies."

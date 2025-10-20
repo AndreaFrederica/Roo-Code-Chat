@@ -216,6 +216,8 @@ export const globalSettingsSchema = z.object({
 	userAvatarHideFullData: z.boolean().optional(),
 	userAvatarVisibility: userAvatarVisibilitySchema.optional(),
 	hideRoleDescription: z.boolean().optional(),
+	variableStateDisplayRows: z.number().min(1).max(10).optional(),
+	variableStateDisplayColumns: z.number().min(1).max(5).optional(),
 
 	// Display mode settings
 	displayMode: z.enum(["coding", "chat"]).optional(),
@@ -250,6 +252,9 @@ export const globalSettingsSchema = z.object({
 	customUserAgent: z.string().optional(),
 	customUserAgentMode: z.enum(["segments", "full"]).optional(),
 	customUserAgentFull: z.string().optional(),
+
+	// System prompt enhancement settings
+	enableInjectSystemPromptVariables: z.boolean().optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>
@@ -426,6 +431,8 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 	enableUserAvatar: false,
 	userAvatarHideFullData: false,
 	userAvatarVisibility: "full",
+	variableStateDisplayRows: 2,
+	variableStateDisplayColumns: 3,
 
 	mode: "code", // "architect",
 
@@ -436,6 +443,9 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 	customUserAgent: "",
 	customUserAgentMode: "segments",
 	customUserAgentFull: "",
+
+	// System prompt enhancement settings
+	enableInjectSystemPromptVariables: false,
 }
 
 export const EVALS_TIMEOUT = 5 * 60 * 1_000

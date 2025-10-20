@@ -2144,6 +2144,9 @@ export const SYSTEM_PROMPT = async (
 	enabledTSProfiles?: string[],
 	anhTsProfileAutoInject?: boolean,
 	anhTsProfileVariables?: Record<string, any>,
+	// Variable state injection parameter
+	enableInjectSystemPromptVariables?: boolean,
+	currentTask?: any, // Task instance for getting variable state
 ): Promise<string> => {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -2279,13 +2282,45 @@ ${customInstructions}`
 			}
 		}
 
-		return filePrompt
+		// Inject variable state if enabled (for file-based prompts)
+		let filePromptWithVariableState = filePrompt
+		if (enableInjectSystemPromptVariables && currentTask) {
+			try {
+				const variableState = currentTask.getLatestVariableState()
+				if (Object.keys(variableState).length > 0) {
+					// Format variable state as a structured section
+					const variableStateSection = `
+
+====
+TASK VARIABLE STATE
+
+The following variables are currently available and can be used in your responses:
+${Object.entries(variableState)
+		.map(([key, value]) => `- ${key}: ${JSON.stringify(value)}`)
+		.join('\n')}
+
+You can reference these variables using the format: _.variableName
+For example: _.userInput, _.counter, _.projectStatus, etc.
+
+====
+`
+					filePromptWithVariableState = filePrompt + variableStateSection
+					console.log(`[SYSTEM_PROMPT] ✅ Injected variable state into file prompt: ${Object.keys(variableState).length} variables`)
+				} else {
+					console.log(`[SYSTEM_PROMPT] ℹ️ No variable state available to inject into file prompt`)
+				}
+			} catch (error) {
+				console.warn(`[SYSTEM_PROMPT] ❌ Failed to inject variable state into file prompt:`, error)
+			}
+		}
+
+		return filePromptWithVariableState
 	}
 
 	// If diff is disabled, don't pass the diffStrategy
 	const effectiveDiffStrategy = diffEnabled ? diffStrategy : undefined
 
-	return generatePrompt(
+	const generatedPrompt = await generatePrompt(
 		context,
 		cwd,
 		supportsComputerUse,
@@ -2316,4 +2351,38 @@ ${customInstructions}`
 		extensionToolDescriptions,
 		worldBookContent,
 	)
+
+	// Inject variable state if enabled (for generated prompts)
+	let promptWithVariableState = generatedPrompt
+	if (enableInjectSystemPromptVariables && currentTask) {
+		try {
+			const variableState = currentTask.getLatestVariableState()
+			if (Object.keys(variableState).length > 0) {
+				// Format variable state as a structured section
+				const variableStateSection = `
+
+====
+TASK VARIABLE STATE
+
+The following variables are currently available and can be used in your responses:
+${Object.entries(variableState)
+		.map(([key, value]) => `- ${key}: ${JSON.stringify(value)}`)
+		.join('\n')}
+
+You can reference these variables using the format: _.variableName
+For example: _.userInput, _.counter, _.projectStatus, etc.
+
+====
+`
+				promptWithVariableState = generatedPrompt + variableStateSection
+				console.log(`[SYSTEM_PROMPT] ✅ Injected variable state into generated prompt: ${Object.keys(variableState).length} variables`)
+			} else {
+				console.log(`[SYSTEM_PROMPT] ℹ️ No variable state available to inject into generated prompt`)
+			}
+		} catch (error) {
+			console.warn(`[SYSTEM_PROMPT] ❌ Failed to inject variable state into generated prompt:`, error)
+		}
+	}
+
+	return promptWithVariableState
 }

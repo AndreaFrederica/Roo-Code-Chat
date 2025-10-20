@@ -35,6 +35,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		enabledWorldsets,
 		userAvatarVisibility,
 		userAvatarHideFullData,
+		enableInjectSystemPromptVariables,
 	} = providerState
 
 	// Check experiment to determine which diff strategy to use
@@ -196,6 +197,9 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		enabledTSProfiles,
 		anhTsProfileAutoInject,
 		anhTsProfileVariables,
+		// Pass variable state injection parameters
+		enableInjectSystemPromptVariables,
+		currentTask,
 	)
 
 	const finalPrompt = await provider.applySystemPromptExtensions(systemPrompt, {

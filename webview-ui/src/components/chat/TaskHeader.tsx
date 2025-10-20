@@ -52,7 +52,7 @@ const TaskHeader = ({
 	todos,
 }: TaskHeaderProps) => {
 	const { t } = useTranslation()
-	const { apiConfiguration, currentTaskItem, clineMessages, anhPersonaMode, currentAnhRole, hideRoleDescription } = useExtensionState()
+	const { apiConfiguration, currentTaskItem, clineMessages, anhPersonaMode, currentAnhRole, hideRoleDescription, variableStateDisplayRows, variableStateDisplayColumns } = useExtensionState()
 	const { id: modelId, info: model } = useSelectedModel(apiConfiguration)
 	const [isTaskExpanded, setIsTaskExpanded] = useState(false)
 	const [showLongRunningTaskMessage, setShowLongRunningTaskMessage] = useState(false)
@@ -60,50 +60,77 @@ const TaskHeader = ({
 		autoOpenOnAuth: false,
 	})
 
-	// 提取并合并变量状态
+	// 提取并合并变量状态 - 优先从消息中获取已保存的变量状态，如果没有则解析消息文本
 	const mergedVariableState = useMemo(() => {
-		const variableCommands = (task as any)?.tool?.variables || []
-		if (!Array.isArray(variableCommands) || variableCommands.length === 0) {
-			return null
+		const variableStates: Record<string, ParsedCommand> = {}
+
+		// 首先从所有消息的tool.variableState中获取已保存的变量状态
+		if (clineMessages) {
+			// 从最新到最旧遍历消息，获取最新的变量状态
+			for (let i = clineMessages.length - 1; i >= 0; i--) {
+				const message = clineMessages[i] as any
+				if (message.tool && message.tool.variableState && typeof message.tool.variableState === 'object') {
+					Object.entries(message.tool.variableState).forEach(([key, value]) => {
+						if (!variableStates[key]) {
+							variableStates[key] = {
+								type: 'set',
+								method: '_.set',
+								variable: key,
+								value: value as string | number | undefined,
+								position: { start: 0, end: 0 }
+							}
+						}
+					})
+					// 如果找到了包含变量状态的消息，就停止搜索更早的消息
+					break
+				}
+			}
 		}
 
-		// 解析所有变量命令
-		const parsedCommands: ParsedCommand[] = []
-		variableCommands.forEach((variableStr: string) => {
-			try {
-				const commands = parseVariableCommands(variableStr)
-				parsedCommands.push(...commands)
-			} catch (error) {
-				console.warn('Failed to parse variable command:', error)
-			}
-		})
+		// 如果没有找到已保存的变量状态，则从消息文本中解析变量命令
+		if (Object.keys(variableStates).length === 0) {
+			const allCommands: ParsedCommand[] = []
 
-		// 按变量名分组，保留最新的值
-		const variableStates: Record<string, ParsedCommand> = {}
-		parsedCommands.forEach(command => {
-			const existing = variableStates[command.variable]
-			// 保留最新的命令，或者如果没有则设置
-			if (!existing || command.position && existing.position && 
-				command.position.start > existing.position.start) {
-				variableStates[command.variable] = command
-			}
-		})
+			// 遍历所有消息，解析其中的变量命令
+			clineMessages?.forEach((message) => {
+				if (message.text && message.say === 'text') {
+					// 解析消息文本中的变量命令
+					const commands = parseVariableCommands(message.text)
+					allCommands.push(...commands)
+				}
+			})
+
+			// 按变量名分组，保留最新的值
+			allCommands.forEach(command => {
+				const existing = variableStates[command.variable]
+				// 保留最新的命令，或者如果没有则设置
+				if (!existing || command.position && existing.position &&
+					command.position.start > existing.position.start) {
+					variableStates[command.variable] = command
+				}
+			})
+		}
+
+		// 兼容性：从task的variableState获取变量数据
+		const taskVariableState = (task as any)?.tool?.variableState
+		if (taskVariableState && typeof taskVariableState === 'object') {
+			Object.entries(taskVariableState).forEach(([key, value]) => {
+				if (!variableStates[key]) {
+					variableStates[key] = {
+						type: 'set',
+						method: '_.set',
+						variable: key,
+						value: value as string | number | undefined,
+						position: { start: 0, end: 0 }
+					}
+				}
+			})
+		}
 
 		return variableStates
-	}, [task])
+	}, [clineMessages, task])
 
-	// 将变量状态保存到task实例中
-	useEffect(() => {
-		if (mergedVariableState && Object.keys(mergedVariableState).length > 0) {
-			// 将变量状态保存到task的工具数据中
-			if ((task as any).tool) {
-				(task as any).tool.variableState = mergedVariableState
-			} else {
-				(task as any).tool = { variableState: mergedVariableState }
-			}
-		}
-	}, [mergedVariableState, task])
-
+	
 	// Check if the task is complete by looking at the last relevant message (skipping resume messages)
 	const isTaskComplete =
 		clineMessages && clineMessages.length > 0
@@ -387,12 +414,14 @@ const TaskHeader = ({
 			</div>
 			{/* 显示变量状态和TODO列表 */}
 			<div className="flex flex-col">
-				<VariableStateDisplay 
-					variables={(task as any)?.tool?.variables || []}
+				<VariableStateDisplay
+					variableState={mergedVariableState}
+					maxRows={variableStateDisplayRows}
+					maxColumns={variableStateDisplayColumns}
 					className="border-t-0"
 				/>
-				<TodoListDisplay 
-					todos={todos ?? (task as any)?.tool?.todos ?? []} 
+				<TodoListDisplay
+					todos={todos ?? (task as any)?.tool?.todos ?? []}
 				/>
 			</div>
 			<CloudUpsellDialog open={isOpen} onOpenChange={closeUpsell} onConnect={handleConnect} />

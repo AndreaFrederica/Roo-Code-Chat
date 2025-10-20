@@ -34,6 +34,8 @@ type ExperimentalSettingsProps = HTMLAttributes<HTMLDivElement> & {
 	customUserAgent?: string
 	customUserAgentMode?: string
 	customUserAgentFull?: string
+	enableInjectSystemPromptVariables?: boolean
+	setEnableInjectSystemPromptVariables?: (value: boolean) => void
 }
 
 export const ExperimentalSettings = memo(({
@@ -52,6 +54,8 @@ export const ExperimentalSettings = memo(({
 	customUserAgent,
 	customUserAgentMode,
 	customUserAgentFull,
+		enableInjectSystemPromptVariables,
+		setEnableInjectSystemPromptVariables,
 	className,
 	...props
 }: ExperimentalSettingsProps) => {
@@ -86,6 +90,12 @@ export const ExperimentalSettings = memo(({
 		const target = e.target as HTMLInputElement
 		const value = target.value
 		onSettingChange?.("customUserAgentFull", value)
+	}
+
+	const handleEnableInjectSystemPromptVariablesChange = (e: Event | React.FormEvent<HTMLElement>) => {
+		const target = e.target as HTMLInputElement
+		const checked = target.checked
+		onSettingChange?.("enableInjectSystemPromptVariables", checked)
 	}
 
 	return (
@@ -228,6 +238,22 @@ export const ExperimentalSettings = memo(({
 							</div>
 						</>
 					)}
+				</div>
+
+				{/* Enable Inject System Prompt Variables Setting */}
+				<div className="flex flex-col gap-1 mb-6">
+					<VSCodeCheckbox
+						checked={enableInjectSystemPromptVariables ?? false}
+						onChange={handleEnableInjectSystemPromptVariablesChange}
+						data-testid="enable-inject-system-prompt-variables-checkbox">
+						<span className="font-medium">在系统提示词末尾注入任务状态变量</span>
+					</VSCodeCheckbox>
+					<div className="text-vscode-descriptionForeground text-sm ml-5 mt-1">
+						启用后，生成系统提示词时会在末尾自动注入当前任务的变量状态，让AI能够访问这些变量
+					</div>
+					<div className="text-orange-400 text-sm mt-1 p-2 bg-orange-900/20 rounded border border-orange-400/30">
+						⚠️ 注意：这可能会增加系统提示词的长度，影响API费用和响应速度
+					</div>
 				</div>
 			</Section>
 		</div>

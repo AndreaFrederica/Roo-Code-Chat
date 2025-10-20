@@ -59,6 +59,9 @@ interface ExtendedExtensionState extends ExtensionState {
 	customUserAgent?: string
 	customUserAgentMode?: "segments" | "full"
 	customUserAgentFull?: string
+	variableStateDisplayRows?: number
+	variableStateDisplayColumns?: number
+	enableInjectSystemPromptVariables?: boolean
 }
 
 export interface ExtensionStateContextType extends ExtendedExtensionState {
@@ -229,6 +232,12 @@ export interface ExtensionStateContextType extends ExtendedExtensionState {
 	setHideRoleDescription: (value: boolean) => void
 	allowNoToolsInChatMode?: boolean
 	setAllowNoToolsInChatMode: (value: boolean) => void
+	variableStateDisplayRows?: number
+	setVariableStateDisplayRows: (value: number) => void
+	variableStateDisplayColumns?: number
+	setVariableStateDisplayColumns: (value: number) => void
+	enableInjectSystemPromptVariables?: boolean
+	setEnableInjectSystemPromptVariables: (value: boolean) => void
 	anhExtensionsRuntime?: AnhExtensionRuntimeState[]
 	anhExtensionCapabilityRegistry?: AnhExtensionCapabilityRegistry
 	setAnhExtensionEnabled: (compositeKey: string, enabled: boolean) => void
@@ -440,6 +449,8 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		userAvatarRole: undefined,
 		hideRoleDescription: false,
 		allowNoToolsInChatMode: false,
+		variableStateDisplayRows: 2,
+		variableStateDisplayColumns: 3,
 		anhShowRoleCardOnSwitch: false,
 		anhExtensionsEnabled: {},
 		anhExtensionSettings: {},
@@ -536,6 +547,18 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update allowNoToolsInChatMode if present in state message
 					if ((newState as any).allowNoToolsInChatMode !== undefined) {
 						setState((prevState) => ({ ...prevState, allowNoToolsInChatMode: (newState as any).allowNoToolsInChatMode }))
+					}
+					// Update variableStateDisplayRows if present in state message
+					if ((newState as any).variableStateDisplayRows !== undefined) {
+						setState((prevState) => ({ ...prevState, variableStateDisplayRows: (newState as any).variableStateDisplayRows }))
+					}
+					// Update variableStateDisplayColumns if present in state message
+					if ((newState as any).variableStateDisplayColumns !== undefined) {
+						setState((prevState) => ({ ...prevState, variableStateDisplayColumns: (newState as any).variableStateDisplayColumns }))
+					}
+					// Update enableInjectSystemPromptVariables if present in state message
+					if ((newState as any).enableInjectSystemPromptVariables !== undefined) {
+						setState((prevState) => ({ ...prevState, enableInjectSystemPromptVariables: (newState as any).enableInjectSystemPromptVariables }))
 					}
 					// Update enableRooCloudServices if present in state message
 					if ((newState as any).enableRooCloudServices !== undefined) {
@@ -886,6 +909,12 @@ const contextValue: ExtensionStateContextType = {
 	setHideRoleDescription: (value) => setState((prevState) => ({ ...prevState, hideRoleDescription: value })),
 	allowNoToolsInChatMode: state.allowNoToolsInChatMode ?? false,
 	setAllowNoToolsInChatMode: (value) => setState((prevState) => ({ ...prevState, allowNoToolsInChatMode: value })),
+	variableStateDisplayRows: state.variableStateDisplayRows ?? 2,
+	setVariableStateDisplayRows: (value) => setState((prevState) => ({ ...prevState, variableStateDisplayRows: value })),
+	variableStateDisplayColumns: state.variableStateDisplayColumns ?? 3,
+	setVariableStateDisplayColumns: (value) => setState((prevState) => ({ ...prevState, variableStateDisplayColumns: value })),
+	enableInjectSystemPromptVariables: state.enableInjectSystemPromptVariables ?? false,
+	setEnableInjectSystemPromptVariables: (value) => setState((prevState) => ({ ...prevState, enableInjectSystemPromptVariables: value })),
 	anhExtensionSettings: state.anhExtensionSettings ?? {},
 	setAnhExtensionSettings: (value) => setState((prevState) => ({ ...prevState, anhExtensionSettings: value })),
 	updateAnhExtensionSetting: (id, key, value) => {

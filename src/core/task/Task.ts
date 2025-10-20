@@ -120,6 +120,7 @@ import { Gpt5Metadata, ClineMessageWithMetadata } from "./types"
 import { MessageQueueService } from "../message-queue/MessageQueueService"
 
 import { AutoApprovalHandler } from "./AutoApprovalHandler"
+import { parseVariableCommandsWithUpdateVariable } from "../processors/VariableCommandParser"
 
 const MAX_EXPONENTIAL_BACKOFF_SECONDS = 600 // 10 minutes
 const DEFAULT_USAGE_COLLECTION_TIMEOUT_MS = 5000 // 5 seconds
@@ -153,6 +154,9 @@ export interface TaskOptions extends CreateTaskOptions {
 }
 
 export class Task extends EventEmitter<TaskEvents> implements TaskLike {
+	// 变量命令检测正则表达式
+	private static readonly VARIABLE_COMMAND_REGEX = /_.(set|add|insert|remove)\s*\(/
+
 	readonly taskId: string
 	readonly rootTaskId?: string
 	readonly parentTaskId?: string
@@ -724,6 +728,15 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 	private async updateClineMessage(message: ClineMessage) {
 		const provider = this.providerRef.deref()
+
+		// 如果消息刚刚完成（partial: false），重新解析并保存变量状态
+		// 这样前端就能通过 message.tool.variableState 获取到最新的变量状态
+		if (message.partial === false && message.text && (message.say === 'text' || message.say === 'user_feedback')) {
+			await this.saveVariableStateToMessage(message)
+			// 保存消息到磁盘以确保变量状态持久化
+			await this.saveClineMessages()
+		}
+
 		await provider?.postMessageToWebview({ type: "messageUpdated", clineMessage: message })
 		this.emit(RooCodeEventName.Message, { action: "updated", message })
 
@@ -2846,6 +2859,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				enabledTSProfiles || [], // 传递启用的 TSProfile 列表，确保是数组
 				anhTsProfileAutoInject, // 传递 TSProfile 自动注入设置
 				anhTsProfileVariables, // 传递 TSProfile 变量
+				// Variable state injection parameters
+				providerStateSnapshot.enableInjectSystemPromptVariables as boolean | undefined,
+				this, // Pass current task instance
 			)
 
 			const finalPrompt = await provider.applySystemPromptExtensions(prompt, {
@@ -4017,7 +4033,15 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	 * 确保每条消息都有变量状态快照，而不是只留一个全局值
 	 * @param message 当前消息
 	 */
-	private async saveVariableStateToMessage(message: ClineMessage): Promise<void> {
+		/**
+	 * 检查文本是否包含变量命令
+	 */
+	private hasVariableCommands(text?: string): boolean {
+		if (!text) return false
+		return Task.VARIABLE_COMMAND_REGEX.test(text)
+	}
+
+private async saveVariableStateToMessage(message: ClineMessage): Promise<void> {
 		try {
 			// 只对包含变量命令的消息保存变量状态
 			if (message.type === "say" && message.say === "text" && message.text) {
@@ -4029,18 +4053,49 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 				if (hasVariableCommands) {
 					// 解析当前消息中的变量命令
-					const { parseVariableCommands } = require("../../core/processors/RegexProcessorManager")
-					const regexManager = parseVariableCommands()
-					
-					const parsedCommands = regexManager.parseVariableCommands(message.text, {
-						variables: this.anhTsProfileVariables || {}
-					})
+					// 使用与前端相同的解析逻辑
+					const parsedCommands = parseVariableCommandsWithUpdateVariable(message.text)
 
 					if (parsedCommands.length > 0) {
-						// 按变量名分组，保留最新的值
-						const variableStates: Record<string, any> = {}
+						// 获取之前的变量状态
+						const previousState = this.getLatestVariableState()
+
+						// 基于之前的状态应用当前消息的更新
+						const variableStates: Record<string, any> = { ...previousState }
+
 						parsedCommands.forEach((command: any) => {
-							variableStates[command.variable] = command.value
+							switch (command.type) {
+								case 'set':
+									// 设置变量的值
+									variableStates[command.variable] = command.value
+									break
+								case 'add': {
+									// 增加变量的值（用于数字）
+									const currentAddValue = variableStates[command.variable] || 0
+									variableStates[command.variable] = (Number(currentAddValue) || 0) + (Number(command.value) || 0)
+									break
+								}
+								case 'insert':
+									// 插入到数组（如果是数组）或设置
+									if (Array.isArray(variableStates[command.variable])) {
+										variableStates[command.variable].push(command.value)
+									} else {
+										// 如果不是数组，转换为数组或设置新值
+										variableStates[command.variable] = [command.value]
+									}
+									break
+								case 'remove':
+									// 从数组中移除元素
+									if (Array.isArray(variableStates[command.variable])) {
+										variableStates[command.variable] = variableStates[command.variable].filter(
+											(item: any) => item !== command.value
+										)
+									} else {
+										// 如果不是数组，删除变量
+										delete variableStates[command.variable]
+									}
+									break
+							}
 						})
 
 						// 将变量状态保存到消息的工具数据中
@@ -4052,6 +4107,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						messageWithTool.tool.variableState = variableStates
 
 						console.log(`[Task] 💾 Saved variable state to message ${message.ts}: ${Object.keys(variableStates).length} variables`)
+						console.log(`[Task] 📊 Variable updates applied:`, parsedCommands.map(cmd => `${cmd.type} ${cmd.variable} = ${cmd.value}`))
 					}
 				}
 			}

@@ -285,6 +285,9 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		userAvatarVisibility,
 		hideRoleDescription,
 		allowNoToolsInChatMode,
+		variableStateDisplayRows,
+		variableStateDisplayColumns,
+		enableInjectSystemPromptVariables,
 		enabledTSProfiles,
 		anhTsProfileAutoInject,
 		anhTsProfileVariables,
@@ -527,6 +530,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({ type: "anhChatModeHideTaskCompletion", bool: anhChatModeHideTaskCompletion ?? true })
 			vscode.postMessage({ type: "anhShowRoleCardOnSwitch", bool: anhShowRoleCardOnSwitch ?? false })
 			vscode.postMessage({ type: "hideRoleDescription", bool: hideRoleDescription ?? false })
+			vscode.postMessage({ type: "variableStateDisplayRows", value: variableStateDisplayRows ?? 2 })
+			vscode.postMessage({ type: "variableStateDisplayColumns", value: variableStateDisplayColumns ?? 3 })
 			vscode.postMessage({ type: "allowNoToolsInChatMode", bool: allowNoToolsInChatMode ?? false })
 			vscode.postMessage({ type: "updateAnhExtensionSettings", values: cachedAnhExtensionSettings ?? {} })
 			setContextAnhExtensionSettings?.(cachedAnhExtensionSettings ?? {})
@@ -567,6 +572,9 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({ type: "customUserAgent", text: customUserAgent ?? "" })
 			vscode.postMessage({ type: "customUserAgentMode", text: customUserAgentMode ?? "segments" })
 			vscode.postMessage({ type: "customUserAgentFull", text: customUserAgentFull ?? "" })
+
+			// System prompt enhancement settings
+			vscode.postMessage({ type: "enableInjectSystemPromptVariables", bool: enableInjectSystemPromptVariables ?? false })
 
 			setChangeDetected(false)
 		}
@@ -682,6 +690,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		anhChatModeHideTaskCompletion,
 		anhShowRoleCardOnSwitch,
 		hideRoleDescription,
+		variableStateDisplayRows,
+		variableStateDisplayColumns,
 		allowNoToolsInChatMode,
 		cachedAnhExtensionSettings,
 		setContextAnhExtensionSettings,
@@ -693,11 +703,16 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		userAvatarRole,
 		openRouterImageApiKey,
 		openRouterImageGenerationSelectedModel,
+		enableInjectSystemPromptVariables,
 		anhTsProfileAutoInject,
 		anhTsProfileVariables,
 		cachedState.memorySystemEnabled,
 		cachedState.memoryToolsEnabled,
 		enableRooCloudServices,
+		customUserAgent,
+		customUserAgentMode,
+		customUserAgentFull,
+		enableInjectSystemPromptVariables,
 		setChangeDetected,
 		componentChanges,
 		setComponentChanges,
@@ -1157,6 +1172,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							anhChatModeHideTaskCompletion={anhChatModeHideTaskCompletion ?? true}
 							anhShowRoleCardOnSwitch={anhShowRoleCardOnSwitch ?? false}
 							hideRoleDescription={hideRoleDescription ?? false}
+							variableStateDisplayRows={variableStateDisplayRows ?? 2}
+							variableStateDisplayColumns={variableStateDisplayColumns ?? 3}
 							setCachedStateField={setCachedStateField}
 						/>
 					)}
@@ -1227,6 +1244,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							customUserAgent={customUserAgent}
 							customUserAgentMode={customUserAgentMode}
 							customUserAgentFull={customUserAgentFull}
+							enableInjectSystemPromptVariables={enableInjectSystemPromptVariables}
+							setEnableInjectSystemPromptVariables={(value) => setCachedStateField("enableInjectSystemPromptVariables", value)}
 						/>
 					)}
 

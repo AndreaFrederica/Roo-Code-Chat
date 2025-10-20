@@ -2102,6 +2102,18 @@ export const webviewMessageHandler = async (
 		await updateGlobalState("hideRoleDescription", message.bool ?? false)
 		// No need to call postStateToWebview here as the UI already updated optimistically
 		break
+	case "variableStateDisplayRows":
+		await updateGlobalState("variableStateDisplayRows", message.value ?? 2)
+		// No need to call postStateToWebview here as the UI already updated optimistically
+		break
+	case "variableStateDisplayColumns":
+		await updateGlobalState("variableStateDisplayColumns", message.value ?? 3)
+		// No need to call postStateToWebview here as the UI already updated optimistically
+		break
+	case "enableInjectSystemPromptVariables":
+		await updateGlobalState("enableInjectSystemPromptVariables", message.bool ?? false)
+		// No need to call postStateToWebview here as the UI already updated optimistically
+		break
 	case "allowNoToolsInChatMode":
 		await updateGlobalState("allowNoToolsInChatMode", message.bool ?? false)
 		// No need to call postStateToWebview here as the UI already updated optimistically

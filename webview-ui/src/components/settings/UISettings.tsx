@@ -1,7 +1,7 @@
 import { HTMLAttributes } from "react"
 import { useAppTranslation } from "@/i18n/TranslationContext"
-import { VSCodeCheckbox } from "@vscode/webview-ui-toolkit/react"
-import { Glasses } from "lucide-react"
+import { VSCodeCheckbox, VSCodeTextField } from "@vscode/webview-ui-toolkit/react"
+import { Glasses, Database } from "lucide-react"
 import { telemetryClient } from "@/utils/TelemetryClient"
 
 import { SetCachedStateField } from "./types"
@@ -14,10 +14,21 @@ interface UISettingsProps extends HTMLAttributes<HTMLDivElement> {
 	anhChatModeHideTaskCompletion: boolean
 	anhShowRoleCardOnSwitch: boolean
 	hideRoleDescription: boolean
+	variableStateDisplayRows: number
+	variableStateDisplayColumns: number
 	setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType>
 }
 
-export const UISettings = ({ reasoningBlockCollapsed, anhChatModeHideTaskCompletion, anhShowRoleCardOnSwitch, hideRoleDescription, setCachedStateField, ...props }: UISettingsProps) => {
+export const UISettings = ({
+	reasoningBlockCollapsed,
+	anhChatModeHideTaskCompletion,
+	anhShowRoleCardOnSwitch,
+	hideRoleDescription,
+	variableStateDisplayRows,
+	variableStateDisplayColumns,
+	setCachedStateField,
+	...props
+}: UISettingsProps) => {
 	const { t } = useAppTranslation()
 
 	const handleReasoningBlockCollapsedChange = (value: boolean) => {
@@ -56,7 +67,30 @@ export const UISettings = ({ reasoningBlockCollapsed, anhChatModeHideTaskComplet
 		})
 	}
 
-	
+	const handleVariableStateDisplayRowsChange = (value: string) => {
+		const numValue = parseInt(value, 10)
+		if (!isNaN(numValue) && numValue > 0 && numValue <= 10) {
+			setCachedStateField("variableStateDisplayRows", numValue)
+
+			// Track telemetry event
+			telemetryClient.capture("ui_settings_variable_state_display_rows_changed", {
+				rows: numValue,
+			})
+		}
+	}
+
+	const handleVariableStateDisplayColumnsChange = (value: string) => {
+		const numValue = parseInt(value, 10)
+		if (!isNaN(numValue) && numValue > 0 && numValue <= 5) {
+			setCachedStateField("variableStateDisplayColumns", numValue)
+
+			// Track telemetry event
+			telemetryClient.capture("ui_settings_variable_state_display_columns_changed", {
+				columns: numValue,
+			})
+		}
+	}
+
 	return (
 		<div {...props}>
 			<SectionHeader>
@@ -117,6 +151,46 @@ export const UISettings = ({ reasoningBlockCollapsed, anhChatModeHideTaskComplet
 						</VSCodeCheckbox>
 						<div className="text-vscode-descriptionForeground text-sm ml-5 mt-1">
 							{t("settings:ui.hideRoleDescription.description")}
+						</div>
+					</div>
+
+					{/* Variable State Display Settings */}
+					<div className="border-t border-vscode-panel-border pt-6 mt-6">
+						<div className="flex items-center gap-2 mb-4">
+							<Database className="w-4" />
+							<span className="font-semibold text-vscode-foreground">{t("settings:ui.variableStateDisplay.title")}</span>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							{/* Variable State Display Rows */}
+							<div className="flex flex-col gap-2">
+								<label className="font-medium text-vscode-foreground text-sm">
+									{t("settings:ui.variableStateDisplay.rows.label")}
+								</label>
+								<VSCodeTextField
+									value={variableStateDisplayRows.toString()}
+									onChange={(e: any) => handleVariableStateDisplayRowsChange(e.target.value)}
+									data-testid="variable-state-display-rows-input">
+								</VSCodeTextField>
+								<div className="text-vscode-descriptionForeground text-xs">
+									{t("settings:ui.variableStateDisplay.rows.description")}
+								</div>
+							</div>
+
+							{/* Variable State Display Columns */}
+							<div className="flex flex-col gap-2">
+								<label className="font-medium text-vscode-foreground text-sm">
+									{t("settings:ui.variableStateDisplay.columns.label")}
+								</label>
+								<VSCodeTextField
+									value={variableStateDisplayColumns.toString()}
+									onChange={(e: any) => handleVariableStateDisplayColumnsChange(e.target.value)}
+									data-testid="variable-state-display-columns-input">
+								</VSCodeTextField>
+								<div className="text-vscode-descriptionForeground text-xs">
+									{t("settings:ui.variableStateDisplay.columns.description")}
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
