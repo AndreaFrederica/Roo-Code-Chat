@@ -132,6 +132,7 @@ export class WorldBookConverter {
 
       return {
         markdown,
+        entries: sorted,
         entryCount: sorted.length,
         skippedCount,
         duration,
@@ -144,6 +145,7 @@ export class WorldBookConverter {
 
       return {
         markdown: '',
+        entries: [],
         entryCount: 0,
         skippedCount: 0,
         duration,
@@ -179,6 +181,7 @@ export class WorldBookConverter {
     } catch (error) {
       return {
         markdown: '',
+        entries: [],
         entryCount: 0,
         skippedCount: 0,
         duration: 0,

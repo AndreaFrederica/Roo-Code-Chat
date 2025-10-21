@@ -5,11 +5,23 @@ import type {
   MemoryTriggerEntry
 } from "@roo-code/types"
 import type { ChatMessage } from "@roo-code/types"
-import { TriggerType } from "@roo-code/types"
+import { MemoryType, TriggerType } from "@roo-code/types"
 import { DEFAULT_MEMORY_TRIGGER_CONFIG } from "@roo-code/types"
 import { EnhancedRoleMemoryService } from "./EnhancedRoleMemoryService.js"
 import { RoleMemoryTriggerEngine } from "./RoleMemoryTriggerEngine.js"
 import { MemoryRetriever } from "./MemoryRetriever.js"
+
+interface MemoryAggregation {
+  triggeredMemories: Map<string, MemoryTriggerEntry>
+  stats: {
+    keywordMatches: number
+    semanticMatches: number
+    temporalMatches: number
+    emotionalMatches: number
+  }
+  injectedCount: number
+  duration: number
+}
 
 /**
  * 角色记忆触发服务
@@ -57,15 +69,194 @@ export class RoleMemoryTriggerService {
         currentTopic: options.currentTopic
       }
 
-      // 使用触发引擎处理消息
-      const result = await this.triggerEngine.processMessage(context)
+      const maxDepth = this.config.maxRecursiveDepth ?? 0
+      const aggregation: MemoryAggregation = {
+        triggeredMemories: new Map(),
+        stats: {
+          keywordMatches: 0,
+          semanticMatches: 0,
+          temporalMatches: 0,
+          emotionalMatches: 0
+        },
+        injectedCount: 0,
+        duration: 0
+      }
 
-      return result
+      await this.processMessageRecursive(
+        context,
+        0,
+        maxDepth,
+        new Set<string>(),
+        aggregation
+      )
+
+      if (aggregation.triggeredMemories.size === 0) {
+        return null
+      }
+
+      const allMemories = Array.from(aggregation.triggeredMemories.values())
+      const constantMemories = allMemories.filter(memory => memory.isConstant)
+      const triggeredMemories = allMemories.filter(memory => !memory.isConstant)
+
+      const constantContent = this.renderMemories(constantMemories, '常驻记忆')
+      const triggeredContent = this.renderMemories(triggeredMemories, '相关记忆')
+
+      let combinedContent = ''
+      if (constantContent && triggeredContent) {
+        combinedContent = `${constantContent}\n\n${triggeredContent}`
+      } else {
+        combinedContent = constantContent || triggeredContent || ''
+      }
+
+      const fullContent = this.applyTemplate(combinedContent, constantContent, triggeredContent)
+
+      return {
+        triggeredMemories: allMemories,
+        constantContent,
+        triggeredContent,
+        fullContent,
+        injectedCount: aggregation.injectedCount,
+        duration: aggregation.duration,
+        stats: aggregation.stats
+      }
 
     } catch (error) {
       console.error('[RoleMemoryTriggerService] 处理消息失败:', error)
       return null
     }
+  }
+
+  private async processMessageRecursive(
+    context: ConversationContext,
+    depth: number,
+    maxDepth: number,
+    processedIds: Set<string>,
+    aggregation: MemoryAggregation
+  ): Promise<void> {
+    const result = await this.triggerEngine.processMessage(context)
+
+    aggregation.duration += result.duration
+    aggregation.stats.keywordMatches += result.stats.keywordMatches
+    aggregation.stats.semanticMatches += result.stats.semanticMatches
+    aggregation.stats.temporalMatches += result.stats.temporalMatches
+    aggregation.stats.emotionalMatches += result.stats.emotionalMatches
+
+    const newTriggeredContents: string[] = []
+
+    for (const memory of result.triggeredMemories) {
+      if (processedIds.has(memory.id)) {
+        continue
+      }
+
+      processedIds.add(memory.id)
+      aggregation.triggeredMemories.set(memory.id, memory)
+      aggregation.injectedCount += 1
+      newTriggeredContents.push(memory.content)
+    }
+
+    if (depth < maxDepth && newTriggeredContents.length > 0) {
+      const combinedContent = newTriggeredContents.join('\n\n')
+      if (combinedContent.trim().length > 0) {
+        const recursiveMessage: ChatMessage = {
+          role: context.currentMessage.role ?? 'assistant',
+          content: combinedContent,
+          timestamp: Date.now()
+        }
+
+        const nextContext: ConversationContext = {
+          roleUuid: context.roleUuid,
+          currentMessage: recursiveMessage,
+          conversationHistory: [...context.conversationHistory, context.currentMessage],
+          contextKeywords: context.contextKeywords,
+          emotionalState: context.emotionalState,
+          currentTopic: context.currentTopic
+        }
+
+        await this.processMessageRecursive(
+          nextContext,
+          depth + 1,
+          maxDepth,
+          processedIds,
+          aggregation
+        )
+      }
+    }
+  }
+
+  private renderMemories(memories: MemoryTriggerEntry[], title: string): string {
+    if (memories.length === 0) {
+      return ''
+    }
+
+    const sections: string[] = []
+
+    if (this.config.injectionConfig.separateByType) {
+      const grouped = memories.reduce<Record<MemoryType, MemoryTriggerEntry[]>>((acc, memory) => {
+        if (!acc[memory.type]) {
+          acc[memory.type] = []
+        }
+        acc[memory.type].push(memory)
+        return acc
+      }, {
+        [MemoryType.EPISODIC]: [],
+        [MemoryType.SEMANTIC]: [],
+        [MemoryType.TRAIT]: [],
+        [MemoryType.GOAL]: []
+      })
+
+      for (const [typeKey, entries] of Object.entries(grouped)) {
+        const typedEntries = entries as MemoryTriggerEntry[]
+        if (typedEntries.length === 0) {
+          continue
+        }
+        const typeTitle = this.getTypeLabel(typeKey as MemoryType)
+        const content = typedEntries.map((entry) => this.formatMemoryEntry(entry)).join('\n\n---\n\n')
+        sections.push(`### ${typeTitle}\n${content}`)
+      }
+    } else {
+      const content = memories.map((entry) => this.formatMemoryEntry(entry)).join('\n\n---\n\n')
+      sections.push(`### ${title}\n${content}`)
+    }
+
+    return sections.join('\n\n')
+  }
+
+  private formatMemoryEntry(memory: MemoryTriggerEntry): string {
+    let content = ''
+
+    if (this.config.injectionConfig.showTimestamps) {
+      const date = new Date(memory.timestamp)
+      content += `*${date.toLocaleDateString()} ${date.toLocaleTimeString()}*\n`
+    }
+
+    content += memory.content
+
+    if (this.config.injectionConfig.showSource) {
+      const sourceLabel = this.getTypeLabel(memory.type)
+      content += `\n\n*来源: ${sourceLabel}*`
+    }
+
+    return content
+  }
+
+  private getTypeLabel(type: MemoryType): string {
+    const labels: Record<MemoryType, string> = {
+      [MemoryType.EPISODIC]: "情景记忆",
+      [MemoryType.SEMANTIC]: "语义记忆",
+      [MemoryType.TRAIT]: "特质记忆",
+      [MemoryType.GOAL]: "目标记忆"
+    }
+    return labels[type] || type
+  }
+
+  private applyTemplate(content: string, constantContent: string, triggeredContent: string): string {
+    let template = this.config.injectionConfig.template
+
+    template = template.replace(/\{\{content\}\}/g, content)
+    template = template.replace(/\{\{constantContent\}\}/g, constantContent)
+    template = template.replace(/\{\{triggeredContent\}\}/g, triggeredContent)
+
+    return template
   }
 
   /**

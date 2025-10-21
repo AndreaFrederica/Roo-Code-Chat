@@ -370,6 +370,25 @@ export class WorldBookService {
   }
 
   /**
+   * 获取当前激活的世界书文件路径列表
+   */
+  getActiveWorldBookFilePaths(): string[] {
+    const paths: string[] = [];
+    const seen = new Set<string>();
+
+    for (const worldBookKey of this.state.activeWorldBooks) {
+      const { filePath } = this.parseWorldBookKey(worldBookKey);
+      const absolutePath = path.resolve(filePath);
+      if (!seen.has(absolutePath)) {
+        seen.add(absolutePath);
+        paths.push(absolutePath);
+      }
+    }
+
+    return paths;
+  }
+
+  /**
    * 浏览选择世界书文件
    */
   async browseWorldBookFile(): Promise<string | undefined> {

@@ -4,6 +4,8 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
+import { createHash } from 'crypto';
 import { ChatMessage } from '@roo-code/types';
 import {
   WorldBookTriggerEngine,
@@ -104,41 +106,192 @@ export class SillyTavernWorldBookTriggerService {
   }
 
   /**
-   * 处理消息并生成触发内容
+   * 同步世界书文件列表
    */
-  async processMessage(
-    message: ChatMessage,
-    conversationHistory: ChatMessage[] = []
-  ): Promise<TriggeredContent | null> {
-    if (!this.isInitialized || !this.engine) {
-      return null;
-    }
+  async setWorldBookFiles(filePaths: string[], options: { reload?: boolean } = {}): Promise<void> {
+    const { reload = true } = options;
+    const normalized = Array.from(
+      new Set(
+        filePaths
+          .filter(Boolean)
+          .map((filePath) => path.resolve(filePath)),
+      ),
+    );
 
-    try {
-      const result = await this.engine.processMessage(message, conversationHistory);
+    const current = new Set(this.config.worldBookFiles.map((filePath) => path.resolve(filePath)));
+    let hasChanged = normalized.length !== this.config.worldBookFiles.length;
 
-      const triggeredContent: TriggeredContent = {
-        constantContent: result.constantContent,
-        triggeredContent: result.triggeredContent,
-        fullContent: this.combineContent(result.constantContent, result.triggeredContent),
-        injectedCount: result.injectedCount,
-        duration: result.duration
-      };
-
-      if (this.config.triggerConfig.debugMode) {
-        this.outputChannel.appendLine(`[WorldBookTrigger] 处理消息完成，注入 ${result.injectedCount} 个词条`);
-        if (result.triggeredContent) {
-          this.outputChannel.appendLine(`[WorldBookTrigger] 触发内容预览: ${result.triggeredContent.substring(0, 100)}...`);
+    if (!hasChanged) {
+      for (const filePath of normalized) {
+        if (!current.has(filePath)) {
+          hasChanged = true;
+          break;
         }
       }
-
-      return triggeredContent;
-
-    } catch (error) {
-      this.outputChannel.appendLine(`[WorldBookTrigger] 处理消息失败: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
     }
+
+    if (!hasChanged) {
+      return;
+    }
+
+    this.config.worldBookFiles = normalized;
+    this.outputChannel.appendLine(`[WorldBookTrigger] 同步世界书文件列表: ${normalized.length} 个文件`);
+
+    if (!this.isInitialized || !reload) {
+      return;
+    }
+
+    await this.loadWorldBooks();
+    this.setupAutoReload();
   }
+
+  /**
+   * 处理消息并生成触发内容
+   */
+	async processMessage(
+		message: ChatMessage,
+		conversationHistory: ChatMessage[] = [],
+	): Promise<TriggeredContent | null> {
+		if (!this.isInitialized || !this.engine) {
+			return null
+		}
+
+		try {
+			const maxDepth = this.config.triggerConfig.maxRecursiveDepth ?? 0
+			const aggregate = await this.processMessageRecursive(
+				message,
+				conversationHistory,
+				0,
+				maxDepth,
+				new Set<string>(),
+				new Set<string>(),
+				new Set<string>(),
+			)
+
+			if (aggregate.injectedCount === 0 && aggregate.constantContents.size === 0) {
+				return null
+			}
+
+			const constantContent = Array.from(aggregate.constantContents).join("\n\n---\n\n")
+			const triggeredContent = Array.from(aggregate.triggeredContents).join("\n\n---\n\n")
+
+			const fullParts: string[] = []
+			if (constantContent) {
+				fullParts.push(constantContent)
+			}
+			if (triggeredContent) {
+				fullParts.push(triggeredContent)
+			}
+
+			const result: TriggeredContent = {
+				constantContent,
+				triggeredContent,
+				fullContent: fullParts.join("\n\n---\n\n"),
+				injectedCount: aggregate.injectedCount,
+				duration: aggregate.duration,
+			}
+
+			if (this.config.triggerConfig.debugMode) {
+				this.outputChannel.appendLine(
+					`[WorldBookTrigger] 处理消息完成，注入 ${result.injectedCount} 个词条（深度 ${maxDepth}）`,
+				)
+				if (result.triggeredContent) {
+					this.outputChannel.appendLine(
+						`[WorldBookTrigger] 触发内容预览: ${result.triggeredContent.substring(0, 100)}...`,
+					)
+				}
+			}
+
+			return result
+		} catch (error) {
+			this.outputChannel.appendLine(
+				`[WorldBookTrigger] 处理消息失败: ${error instanceof Error ? error.message : String(error)}`,
+			)
+			return null
+		}
+	}
+
+	private async processMessageRecursive(
+		message: ChatMessage,
+		conversationHistory: ChatMessage[],
+		depth: number,
+		maxDepth: number,
+		processedKeys: Set<string>,
+		constantContents: Set<string>,
+		triggeredContents: Set<string>,
+	): Promise<{
+		constantContents: Set<string>
+		triggeredContents: Set<string>
+		injectedCount: number
+		duration: number
+	}> {
+		if (!this.engine) {
+			return { constantContents, triggeredContents, injectedCount: 0, duration: 0 }
+		}
+
+		const result = await this.engine.processMessage(message, conversationHistory)
+
+		let injectedCount = 0
+		const newTriggeredChunks: string[] = []
+
+		for (const action of result.actions) {
+			const key = this.getActionKey(action)
+			if (processedKeys.has(key)) {
+				continue
+			}
+
+			processedKeys.add(key)
+			injectedCount += 1
+
+			if (action.type === "inject_constant") {
+				constantContents.add(action.content)
+			} else if (action.type === "inject_entry") {
+				triggeredContents.add(action.content)
+				newTriggeredChunks.push(action.content)
+			}
+		}
+
+		let totalDuration = result.duration
+
+		if (depth < maxDepth && newTriggeredChunks.length > 0) {
+			const combinedContent = newTriggeredChunks.join("\n\n")
+			if (combinedContent.trim().length > 0) {
+				const recursiveMessage: ChatMessage = {
+					role: "assistant",
+					content: combinedContent,
+					timestamp: Date.now(),
+				}
+
+				const recursionResult = await this.processMessageRecursive(
+					recursiveMessage,
+					[...conversationHistory, message],
+					depth + 1,
+					maxDepth,
+					processedKeys,
+					constantContents,
+					triggeredContents,
+				)
+
+				injectedCount += recursionResult.injectedCount
+				totalDuration += recursionResult.duration
+			}
+		}
+
+		return {
+			constantContents,
+			triggeredContents,
+			injectedCount,
+			duration: totalDuration,
+		}
+	}
+
+	private getActionKey(action: InjectionResult["actions"][number]): string {
+		if (action.entryId) {
+			return action.entryId
+		}
+
+		return createHash("sha1").update(action.content || "").digest("hex")
+	}
 
   /**
    * 获取常驻内容（不依赖触发的固定内容）
@@ -313,17 +466,28 @@ export class SillyTavernWorldBookTriggerService {
     if (!this.engine) return;
 
     const allEntries: WorldEntry[] = [];
+    const seen = new Set<string>();
+    this.loadedWorldBooks.clear();
 
     for (const filePath of this.config.worldBookFiles) {
       try {
         const result = await this.converter.loadFromFile(filePath);
         if (result.entryCount > 0) {
-          // 转换为WorldEntry数组
           const entries = await this.parseWorldBookResult(result);
-          this.loadedWorldBooks.set(filePath, entries);
-          allEntries.push(...entries);
+          if (entries.length > 0) {
+            this.loadedWorldBooks.set(filePath, entries);
+            for (const entry of entries) {
+              const key = `${entry.uid ?? entry.comment ?? entry.key?.[0] ?? path.basename(filePath)}_${filePath}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                allEntries.push(entry);
+              }
+            }
 
-          this.outputChannel.appendLine(`[WorldBookTrigger] 加载世界书: ${filePath} (${entries.length} 词条)`);
+            this.outputChannel.appendLine(`[WorldBookTrigger] 加载世界书: ${filePath} (${entries.length} 词条)`);
+          } else {
+            this.outputChannel.appendLine(`[WorldBookTrigger] 世界书未解析出有效词条: ${filePath}`);
+          }
         }
       } catch (error) {
         this.outputChannel.appendLine(`[WorldBookTrigger] 加载世界书失败 ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
@@ -338,10 +502,45 @@ export class SillyTavernWorldBookTriggerService {
   }
 
   private async parseWorldBookResult(result: WorldBookConversionResult): Promise<WorldEntry[]> {
-    // 这里需要从转换结果中解析出原始的WorldEntry
-    // 由于转换器目前只返回Markdown，我们需要修改转换器以保留原始数据
-    // 暂时返回空数组，后续需要修改转换器
-    return [];
+    if (!result.entries || result.entries.length === 0) {
+      return [];
+    }
+
+    const normalizeKeyValue = (value: unknown): string | null => {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      }
+      if (typeof value === 'number' || typeof value === 'boolean') {
+        const normalized = String(value).trim();
+        return normalized.length > 0 ? normalized : null;
+      }
+      return null;
+    };
+
+    const normalizeKeyArray = (values: unknown): string[] => {
+      if (Array.isArray(values)) {
+        return values
+          .map(normalizeKeyValue)
+          .filter((key): key is string => key !== null);
+      }
+
+      const single = normalizeKeyValue(values);
+      return single ? [single] : [];
+    };
+
+    return result.entries.map((entry) => {
+      const primaryKeys = normalizeKeyArray(entry.key);
+      const secondaryKeys = normalizeKeyArray(entry.keysecondary);
+
+      const normalizedEntry: WorldEntry = {
+        ...entry,
+        key: primaryKeys.length > 0 ? primaryKeys : undefined,
+        keysecondary: secondaryKeys.length > 0 ? secondaryKeys : undefined,
+      };
+
+      return normalizedEntry;
+    });
   }
 
   private setupAutoReload(): void {
@@ -365,25 +564,6 @@ export class SillyTavernWorldBookTriggerService {
 
       this.outputChannel.appendLine(`[WorldBookTrigger] 设置自动重载,间隔: ${this.config.reloadInterval} 分钟`);
     }
-  }
-
-  private combineContent(constantContent: string, triggeredContent: string): string {
-    const parts: string[] = [];
-
-    if (constantContent) {
-      parts.push('## 常驻知识库');
-      parts.push(constantContent);
-    }
-
-    if (triggeredContent) {
-      if (constantContent) {
-        parts.push('---');
-      }
-      parts.push('## 触发知识库');
-      parts.push(triggeredContent);
-    }
-
-    return parts.join('\n\n');
   }
 
   private formatEntryContent(entry: WorldBookTriggerEntry): string {

@@ -253,6 +253,9 @@ export const globalSettingsSchema = z.object({
 	customUserAgentMode: z.enum(["segments", "full"]).optional(),
 	customUserAgentFull: z.string().optional(),
 
+	// System prompt generation settings
+	useRefactoredSystemPrompt: z.boolean().optional(),
+
 	// System prompt enhancement settings
 	enableInjectSystemPromptVariables: z.boolean().optional(),
 })
@@ -443,6 +446,9 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 	customUserAgent: "",
 	customUserAgentMode: "segments",
 	customUserAgentFull: "",
+
+	// System prompt generation settings
+	useRefactoredSystemPrompt: false,
 
 	// System prompt enhancement settings
 	enableInjectSystemPromptVariables: false,

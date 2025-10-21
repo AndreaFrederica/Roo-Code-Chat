@@ -136,6 +136,9 @@ export async function activate(context: vscode.ExtensionContext) {
 			},
 		}
 		const worldBookService = new WorldBookService(outputChannel, contextProxy)
+		const triggerSettings = vscode.workspace.getConfiguration("anh-cline")
+		const worldBookTriggerMaxDepth = triggerSettings.get<number>("worldBookTriggerMaxDepth", 1)
+		const memoryTriggerMaxDepth = triggerSettings.get<number>("memoryTriggerMaxDepth", 1)
 		const worldBookTriggerService = new SillyTavernWorldBookTriggerService({
 			enabled: true,
 			triggerConfig: {
@@ -149,7 +152,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				maxInjectEntries: 5,
 				injectionStrategy: 'append',
 				injectionCooldown: 30000,
-				debugMode: true
+				debugMode: true,
+				maxRecursiveDepth: worldBookTriggerMaxDepth
 			},
 			realTimeConfig: {
 				enabled: true,
@@ -164,6 +168,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Initialize WorldBookService to create directories
 		await worldBookService.initialize()
+
+		// Sync world book files before initializing trigger service
+		const activeWorldBookPaths = worldBookService.getActiveWorldBookFilePaths()
+		if (activeWorldBookPaths.length > 0) {
+			await worldBookTriggerService.setWorldBookFiles(activeWorldBookPaths, { reload: false })
+		}
 
 		// Initialize WorldBookTriggerService
 		await worldBookTriggerService.initialize()
@@ -182,6 +192,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		// 初始化记忆触发服务
 		try {
 			await MemoryServiceInitializer.initialize(anhChatServices)
+			anhChatServices.roleMemoryTriggerService?.updateConfig({ maxRecursiveDepth: memoryTriggerMaxDepth })
 			outputChannel.appendLine(`[AnhChat] Memory trigger services initialized`)
 		} catch (error) {
 			outputChannel.appendLine(

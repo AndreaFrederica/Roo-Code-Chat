@@ -36,6 +36,8 @@ type ExperimentalSettingsProps = HTMLAttributes<HTMLDivElement> & {
 	customUserAgentFull?: string
 	enableInjectSystemPromptVariables?: boolean
 	setEnableInjectSystemPromptVariables?: (value: boolean) => void
+	useRefactoredSystemPrompt?: boolean
+	setUseRefactoredSystemPrompt?: (value: boolean) => void
 }
 
 export const ExperimentalSettings = memo(({
@@ -54,8 +56,10 @@ export const ExperimentalSettings = memo(({
 	customUserAgent,
 	customUserAgentMode,
 	customUserAgentFull,
-		enableInjectSystemPromptVariables,
-		setEnableInjectSystemPromptVariables,
+	enableInjectSystemPromptVariables,
+	setEnableInjectSystemPromptVariables,
+	useRefactoredSystemPrompt,
+	setUseRefactoredSystemPrompt,
 	className,
 	...props
 }: ExperimentalSettingsProps) => {
@@ -90,6 +94,12 @@ export const ExperimentalSettings = memo(({
 		const target = e.target as HTMLInputElement
 		const value = target.value
 		onSettingChange?.("customUserAgentFull", value)
+	}
+
+	const handleUseRefactoredSystemPromptChange = (e: Event | React.FormEvent<HTMLElement>) => {
+		const target = e.target as HTMLInputElement
+		const checked = target.checked
+		onSettingChange?.("useRefactoredSystemPrompt", checked)
 	}
 
 	const handleEnableInjectSystemPromptVariablesChange = (e: Event | React.FormEvent<HTMLElement>) => {
@@ -238,6 +248,22 @@ export const ExperimentalSettings = memo(({
 							</div>
 						</>
 					)}
+				</div>
+
+				{/* Use Refactored System Prompt Setting */}
+				<div className="flex flex-col gap-1 mb-6">
+					<VSCodeCheckbox
+						checked={useRefactoredSystemPrompt ?? false}
+						onChange={handleUseRefactoredSystemPromptChange}
+						data-testid="use-refactored-system-prompt-checkbox">
+						<span className="font-medium">使用新的系统提示词生成器</span>
+					</VSCodeCheckbox>
+					<div className="text-vscode-descriptionForeground text-sm ml-5 mt-1">
+						启用后，将使用重构后的系统提示词生成器，提供更好的模块化和可扩展性
+					</div>
+					<div className="text-blue-400 text-sm mt-1 p-2 bg-blue-900/20 rounded border border-blue-400/30">
+						💡 新功能：重构后的生成器支持更好的变量注入、角色覆盖和世界书集成
+					</div>
 				</div>
 
 				{/* Enable Inject System Prompt Variables Setting */}

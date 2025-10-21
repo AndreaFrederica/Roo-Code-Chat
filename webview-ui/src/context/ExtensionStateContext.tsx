@@ -61,6 +61,7 @@ interface ExtendedExtensionState extends ExtensionState {
 	customUserAgentFull?: string
 	variableStateDisplayRows?: number
 	variableStateDisplayColumns?: number
+	useRefactoredSystemPrompt?: boolean
 	enableInjectSystemPromptVariables?: boolean
 }
 
@@ -238,6 +239,7 @@ export interface ExtensionStateContextType extends ExtendedExtensionState {
 	setVariableStateDisplayColumns: (value: number) => void
 	enableInjectSystemPromptVariables?: boolean
 	setEnableInjectSystemPromptVariables: (value: boolean) => void
+	setUseRefactoredSystemPrompt: (value: boolean) => void
 	anhExtensionsRuntime?: AnhExtensionRuntimeState[]
 	anhExtensionCapabilityRegistry?: AnhExtensionCapabilityRegistry
 	setAnhExtensionEnabled: (compositeKey: string, enabled: boolean) => void
@@ -373,6 +375,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		ttsSpeed: 1.0,
 		diffEnabled: false,
 		enableCheckpoints: true,
+		useRefactoredSystemPrompt: false,
 		fuzzyMatchThreshold: 1.0,
 		language: "en", // Default language code
 		writeDelayMs: 1000,
@@ -556,9 +559,13 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					if ((newState as any).variableStateDisplayColumns !== undefined) {
 						setState((prevState) => ({ ...prevState, variableStateDisplayColumns: (newState as any).variableStateDisplayColumns }))
 					}
-					// Update enableInjectSystemPromptVariables if present in state message
+		// Update enableInjectSystemPromptVariables if present in state message
 					if ((newState as any).enableInjectSystemPromptVariables !== undefined) {
 						setState((prevState) => ({ ...prevState, enableInjectSystemPromptVariables: (newState as any).enableInjectSystemPromptVariables }))
+					}
+					// Update useRefactoredSystemPrompt if present in state message
+					if ((newState as any).useRefactoredSystemPrompt !== undefined) {
+						setState((prevState) => ({ ...prevState, useRefactoredSystemPrompt: (newState as any).useRefactoredSystemPrompt }))
 					}
 					// Update enableRooCloudServices if present in state message
 					if ((newState as any).enableRooCloudServices !== undefined) {
@@ -913,8 +920,16 @@ const contextValue: ExtensionStateContextType = {
 	setVariableStateDisplayRows: (value) => setState((prevState) => ({ ...prevState, variableStateDisplayRows: value })),
 	variableStateDisplayColumns: state.variableStateDisplayColumns ?? 3,
 	setVariableStateDisplayColumns: (value) => setState((prevState) => ({ ...prevState, variableStateDisplayColumns: value })),
+	useRefactoredSystemPrompt: state.useRefactoredSystemPrompt ?? false,
+	setUseRefactoredSystemPrompt: (value) => {
+		setState((prevState) => ({ ...prevState, useRefactoredSystemPrompt: value }))
+		vscode.postMessage({ type: "useRefactoredSystemPrompt", bool: value })
+	},
 	enableInjectSystemPromptVariables: state.enableInjectSystemPromptVariables ?? false,
-	setEnableInjectSystemPromptVariables: (value) => setState((prevState) => ({ ...prevState, enableInjectSystemPromptVariables: value })),
+	setEnableInjectSystemPromptVariables: (value) => {
+		setState((prevState) => ({ ...prevState, enableInjectSystemPromptVariables: value }))
+		vscode.postMessage({ type: "enableInjectSystemPromptVariables", bool: value })
+	},
 	anhExtensionSettings: state.anhExtensionSettings ?? {},
 	setAnhExtensionSettings: (value) => setState((prevState) => ({ ...prevState, anhExtensionSettings: value })),
 	updateAnhExtensionSetting: (id, key, value) => {

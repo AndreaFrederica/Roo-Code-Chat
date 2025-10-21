@@ -3,7 +3,7 @@
 	"displayName": "%extension.displayName%",
 	"description": "%extension.description%",
 	"publisher": "AndreaFrederica",
-	"version": "3.28.18",
+	"version": "3.29.8",
 	"icon": "assets/icons/icon.png",
 	"galleryBanner": {
 		"color": "#617A91",
@@ -43,7 +43,9 @@
 		"ai",
 		"llama",
 		"ANH CHAT",
-		"roocode"
+		"roocode",
+		"Novel-Helper",
+		"Chat"
 	],
 	"activationEvents": [
 		"onLanguage",
@@ -465,6 +467,20 @@
 					"type": "string",
 					"default": "",
 					"description": "%settings.autoImportSettingsPath.description%"
+				},
+				"anh-cline.worldBookTriggerMaxDepth": {
+					"type": "number",
+					"default": 1,
+					"minimum": 0,
+					"maximum": 5,
+					"description": "Maximum recursive depth for world-book keyword triggers (0 disables recursion)"
+				},
+				"anh-cline.memoryTriggerMaxDepth": {
+					"type": "number",
+					"default": 1,
+					"minimum": 0,
+					"maximum": 5,
+					"description": "Maximum recursive depth for memory keyword triggers (0 disables recursion)"
 				},
 				"anh-cline.useAgentRules": {
 					"type": "boolean",

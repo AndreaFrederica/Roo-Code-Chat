@@ -10,6 +10,7 @@ import type {
 	TodoItem,
 	Role,
 	UserAvatarVisibility,
+	MemoryTriggerResult,
 } from "@roo-code/types"
 
 import type { SystemPromptSettings } from "@roo-code/types"
@@ -1596,6 +1597,7 @@ async function generatePrompt(
 	userAvatarVisibility?: UserAvatarVisibility,
 	extensionToolDescriptions?: string[],
 	worldBookContent?: string,
+	memoryTriggerResult?: MemoryTriggerResult,
 ): Promise<string> {
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
@@ -1805,6 +1807,39 @@ ${processedWorldBookContent.processedText}
 `
 	}
 
+	// Add memory content if available
+	let memorySectionBlock = ""
+	if ((settings?.memorySystemEnabled ?? true) && memoryTriggerResult) {
+		let memoryContent = memoryTriggerResult.fullContent ? memoryTriggerResult.fullContent.trim() : ""
+
+		if (!memoryContent) {
+			const segments: string[] = []
+			if (memoryTriggerResult.constantContent && memoryTriggerResult.constantContent.trim()) {
+				segments.push(memoryTriggerResult.constantContent.trim())
+			}
+			if (memoryTriggerResult.triggeredContent && memoryTriggerResult.triggeredContent.trim()) {
+				segments.push(memoryTriggerResult.triggeredContent.trim())
+			}
+			memoryContent = segments.join("\n\n").trim()
+		}
+
+		if (memoryContent) {
+			memorySectionBlock = `
+
+====
+
+ROLE MEMORY CONTEXT
+
+Use the following memories to maintain continuity, personality, and story consistency:
+
+${memoryContent}
+
+====
+
+`
+		}
+	}
+
 	// Determine if we're in pure chat mode (persona or mode explicitly chat)
 	let isPureChatMode = false
 	if(anhPersonaMode === "chat"){
@@ -1815,15 +1850,17 @@ ${processedWorldBookContent.processedText}
 	console.log("[ANH-Chat:SystemPrompt] Persona mode:", anhPersonaMode, "Is pure chat:", isPureChatMode)
 
 	// Build prompt sections based on persona mode
-	let promptSections = [
-		roleDefinition,
-		"",
-		roleSectionBlock,
-		worldsetSectionBlock, // Add worldset content here
-		worldBookSectionBlock, // Add worldbook content here
-		markdownFormattingSection(),
-		"",
-	]
+	let promptSections: string[] = [roleDefinition, "", roleSectionBlock]
+	if (worldsetSectionBlock) {
+		promptSections.push(worldsetSectionBlock)
+	}
+	if (worldBookSectionBlock) {
+		promptSections.push(worldBookSectionBlock)
+	}
+	if (memorySectionBlock) {
+		promptSections.push(memorySectionBlock)
+	}
+	promptSections.push(markdownFormattingSection(), "")
 
 	if (isPureChatMode) {
 		// Pure chat mode - conversational focus but with essential tools available
@@ -2140,6 +2177,7 @@ export const SYSTEM_PROMPT = async (
 	userAvatarVisibility?: UserAvatarVisibility,
 	extensionToolDescriptions?: string[],
 	worldBookContent?: string,
+	memoryTriggerResult?: MemoryTriggerResult,
 	// New parameters for STProfile processing
 	enabledTSProfiles?: string[],
 	anhTsProfileAutoInject?: boolean,
@@ -2350,6 +2388,7 @@ For example: _.userInput, _.counter, _.projectStatus, etc.
 		userAvatarVisibility ?? "full",
 		extensionToolDescriptions,
 		worldBookContent,
+		memoryTriggerResult,
 	)
 
 	// Inject variable state if enabled (for generated prompts)

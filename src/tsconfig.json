@@ -16,6 +16,11 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
+		"baseUrl": ".",
+		"paths": {
+			"@roo-code/types": ["../packages/types/src"],
+			"@roo-code/types/*": ["../packages/types/src/*"]
+		},
 		"target": "ES2022",
 		"useDefineForClassFields": true,
 		"useUnknownInCatchVariables": false

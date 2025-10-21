@@ -5,7 +5,8 @@ import { buildApiHandler } from "../../api"
 import { experiments as experimentsModule, EXPERIMENT_IDS } from "../../shared/experiments"
 import { debugLog, debugError } from "../../utils/debug"
 
-import { SYSTEM_PROMPT } from "../prompts/system"
+import { SYSTEM_PROMPT as LEGACY_SYSTEM_PROMPT } from "../prompts/system"
+import { SYSTEM_PROMPT as REFACTORED_SYSTEM_PROMPT } from "../prompts/system-refactored"
 import { MultiSearchReplaceDiffStrategy } from "../diff/strategies/multi-search-replace"
 import { MultiFileSearchReplaceDiffStrategy } from "../diff/strategies/multi-file-search-replace"
 
@@ -36,6 +37,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		userAvatarVisibility,
 		userAvatarHideFullData,
 		enableInjectSystemPromptVariables,
+		useRefactoredSystemPrompt,
 	} = providerState
 
 	// Check experiment to determine which diff strategy to use
@@ -110,13 +112,36 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		}
 	}
 
-	// Combine both WorldBook contents
+	const worldBookSegments: string[] = []
+	if (worldBookContent) {
+		worldBookSegments.push(worldBookContent)
+	}
 	if (triggeredWorldBookContent) {
-		if (worldBookContent) {
-			worldBookContent += "\n\n---\n\n" + triggeredWorldBookContent
-		} else {
-			worldBookContent = triggeredWorldBookContent
+		worldBookSegments.push(triggeredWorldBookContent)
+	}
+
+	const activeTask = provider.getCurrentTask()
+	const taskWorldBookTrigger = activeTask?.getWorldBookTriggerResult()
+	if (taskWorldBookTrigger?.fullContent) {
+		worldBookSegments.push(taskWorldBookTrigger.fullContent)
+	}
+
+	const taskMemoryTrigger = activeTask?.getMemoryTriggerResult()
+
+	if (worldBookSegments.length > 0) {
+		const seen = new Set<string>()
+		const uniqueSegments: string[] = []
+
+		for (const segment of worldBookSegments) {
+			const key = segment.trim()
+			if (!key || seen.has(key)) {
+				continue
+			}
+			seen.add(key)
+			uniqueSegments.push(segment)
 		}
+
+		worldBookContent = uniqueSegments.join("\n\n---\n\n")
 	}
 
 	// Debug: Check if TSProfile data is present
@@ -163,7 +188,20 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	// Get TSProfile settings from provider state
 	const { enabledTSProfiles = [], anhTsProfileAutoInject = true, anhTsProfileVariables = {} } = providerState
 
-	const systemPrompt = await SYSTEM_PROMPT(
+	// 添加调试日志
+	debugLog("generateSystemPrompt - System prompt generator selection:", {
+		useRefactoredSystemPrompt: useRefactoredSystemPrompt ?? false,
+		generator: useRefactoredSystemPrompt ? "REFACTORED" : "LEGACY",
+		mode: mode,
+		customInstructions: !!customInstructions,
+		rolePromptData: !!rolePromptData,
+		enableInjectSystemPromptVariables: enableInjectSystemPromptVariables ?? false
+	})
+
+	// 根据设置选择使用哪个系统提示词生成器
+	debugLog("generateSystemPrompt - Using", useRefactoredSystemPrompt ? "REFACTORED" : "LEGACY", "system prompt generator")
+
+	const systemPrompt = await (useRefactoredSystemPrompt ? REFACTORED_SYSTEM_PROMPT : LEGACY_SYSTEM_PROMPT)(
 		provider.context,
 		cwd,
 		canUseBrowserTool,
@@ -193,6 +231,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		resolvedUserAvatarVisibility,
 		extensionToolDescriptions,
 		worldBookContent, // 传递世界书内容
+		taskMemoryTrigger,
 		// Pass TSProfile parameters
 		enabledTSProfiles,
 		anhTsProfileAutoInject,
@@ -201,6 +240,14 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		enableInjectSystemPromptVariables,
 		currentTask,
 	)
+
+	// 添加生成器完成后的日志
+	debugLog("generateSystemPrompt - System prompt generation completed:", {
+		generator: useRefactoredSystemPrompt ? "REFACTORED" : "LEGACY",
+		systemPromptLength: systemPrompt.length,
+		hasCustomInstructions: !!customInstructions,
+		hasRolePromptData: !!rolePromptData
+	})
 
 	const finalPrompt = await provider.applySystemPromptExtensions(systemPrompt, {
 		cwd,

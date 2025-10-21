@@ -30,6 +30,8 @@ export interface WorldBookTriggerConfig {
   injectionCooldown: number;
   /** 调试模式 */
   debugMode: boolean;
+  /** 递归触发的最大深度（0 表示不递归） */
+  maxRecursiveDepth?: number;
 }
 
 /** 世界书触发条目 */

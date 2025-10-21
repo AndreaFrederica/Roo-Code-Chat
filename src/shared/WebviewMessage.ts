@@ -285,6 +285,7 @@ export interface WebviewMessage {
 		| "variableStateDisplayRows"
 		| "variableStateDisplayColumns"
 		| "enableInjectSystemPromptVariables"
+		| "useRefactoredSystemPrompt"
 		| "allowNoToolsInChatMode"
 		| "STWordBookToggle"
 		| "STWordBookAdd"

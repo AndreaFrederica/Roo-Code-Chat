@@ -435,6 +435,7 @@ export type ExtensionState = Pick<
 	| "variableStateDisplayRows"
 	| "variableStateDisplayColumns"
 	| "enableInjectSystemPromptVariables"
+	| "useRefactoredSystemPrompt"
 	| "enabledWorldsets"
 	| "anhExtensionsEnabled"
 	| "anhExtensionSettings"

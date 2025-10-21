@@ -575,6 +575,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 			// System prompt enhancement settings
 			vscode.postMessage({ type: "enableInjectSystemPromptVariables", bool: enableInjectSystemPromptVariables ?? false })
+			vscode.postMessage({ type: "useRefactoredSystemPrompt", bool: cachedState.useRefactoredSystemPrompt ?? false })
 
 			setChangeDetected(false)
 		}
@@ -1246,6 +1247,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							customUserAgentFull={customUserAgentFull}
 							enableInjectSystemPromptVariables={enableInjectSystemPromptVariables}
 							setEnableInjectSystemPromptVariables={(value) => setCachedStateField("enableInjectSystemPromptVariables", value)}
+							useRefactoredSystemPrompt={cachedState.useRefactoredSystemPrompt}
+							setUseRefactoredSystemPrompt={(value) => setCachedStateField("useRefactoredSystemPrompt", value)}
 						/>
 					)}
 

@@ -9,8 +9,11 @@ import type {
 	CharacterBookEntry as STCharacterBookEntry,
 } from "./silly-tavern-card.js"
 import { HashUuidGenerator } from "./hash-uuid.js"
+import { string } from "zod/v4"
 
-export const roleTypeSchema = z.enum(["主角", "配角", "联动角色", "NPC", "旁白", "SillyTavernRole"])
+export const roleTypeSchema = z.union([
+	z.enum(["主角", "配角", "联动角色", "NPC", "旁白", "SillyTavernRole"]),
+	z.string()])
 
 export type RoleType = z.infer<typeof roleTypeSchema>
 
@@ -487,10 +490,10 @@ export const createSillyTavernCompatibility = (): SillyTavernCompatibility => ({
 			})()
 
 		const v3Data = card.data as any
-		
+
 		// 从V3的assets中提取头像
 		const avatar = v3Data.assets?.find((asset: any) => asset.type === 'icon')?.uri || null
-		
+
 		// 构建别名数组，包含nickname（如果存在）
 		const aliases: string[] = []
 		if (v3Data.nickname && v3Data.nickname.trim()) {

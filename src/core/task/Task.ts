@@ -67,6 +67,7 @@ import { BrowserSession } from "../../services/browser/BrowserSession"
 import { McpHub } from "../../services/mcp/McpHub"
 import { McpServerManager } from "../../services/mcp/McpServerManager"
 import { RepoPerTaskCheckpointService } from "../../services/checkpoints"
+import type { TriggeredContent } from "../../services/silly-tavern/sillyTavernWorldBookTriggerService"
 
 // integrations
 import { DiffViewProvider } from "../../integrations/editor/DiffViewProvider"
@@ -337,6 +338,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 	// Memory Triggers
 	private lastMemoryTriggerResult?: MemoryTriggerResult
+	private lastWorldBookTriggerResult?: TriggeredContent
 
 	constructor({
 		provider,
@@ -2643,12 +2645,15 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						})
 					}
 
-					await this.addToApiConversationHistory({
-						role: "assistant",
-						content: [{ type: "text", text: assistantMessage }],
-					})
+			await this.addToApiConversationHistory({
+				role: "assistant",
+				content: [{ type: "text", text: assistantMessage }],
+			})
 
-					TelemetryService.instance.captureConversationMessage(this.taskId, "assistant")
+			TelemetryService.instance.captureConversationMessage(this.taskId, "assistant")
+
+			await this.processWorldBookTriggers(assistantMessage, this.clineMessages, "assistant")
+			await this.processMemoryTriggers(assistantMessage, this.clineMessages, "assistant")
 
 					// NOTE: This comment is here for future reference - this was a
 					// workaround for `userMessageContent` not getting set to true.
@@ -2799,6 +2804,63 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			// This ensures that TSProfile changes are reflected immediately
 			const freshRolePromptData = await provider.getRolePromptData()
 
+			let worldBookContent = ""
+			if (provider.anhChatServices?.worldBookService) {
+				try {
+					worldBookContent = await provider.anhChatServices.worldBookService.getActiveWorldBooksMarkdown()
+					debugLog("Task.getSystemPrompt - WorldBook content loaded", {
+						contentLength: worldBookContent.length,
+						hasContent: worldBookContent.length > 0,
+					})
+				} catch (error) {
+					debugLog("Task.getSystemPrompt - Error loading WorldBook content", error)
+				}
+			}
+
+			let triggeredWorldBookContent = ""
+			if (provider.anhChatServices?.worldBookTriggerService) {
+				try {
+					triggeredWorldBookContent = await provider.anhChatServices.worldBookTriggerService.getConstantContent()
+					debugLog("Task.getSystemPrompt - Triggered WorldBook constant content loaded", {
+						contentLength: triggeredWorldBookContent.length,
+						hasContent: triggeredWorldBookContent.length > 0,
+					})
+				} catch (error) {
+					debugLog("Task.getSystemPrompt - Error loading triggered WorldBook content", error)
+				}
+			}
+
+			const worldBookSegments: string[] = []
+			if (worldBookContent) {
+				worldBookSegments.push(worldBookContent)
+			}
+			if (triggeredWorldBookContent) {
+				worldBookSegments.push(triggeredWorldBookContent)
+			}
+			if (this.lastWorldBookTriggerResult?.fullContent) {
+				worldBookSegments.push(this.lastWorldBookTriggerResult.fullContent)
+			}
+
+			let combinedWorldBookContent: string | undefined
+			if (worldBookSegments.length > 0) {
+				const seen = new Set<string>()
+				const uniqueSegments: string[] = []
+
+				for (const segment of worldBookSegments) {
+					const key = segment.trim()
+					if (!key || seen.has(key)) {
+						continue
+					}
+
+					seen.add(key)
+					uniqueSegments.push(segment)
+				}
+
+				combinedWorldBookContent = uniqueSegments.join("\n\n---\n\n")
+			}
+
+			const memoryTriggerResult = this.lastMemoryTriggerResult
+
 			const resolvedUserAvatarVisibility =
 				userAvatarVisibility === "full" ||
 					userAvatarVisibility === "summary" ||
@@ -2818,6 +2880,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				newTaskRequireTodos: vscode.workspace
 					.getConfiguration("anh-cline")
 					.get<boolean>("newTaskRequireTodos", false),
+				memoryToolsEnabled: state?.memoryToolsEnabled,
+				memorySystemEnabled: state?.memorySystemEnabled,
 			}
 			const providerStateSnapshot = (state ?? {}) as Record<string, unknown>
 			const modelId = this.api.getModel().id
@@ -2855,7 +2919,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				enabledWorldsets, // 传递启用的世界观设定
 				resolvedUserAvatarVisibility,
 				extensionToolDescriptions,
-				undefined, // worldBookContent - not needed here
+				combinedWorldBookContent,
+				memoryTriggerResult,
 				enabledTSProfiles || [], // 传递启用的 TSProfile 列表，确保是数组
 				anhTsProfileAutoInject, // 传递 TSProfile 自动注入设置
 				anhTsProfileVariables, // 传递 TSProfile 变量
@@ -3384,6 +3449,14 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		return this.tokenUsageSnapshot
 	}
 
+	public getWorldBookTriggerResult(): TriggeredContent | undefined {
+		return this.lastWorldBookTriggerResult
+	}
+
+	public getMemoryTriggerResult(): MemoryTriggerResult | undefined {
+		return this.lastMemoryTriggerResult
+	}
+
 	public get cwd() {
 		return this.workspacePath
 	}
@@ -3396,7 +3469,11 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	 * @param userMessage - The current user message text
 	 * @param conversationHistory - The conversation history (ClineMessage array)
 	 */
-	public async processWorldBookTriggers(userMessage: string, conversationHistory: ClineMessage[]): Promise<void> {
+	public async processWorldBookTriggers(
+		messageText: string,
+		conversationHistory: ClineMessage[],
+		role: "user" | "assistant" = "user",
+	): Promise<void> {
 		try {
 			const provider = this.providerRef.deref()
 			if (!provider?.anhChatServices?.worldBookTriggerService) {
@@ -3417,26 +3494,34 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				.filter((msg) => msg.content) // Filter out empty messages
 
 			const currentMessage: ChatMessage = {
-				role: "user",
-				content: userMessage,
+				role,
+				content: messageText,
 				timestamp: Date.now(),
 			}
 
 			// Process the message through the trigger service
 			const result = await triggerService.processMessage(currentMessage, chatHistory)
 
-			if (result && result.injectedCount > 0) {
-				provider.log(
-					`[ANH-Chat:Task#${this.taskId}] World book triggers processed: ${result.injectedCount} entries injected, duration: ${result.duration}ms`,
-				)
+			if (result) {
+				this.lastWorldBookTriggerResult = result
 
-				// If triggers were found, we could optionally add a system message to indicate this
-				// For now, we'll just log it for debugging purposes
-				if (result.triggeredContent) {
+				if (result.injectedCount > 0) {
 					provider.log(
-						`[ANH-Chat:Task#${this.taskId}] Triggered content preview: ${result.triggeredContent.substring(0, 100)}...`,
+						`[ANH-Chat:Task#${this.taskId}] World book triggers processed: ${result.injectedCount} entries injected, duration: ${result.duration}ms`,
 					)
+
+					if (result.triggeredContent) {
+						provider.log(
+							`[ANH-Chat:Task#${this.taskId}] Triggered content preview: ${result.triggeredContent.substring(0, 100)}...`,
+						)
+					}
 				}
+			}
+
+			if (!result || result.injectedCount === 0) {
+				provider.log(
+					`[ANH-Chat:Task#${this.taskId}] World book trigger processing completed: no new entries injected`,
+				)
 			}
 		} catch (error) {
 			const provider = this.providerRef.deref()
@@ -3452,7 +3537,11 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	/**
 	 * Process memory triggers for the current user message
 	 */
-	public async processMemoryTriggers(userMessage: string, conversationHistory: ClineMessage[]): Promise<void> {
+	public async processMemoryTriggers(
+		messageText: string,
+		conversationHistory: ClineMessage[],
+		role: "user" | "assistant" = "user",
+	): Promise<void> {
 		try {
 			const provider = this.providerRef.deref()
 			if (!provider?.anhChatServices?.roleMemoryTriggerService) {
@@ -3480,15 +3569,15 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				.filter((msg) => msg.content) // Filter out empty messages
 
 			const currentMessage: ChatMessage = {
-				role: "user",
-				content: userMessage,
+				role,
+				content: messageText,
 				timestamp: Date.now(),
 			}
 
 			// Extract emotional state and topic from the current message
-			const emotionalState = this.extractEmotionalState(userMessage)
-			const currentTopic = this.extractCurrentTopic(userMessage, conversationHistory)
-			const contextKeywords = this.extractContextKeywords(userMessage, conversationHistory)
+			const emotionalState = this.extractEmotionalState(messageText)
+			const currentTopic = this.extractCurrentTopic(messageText, conversationHistory)
+			const contextKeywords = this.extractContextKeywords(messageText, conversationHistory)
 
 			// Process the message through the memory trigger service
 			const result = await memoryService.processMessageWithMemory(roleUuid, currentMessage, chatHistory, {
@@ -3497,20 +3586,27 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				contextKeywords,
 			})
 
-			if (result && result.injectedCount > 0) {
-				provider.log(
-					`[ANH-Chat:Task#${this.taskId}] Memory triggers processed: ${result.injectedCount} entries injected, duration: ${result.duration}ms`,
-				)
-
-				// Store the result for later use in system prompt generation
+			if (result) {
 				this.lastMemoryTriggerResult = result
 
-				// Optionally log the content for debugging
-				if ((provider.contextProxy.getValue as any)("memoryTriggerDebugMode")) {
+				if (result.injectedCount > 0) {
 					provider.log(
-						`[ANH-Chat:Task#${this.taskId}] Memory content preview: ${result.fullContent.substring(0, 200)}...`,
+						`[ANH-Chat:Task#${this.taskId}] Memory triggers processed: ${result.injectedCount} entries injected, duration: ${result.duration}ms`,
 					)
+
+					// Optionally log the content for debugging
+					if ((provider.contextProxy.getValue as any)("memoryTriggerDebugMode")) {
+						provider.log(
+							`[ANH-Chat:Task#${this.taskId}] Memory content preview: ${result.fullContent.substring(0, 200)}...`,
+						)
+					}
 				}
+			}
+
+			if (!result || result.injectedCount === 0) {
+				provider.log(
+					`[ANH-Chat:Task#${this.taskId}] Memory trigger processing completed: no new entries injected`,
+				)
 			}
 		} catch (error) {
 			const provider = this.providerRef.deref()

@@ -1,22 +1,24 @@
 {
-	"permissions": {
-		"allow": [
-			"Bash(node:*)",
-			"Bash(npm run build:*)",
-			"Bash(npm test:*)",
-			"Bash(pnpm build:*)",
-			"Bash(npx tsx:*)",
-			"Bash(pnpm build:types:*)",
-			"Bash(npx tsc:*)",
-			"Bash(npm run)",
-			"Bash(pnpm:*)",
-			"Bash(npm run type-check:*)",
-			"Bash(npm run check-types:*)",
-			"Bash(cut:*)",
-			"Bash(npm install:*)",
-			"Bash(npx turbo build:*)"
-		],
-		"deny": [],
-		"ask": []
-	}
+  "permissions": {
+    "allow": [
+      "Bash(node:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm test:*)",
+      "Bash(pnpm build:*)",
+      "Bash(npx tsx:*)",
+      "Bash(pnpm build:types:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run)",
+      "Bash(pnpm:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run check-types:*)",
+      "Bash(cut:*)",
+      "Bash(npm install:*)",
+      "Bash(npx turbo build:*)",
+      "Bash(mkdir:*)",
+      "Read(//d//**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
 }

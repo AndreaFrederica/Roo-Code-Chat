@@ -188,6 +188,9 @@ export interface MemoryTriggerConfig {
 
   /** 调试模式 */
   debugMode: boolean;
+
+  /** 递归触发深度（0 表示不递归） */
+  maxRecursiveDepth?: number;
 }
 
 /**
@@ -361,7 +364,8 @@ export const memoryTriggerConfigSchema = z.object({
   triggerStrategies: triggerStrategiesSchema,
   retrievalConfig: memoryRetrievalConfigSchema,
   injectionConfig: memoryInjectionConfigSchema,
-  debugMode: z.boolean()
+  debugMode: z.boolean(),
+  maxRecursiveDepth: z.number().min(0).optional()
 });
 
 // ==================== 默认配置 ====================
@@ -422,5 +426,6 @@ export const DEFAULT_MEMORY_TRIGGER_CONFIG: MemoryTriggerConfig = {
   triggerStrategies: DEFAULT_TRIGGER_STRATEGIES,
   retrievalConfig: DEFAULT_RETRIEVAL_CONFIG,
   injectionConfig: DEFAULT_INJECTION_CONFIG,
-  debugMode: false
+  debugMode: false,
+  maxRecursiveDepth: 1
 };

@@ -2110,10 +2110,14 @@ export const webviewMessageHandler = async (
 		await updateGlobalState("variableStateDisplayColumns", message.value ?? 3)
 		// No need to call postStateToWebview here as the UI already updated optimistically
 		break
-	case "enableInjectSystemPromptVariables":
-		await updateGlobalState("enableInjectSystemPromptVariables", message.bool ?? false)
-		// No need to call postStateToWebview here as the UI already updated optimistically
-		break
+		case "enableInjectSystemPromptVariables":
+			await updateGlobalState("enableInjectSystemPromptVariables", message.bool ?? false)
+			// No need to call postStateToWebview here as the UI already updated optimistically
+			break
+		case "useRefactoredSystemPrompt":
+			await updateGlobalState("useRefactoredSystemPrompt", message.bool ?? false)
+			// No need to call postStateToWebview here as the UI already updated optimistically
+			break
 	case "allowNoToolsInChatMode":
 		await updateGlobalState("allowNoToolsInChatMode", message.bool ?? false)
 		// No need to call postStateToWebview here as the UI already updated optimistically
@@ -4932,6 +4936,11 @@ export const webviewMessageHandler = async (
 				if (success) {
 					await provider.postStateToWebview()
 					provider.log(`WorldBook ${enabled ? "enabled" : "disabled"}: ${filePath} (${worldBookScope})`)
+					if (provider.anhChatServices?.worldBookService && provider.anhChatServices?.worldBookTriggerService) {
+						const activePaths =
+							provider.anhChatServices.worldBookService.getActiveWorldBookFilePaths()
+						await provider.anhChatServices.worldBookTriggerService.setWorldBookFiles(activePaths)
+					}
 				} else {
 					vscode.window.showErrorMessage(`Failed to ${enabled ? "enable" : "disable"} worldbook`)
 				}
@@ -4960,6 +4969,11 @@ export const webviewMessageHandler = async (
 				if (success) {
 					await provider.postStateToWebview()
 					provider.log(`WorldBook added: ${config.filePath} (${worldBookScope})`)
+					if (provider.anhChatServices?.worldBookService && provider.anhChatServices?.worldBookTriggerService) {
+						const activePaths =
+							provider.anhChatServices.worldBookService.getActiveWorldBookFilePaths()
+						await provider.anhChatServices.worldBookTriggerService.setWorldBookFiles(activePaths)
+					}
 				} else {
 					vscode.window.showErrorMessage("Failed to add worldbook")
 				}
@@ -4987,6 +5001,11 @@ export const webviewMessageHandler = async (
 				if (success) {
 					await provider.postStateToWebview()
 					provider.log(`WorldBook removed: ${filePath} (${worldBookScope})`)
+					if (provider.anhChatServices?.worldBookService && provider.anhChatServices?.worldBookTriggerService) {
+						const activePaths =
+							provider.anhChatServices.worldBookService.getActiveWorldBookFilePaths()
+						await provider.anhChatServices.worldBookTriggerService.setWorldBookFiles(activePaths)
+					}
 				} else {
 					vscode.window.showErrorMessage("Failed to remove worldbook")
 				}
@@ -5017,6 +5036,11 @@ export const webviewMessageHandler = async (
 				if (success) {
 					await provider.postStateToWebview()
 					provider.log(`WorldBook updated: ${filePath} (${worldBookScope})`)
+					if (provider.anhChatServices?.worldBookService && provider.anhChatServices?.worldBookTriggerService) {
+						const activePaths =
+							provider.anhChatServices.worldBookService.getActiveWorldBookFilePaths()
+						await provider.anhChatServices.worldBookTriggerService.setWorldBookFiles(activePaths)
+					}
 				} else {
 					vscode.window.showErrorMessage("Failed to update worldbook")
 				}
@@ -5044,6 +5068,9 @@ export const webviewMessageHandler = async (
 				if (success) {
 					await provider.postStateToWebview()
 					provider.log(`WorldBook reloaded: ${filePath} (${worldBookScope})`)
+					if (provider.anhChatServices?.worldBookTriggerService) {
+						await provider.anhChatServices.worldBookTriggerService.reloadWorldBooks()
+					}
 				} else {
 					vscode.window.showErrorMessage("Failed to reload worldbook")
 				}

@@ -201,6 +201,8 @@ export interface WorldBookInfo {
 export interface WorldBookConversionResult {
   /** Markdown 内容 */
   markdown: string;
+  /** 归一化后的词条列表 */
+  entries: WorldEntry[];
   /** 转换的词条数量 */
   entryCount: number;
   /** 跳过的词条数量 */

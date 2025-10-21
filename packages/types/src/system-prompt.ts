@@ -3,5 +3,7 @@ export interface SystemPromptSettings {
 	todoListEnabled: boolean
 	useAgentRules: boolean
 	newTaskRequireTodos: boolean
+	memoryToolsEnabled?: boolean
+	memorySystemEnabled?: boolean
 }
 
