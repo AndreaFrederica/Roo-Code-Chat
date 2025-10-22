@@ -175,6 +175,26 @@ export class RoleGenerator {
 			sections.push(`### System Instructions\n${enhancedSystemPrompt}`)
 		}
 
+		// 处理STProfile注入的system_settings字段
+		if (processedRole.system_settings) {
+			sections.push(`### System Settings\n${processedRole.system_settings}`)
+		}
+
+		// 处理STProfile注入的user_settings字段
+		if (processedRole.user_settings) {
+			sections.push(`### User Settings\n${processedRole.user_settings}`)
+		}
+
+		// 处理STProfile注入的assistant_settings字段
+		if (processedRole.assistant_settings) {
+			sections.push(`### Assistant Settings\n${processedRole.assistant_settings}`)
+		}
+
+		// 处理历史后指令
+		if (processedRole.post_history_instructions) {
+			sections.push(`### Additional Instructions\n${processedRole.post_history_instructions}`)
+		}
+
 		// 处理扩展字段 (extensions)
 		if (processedRole.extensions && typeof processedRole.extensions === "object") {
 			const extensionKeys = Object.keys(processedRole.extensions).filter(

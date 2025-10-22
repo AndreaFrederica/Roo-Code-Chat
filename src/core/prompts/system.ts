@@ -48,6 +48,7 @@ import { CodeIndexManager } from "../../services/code-index/manager"
 import { PromptVariables, loadSystemPromptFile } from "./sections/custom-system-prompt"
 import { applyTemplateVariablesToRole } from "./template-variables"
 import { RegexTargetSource } from "@roo-code/types"
+import { getGlobalStorageService } from "../../services/storage/GlobalStorageService"
 
 import { getToolDescriptionsForMode } from "./tools"
 import {
@@ -357,7 +358,6 @@ async function applyTsProfilePreprocessing(
 		// Load global profiles if context is available
 		if (context) {
 			try {
-				const { getGlobalStorageService } = require("../../services/storage/GlobalStorageService")
 				const globalStorageService = await getGlobalStorageService(context)
 				const globalProfileDir = globalStorageService.getGlobalTsProfilesPath()
 				debugLog(`TSProfile: Global profile directory: ${globalProfileDir}`)
@@ -1696,7 +1696,6 @@ async function generatePrompt(
 			}
 
 			// Import GlobalStorageService to get global worldsets
-			const { getGlobalStorageService } = require("../../services/storage/GlobalStorageService")
 			const globalStorageService = await getGlobalStorageService(context)
 
 			for (const worldsetKey of enabledWorldsets) {
@@ -2057,7 +2056,7 @@ Example:
 
 		try {
 			// Import regex processor manager
-			const { getRegexProcessorManager, debugRegexProcessorStatus } = require("../../core/processors/RegexProcessorManager")
+			const { getRegexProcessorManager, debugRegexProcessorStatus } = require("../processors/RegexProcessorManager")
 			const regexManager = getRegexProcessorManager()
 
 			// Debug: Output current processor status
@@ -2284,7 +2283,7 @@ ${customInstructions}`
 		if (experiments?.stRegexProcessor) {
 			try {
 				// Import regex processor manager
-				const { getRegexProcessorManager } = require("../../core/processors/RegexProcessorManager")
+				const { getRegexProcessorManager } = require("../processors/RegexProcessorManager")
 				const regexManager = getRegexProcessorManager()
 
 				if (regexManager.isProcessorEnabled()) {

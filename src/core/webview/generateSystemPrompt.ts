@@ -195,11 +195,35 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		mode: mode,
 		customInstructions: !!customInstructions,
 		rolePromptData: !!rolePromptData,
-		enableInjectSystemPromptVariables: enableInjectSystemPromptVariables ?? false
+		enableInjectSystemPromptVariables: enableInjectSystemPromptVariables ?? false,
+		// 添加TSProfile和世界观的调试信息
+		enabledTSProfiles: enabledTSProfiles,
+		enabledTSProfilesCount: enabledTSProfiles?.length || 0,
+		enabledWorldsets: enabledWorldsets,
+		enabledWorldsetsCount: enabledWorldsets?.length || 0,
+		worldBookContentLength: worldBookContent?.length || 0,
+		taskMemoryTrigger: !!taskMemoryTrigger
 	})
 
 	// 根据设置选择使用哪个系统提示词生成器
 	debugLog("generateSystemPrompt - Using", useRefactoredSystemPrompt ? "REFACTORED" : "LEGACY", "system prompt generator")
+
+	// 为新版生成器添加额外的调试信息
+	if (useRefactoredSystemPrompt) {
+		debugLog("generateSystemPrompt - REFACTORED generator parameters:", {
+			hasContext: !!provider.context,
+			hasCwd: !!cwd,
+			hasRolePromptData: !!rolePromptData,
+			enabledTSProfiles: enabledTSProfiles,
+			anhTsProfileAutoInject: anhTsProfileAutoInject,
+			anhTsProfileVariables: Object.keys(anhTsProfileVariables || {}).length,
+			enabledWorldsets: enabledWorldsets,
+			worldBookContentLength: worldBookContent?.length || 0,
+			hasMemoryTrigger: !!taskMemoryTrigger,
+			enableInjectSystemPromptVariables: enableInjectSystemPromptVariables,
+			hasCurrentTask: !!currentTask
+		})
+	}
 
 	const systemPrompt = await (useRefactoredSystemPrompt ? REFACTORED_SYSTEM_PROMPT : LEGACY_SYSTEM_PROMPT)(
 		provider.context,

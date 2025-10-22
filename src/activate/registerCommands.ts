@@ -64,6 +64,7 @@ export type RegisterCommandOptions = {
 	outputChannel: vscode.OutputChannel
 	provider: ClineProvider
 	anhChatServices?: AnhChatServices
+	systemPromptPreviewManager?: import("../core/managers/SystemPromptPreviewManager").SystemPromptPreviewManager
 }
 
 export const registerCommands = (options: RegisterCommandOptions) => {
@@ -80,6 +81,7 @@ const getCommandsMap = ({
 	outputChannel,
 	provider,
 	anhChatServices,
+	systemPromptPreviewManager,
 }: RegisterCommandOptions): Record<CommandId, any> => ({
 	activationCompleted: () => {},
 	cloudButtonClicked: () => {
@@ -477,6 +479,20 @@ const getCommandsMap = ({
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
 			vscode.window.showErrorMessage(`记忆检索测试失败: ${message}`)
+		}
+	},
+	// 系统提示词预览指令
+	openSystemPromptPreview: async () => {
+		if (!systemPromptPreviewManager) {
+			vscode.window.showErrorMessage('System prompt preview manager is not initialized')
+			return
+		}
+
+		try {
+			await systemPromptPreviewManager.openPreview()
+		} catch (error) {
+			console.error('[SystemPromptPreviewManager] Failed to open preview:', error)
+			vscode.window.showErrorMessage('Failed to open system prompt preview')
 		}
 	},
 })

@@ -226,6 +226,11 @@
 				"command": "anh-cline.toggleAIOutputDisplay",
 				"title": "%command.toggleAIOutputDisplay.title%",
 				"icon": "$(eye)"
+			},
+			{
+				"command": "anh-cline.openSystemPromptPreview",
+				"title": "Open System Prompt Preview",
+				"category": "%configuration.title%"
 			}
 		],
 		"menus": {
@@ -361,7 +366,12 @@
 					"command": "anh-cline.popoutButtonClicked",
 					"group": "overflow@4",
 					"when": "activeWebviewPanelId == anh-cline.TabPanelProvider"
-				}
+				},
+			{
+				"command": "anh-cline.openSystemPromptPreview",
+				"title": "Open System Prompt Preview",
+				"category": "%configuration.title%"
+			}
 			]
 		},
 		"keybindings": [
@@ -379,6 +389,12 @@
 				"mac": "cmd+alt+a",
 				"win": "ctrl+alt+a",
 				"linux": "ctrl+alt+a"
+			}
+		],
+		"commandPalette": [
+			{
+				"command": "anh-cline.openSystemPromptPreview",
+				"when": "true"
 			}
 		],
 		"submenus": [
@@ -568,6 +584,7 @@
 		"liquidjs": "^10.22.0",
 		"lodash.debounce": "^4.0.8",
 		"mammoth": "^1.9.1",
+		"memfs": "^4.49.0",
 		"monaco-vscode-textmate-theme-converter": "^0.1.7",
 		"node-cache": "^5.1.2",
 		"node-ipc": "^12.0.0",

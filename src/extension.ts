@@ -42,6 +42,7 @@ import { MemoryServiceInitializer } from "./services/anh-chat/MemoryServiceIniti
 import { getGlobalStorageService } from "./services/storage/GlobalStorageService"
 import { migrateSettings } from "./utils/migrateSettings"
 import { autoImportSettings } from "./utils/autoImportSettings"
+import { SystemPromptPreviewManager } from "./core/managers/SystemPromptPreviewManager"
 import { API } from "./extension/api"
 
 import {
@@ -64,6 +65,7 @@ import { initializeI18n } from "./i18n"
 let outputChannel: vscode.OutputChannel
 let extensionContext: vscode.ExtensionContext
 let cloudService: CloudService | undefined
+let systemPromptPreviewManager: SystemPromptPreviewManager | undefined
 
 let authStateChangedHandler: ((data: { state: AuthState; previousState: AuthState }) => Promise<void>) | undefined
 let settingsUpdatedHandler: (() => void) | undefined
@@ -338,6 +340,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	)
 
+	// Initialize system prompt preview manager
+	systemPromptPreviewManager = new SystemPromptPreviewManager(context, provider)
+	context.subscriptions.push(systemPromptPreviewManager)
+
 	// Auto-import configuration if specified in settings.
 	try {
 		await autoImportSettings(outputChannel, {
@@ -351,7 +357,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		)
 	}
 
-	registerCommands({ context, outputChannel, provider, anhChatServices })
+	registerCommands({ context, outputChannel, provider, anhChatServices, systemPromptPreviewManager })
 
 	/**
 	 * We use the text document content provider API to show the left side for diff

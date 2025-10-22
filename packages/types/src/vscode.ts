@@ -65,6 +65,9 @@ export const commandIds = [
 	"viewMemories",
 	"clearMemories",
 	"testMemoryRetrieval",
+
+	// 系统提示词预览指令
+	"openSystemPromptPreview",
 ] as const
 
 export type CommandId = (typeof commandIds)[number]

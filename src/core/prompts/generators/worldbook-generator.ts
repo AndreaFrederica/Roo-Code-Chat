@@ -10,6 +10,8 @@ import {
 } from "@roo-code/types"
 
 import type { Mode } from "../../../shared/modes"
+import { debugLog } from "../../../utils/debug"
+import { getGlobalStorageService } from "../../../services/storage/GlobalStorageService"
 
 export interface WorldBookOptions {
 	worldsetPath?: string
@@ -59,6 +61,17 @@ export class WorldBookGenerator {
 			userAvatarRole,
 		} = options
 
+		debugLog("[WorldBookGenerator] generateWorldSections called:", {
+			hasContext: !!context,
+			cwd: cwd,
+			mode: mode,
+			enabledWorldsets: enabledWorldsets,
+			enabledWorldsetsCount: enabledWorldsets?.length || 0,
+			worldBookContentLength: worldBookContent?.length || 0,
+			hasRolePromptData: !!rolePromptData,
+			hasUserAvatarRole: !!userAvatarRole
+		})
+
 		const templateVariables = this.buildTemplateVariables({
 			cwd,
 			mode,
@@ -72,6 +85,13 @@ export class WorldBookGenerator {
 		)
 
 		const worldBookSection = this.buildWorldBookSection(worldBookContent, templateVariables)
+
+		debugLog("[WorldBookGenerator] generateWorldSections result:", {
+			worldsetSectionLength: worldsetSection?.length || 0,
+			worldBookSectionLength: worldBookSection?.length || 0,
+			hasWorldsetSection: !!worldsetSection,
+			hasWorldBookSection: !!worldBookSection
+		})
 
 		return {
 			worldsetSection,
@@ -345,7 +365,6 @@ ${processedWorldBookContent.processedText}
 
 	private async getGlobalStorageService(context: vscode.ExtensionContext): Promise<any | null> {
 		try {
-			const { getGlobalStorageService } = require("../../services/storage/GlobalStorageService")
 			return await getGlobalStorageService(context)
 		} catch (error) {
 			console.warn("[WorldBookGenerator] Failed to resolve global storage service:", error)

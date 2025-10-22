@@ -16,7 +16,9 @@
       "Bash(npm install:*)",
       "Bash(npx turbo build:*)",
       "Bash(mkdir:*)",
-      "Read(//d//**)"
+      "Read(//d//**)",
+      "Bash(find:*)",
+      "Read(//d/Projcets/Novel-Helper/andrea-novel-helper/**)"
     ],
     "deny": [],
     "ask": []

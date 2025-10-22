@@ -27,6 +27,7 @@ import { isEmpty } from "../../../utils/object"
 import { getRegexProcessorManager, debugRegexProcessorStatus } from "../../processors/RegexProcessorManager"
 
 import { PromptVariables, loadSystemPromptFile } from "../sections/custom-system-prompt"
+import { getGlobalStorageService } from "../../../services/storage/GlobalStorageService"
 import { getToolDescriptionsForMode } from "../tools"
 import {
 	getRulesSection,
@@ -174,29 +175,60 @@ export class PromptBuilder {
 
 		// 1. 应用 STProfile 预处理，确保角色在进入后续流程前已经完成变量替换及 S.T. 处理
 		let processedRolePromptData = rolePromptData
+		
+		debugLog("[PromptBuilder] STProfile preprocessing check:", {
+			hasRolePromptData: !!rolePromptData,
+			hasRole: !!rolePromptData?.role,
+			enabledTSProfiles: enabledTSProfiles,
+			enabledTSProfilesCount: enabledTSProfiles?.length || 0,
+			anhTsProfileAutoInject: anhTsProfileAutoInject,
+			templateVariablesCount: Object.keys(anhTsProfileVariables || {}).length
+		})
+		
 		if (rolePromptData?.role && enabledTSProfiles && enabledTSProfiles.length > 0) {
+			debugLog("[PromptBuilder] Starting STProfile preprocessing...")
 			const workspaceProfileDir = path.join(cwd, "novel-helper", ".anh-chat", "tsprofile")
 			let globalProfileDir: string | undefined
 
 			try {
-				const { getGlobalStorageService } = require("../../services/storage/GlobalStorageService")
 				const globalStorageService = await getGlobalStorageService(context)
 				globalProfileDir = globalStorageService.getGlobalTsProfilesPath()
+				debugLog("[PromptBuilder] Global TSProfile directory resolved:", globalProfileDir)
 			} catch (error) {
 				console.warn("[SYSTEM_PROMPT] Failed to resolve global TSProfile directory:", error)
 			}
 
+			const originalRole = { ...rolePromptData.role }
+			const processedRole = await this.stProfileGenerator.applyPreprocessing(rolePromptData.role, enabledTSProfiles, {
+				scope: "workspace",
+				autoInject: anhTsProfileAutoInject ?? true,
+				templateVariables: anhTsProfileVariables ?? {},
+				userAvatarRole,
+				workspaceProfileDir,
+				globalProfileDir,
+			})
+			
 			processedRolePromptData = {
 				...rolePromptData,
-				role: await this.stProfileGenerator.applyPreprocessing(rolePromptData.role, enabledTSProfiles, {
-					scope: "workspace",
-					autoInject: anhTsProfileAutoInject ?? true,
-					templateVariables: anhTsProfileVariables ?? {},
-					userAvatarRole,
-					workspaceProfileDir,
-					globalProfileDir,
-				}),
+				role: processedRole,
 			}
+			
+			debugLog("[PromptBuilder] STProfile preprocessing completed:", {
+				originalRoleHasSystemPrompt: !!originalRole.system_prompt,
+				processedRoleHasSystemPrompt: !!processedRole.system_prompt,
+				originalRoleHasSystemSettings: !!originalRole.system_settings,
+				processedRoleHasSystemSettings: !!processedRole.system_settings,
+				originalRoleHasUserSettings: !!originalRole.user_settings,
+				processedRoleHasUserSettings: !!processedRole.user_settings,
+				originalRoleHasAssistantSettings: !!originalRole.assistant_settings,
+				processedRoleHasAssistantSettings: !!processedRole.assistant_settings,
+				systemPromptLength: processedRole.system_prompt?.length || 0,
+				systemSettingsLength: processedRole.system_settings?.length || 0,
+				userSettingsLength: processedRole.user_settings?.length || 0,
+				assistantSettingsLength: processedRole.assistant_settings?.length || 0,
+			})
+		} else {
+			debugLog("[PromptBuilder] Skipping STProfile preprocessing - no enabled profiles or role data")
 		}
 
 		const promptComponent = this.getPromptComponent(customModePrompts, mode)
@@ -288,7 +320,12 @@ export class PromptBuilder {
 
 		// 8. 依据 persona 模式构建主体提示词
 		const personaMode = processedRolePromptData?.role?.modeOverrides?.persona || anhPersonaMode
-		const isPureChatMode = personaMode === "chat" || mode === "chat"
+
+		// Determine if we're in pure chat mode (only persona matters, not mode itself)
+		let isPureChatMode = false
+		if (personaMode === "chat") {
+			isPureChatMode = true
+		}
 
 		let promptSections: string[] = [
 			roleDefinition,

@@ -4529,14 +4529,14 @@ export const webviewMessageHandler = async (
 					language: "markdown",
 				})
 
-				// Show the document in a new tab
+				// Show the document in the current editor column (no split)
 				await vscode.window.showTextDocument(document, {
 					preview: false,
-					viewColumn: vscode.ViewColumn.Beside,
+					viewColumn: vscode.ViewColumn.Active,
 				})
 
 				// Also show a notification
-				vscode.window.showInformationMessage("System prompt opened in a new tab")
+				vscode.window.showInformationMessage("System prompt opened")
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : String(error)
 				vscode.window.showErrorMessage(`Failed to show system prompt: ${errorMessage}`)
