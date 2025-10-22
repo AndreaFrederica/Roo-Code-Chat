@@ -1,12 +1,12 @@
 import React, { memo } from "react"
-import WeChatHistoryView from "./WeChatHistoryView"
+import HistoryView from "./HistoryView"
 
 type GroupedHistoryViewProps = {
 	onDone: () => void
 }
 
 const GroupedHistoryView = ({ onDone }: GroupedHistoryViewProps) => {
-	return <WeChatHistoryView onDone={onDone} />
+	return <HistoryView onDone={onDone} />
 }
 
 export default memo(GroupedHistoryView)

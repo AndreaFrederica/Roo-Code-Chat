@@ -31,6 +31,7 @@ import { SectionHeader } from "./SectionHeader"
 import { Section } from "./Section"
 import { SetCachedStateField } from "./types"
 import type { ExtensionStateContextType } from "@/context/ExtensionStateContext"
+import ConfirmDialog from "@/components/ui/ConfirmDialog"
 
 // Prompt 接口定义
 interface PromptConfig {
@@ -204,6 +205,21 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 
 	// 正则设置相关状态
 	const [showRegexSettings, setShowRegexSettings] = useState(false)
+
+	// 确认对话框相关状态
+	const [confirmDialog, setConfirmDialog] = useState<{
+		open: boolean
+		title: string
+		description: string
+		onConfirm: () => void
+		variant?: "default" | "destructive"
+	}>({
+		open: false,
+		title: "",
+		description: "",
+		onConfirm: () => {},
+		variant: "default"
+	})
 
 	// 初始化：创建profile文件夹并加载列表
 	useEffect(() => {
@@ -641,15 +657,27 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 	// 切换编辑模式
 	const handleEditModeToggle = (mode: "source" | "mixin") => {
 		if (hasUnsavedChanges) {
-			if (!confirm("切换模式将丢失未保存的更改，确定要继续吗？")) {
-				return
-			}
-		}
-		setEditMode(mode)
-		setHasUnsavedChanges(false)
+			setConfirmDialog({
+				open: true,
+				title: "切换模式",
+				description: "切换模式将丢失未保存的更改，确定要继续吗？",
+				onConfirm: () => {
+					setEditMode(mode)
+					setHasUnsavedChanges(false)
 
-		if (mode === "mixin" && selectedProfile) {
-			loadProfileMixin(selectedProfile)
+					if (mode === "mixin" && selectedProfile) {
+						loadProfileMixin(selectedProfile)
+					}
+				},
+				variant: "default"
+			})
+		} else {
+			setEditMode(mode)
+			setHasUnsavedChanges(false)
+
+			if (mode === "mixin" && selectedProfile) {
+				loadProfileMixin(selectedProfile)
+			}
 		}
 	}
 
@@ -890,41 +918,49 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 
 	// 一键还原Mixin功能
 	const handleResetMixin = () => {
-		if (!selectedProfile || !profileData || !confirm("确定要还原所有Mixin修改吗？这将清除所有个性化设置。")) {
+		if (!selectedProfile || !profileData) {
 			return
 		}
 
-		// 重置提示词编辑状态为原始状态
-		const originalEditingState: Record<string, PromptConfig> = {}
-		profileData.prompts?.forEach((prompt: PromptConfig) => {
-			originalEditingState[prompt.identifier] = { ...prompt }
+		setConfirmDialog({
+			open: true,
+			title: "还原Mixin",
+			description: "确定要还原所有Mixin修改吗？这将清除所有个性化设置。",
+			onConfirm: () => {
+				// 重置提示词编辑状态为原始状态
+				const originalEditingState: Record<string, PromptConfig> = {}
+				profileData.prompts?.forEach((prompt: PromptConfig) => {
+					originalEditingState[prompt.identifier] = { ...prompt }
+				})
+				setEditingPrompts(originalEditingState)
+
+				// 重置正则绑定编辑状态为原始状态
+				const originalRegexEditingState: Record<string, RegexBinding> = {}
+				const regexBindings = getRegexBindingsForProfile(profileData)
+				regexBindings.forEach((regex: RegexBinding) => {
+					originalRegexEditingState[regex.id] = { ...regex }
+				})
+				setEditingRegexBindings(originalRegexEditingState)
+
+				// 清空mixin数据
+				setMixinData(null)
+				setMixinExists(false)
+
+				// 保存空的mixin文件（相当于删除mixin）
+				const profile = profiles.find((p) => p.name === selectedProfile)
+				if (profile) {
+					vscode.postMessage({
+						type: "saveTsProfileMixin",
+						mixinPath: profile.path.replace(".json", ".mixin.json"),
+						mixinData: null,
+					})
+				}
+
+				setHasUnsavedChanges(false)
+				setValidationSuccess("已还原到原始状态")
+			},
+			variant: "destructive"
 		})
-		setEditingPrompts(originalEditingState)
-
-		// 重置正则绑定编辑状态为原始状态
-		const originalRegexEditingState: Record<string, RegexBinding> = {}
-		const regexBindings = getRegexBindingsForProfile(profileData)
-		regexBindings.forEach((regex: RegexBinding) => {
-			originalRegexEditingState[regex.id] = { ...regex }
-		})
-		setEditingRegexBindings(originalRegexEditingState)
-
-		// 清空mixin数据
-		setMixinData(null)
-		setMixinExists(false)
-
-		// 保存空的mixin文件（相当于删除mixin）
-		const profile = profiles.find((p) => p.name === selectedProfile)
-		if (profile) {
-			vscode.postMessage({
-				type: "saveTsProfileMixin",
-				mixinPath: profile.path.replace(".json", ".mixin.json"),
-				mixinData: null,
-			})
-		}
-
-		setHasUnsavedChanges(false)
-		setValidationSuccess("已还原到原始状态")
 	}
 
 	// 还原单个提示词的Mixin更改
@@ -960,20 +996,28 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 
 	// 删除Mixin文件功能
 	const handleDeleteMixin = () => {
-		if (!selectedProfile || !confirm("确定要删除Mixin文件吗？这将永久删除所有个性化设置。")) {
+		if (!selectedProfile) {
 			return
 		}
 
-		const profile = profiles.find((p) => p.name === selectedProfile)
-		if (profile) {
-			vscode.postMessage({
-				type: "deleteTsProfileMixin" as any,
-				mixinPath: profile.path.replace(".json", ".mixin.json"),
-			})
-		}
+		setConfirmDialog({
+			open: true,
+			title: "删除Mixin文件",
+			description: "确定要删除Mixin文件吗？这将永久删除所有个性化设置。",
+			onConfirm: () => {
+				const profile = profiles.find((p) => p.name === selectedProfile)
+				if (profile) {
+					vscode.postMessage({
+						type: "deleteTsProfileMixin" as any,
+						mixinPath: profile.path.replace(".json", ".mixin.json"),
+					})
+				}
 
-		// 重置状态
-		handleResetMixin()
+				// 重置状态
+				handleResetMixin()
+			},
+			variant: "destructive"
+		})
 	}
 
 	// 切换正则绑定的展开状态
@@ -1160,12 +1204,18 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 
 	// 删除 profile
 	const handleDeleteProfile = (profile: ProfileInfo) => {
-		if (confirm(`确定要删除 profile "${profile.name}" 吗？此操作不可撤销。`)) {
-			vscode.postMessage({
-				type: "deleteTsProfile",
-				profile,
-			})
-		}
+		setConfirmDialog({
+			open: true,
+			title: "删除Profile",
+			description: `确定要删除 profile "${profile.name}" 吗？此操作不可撤销。`,
+			onConfirm: () => {
+				vscode.postMessage({
+					type: "deleteTsProfile",
+					profile,
+				})
+			},
+			variant: "destructive"
+		})
 	}
 
 	// 过滤显示的 profiles
@@ -2363,6 +2413,16 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 				onClose={() => setShowRegexSettings(false)}
 				regexBindings={getRegexBindingsForProfile(profileData)}
 				onSave={handleRegexSettingsSave}
+			/>
+
+			{/* 确认对话框 */}
+			<ConfirmDialog
+				open={confirmDialog.open}
+				onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+				title={confirmDialog.title}
+				description={confirmDialog.description}
+				onConfirm={confirmDialog.onConfirm}
+				variant={confirmDialog.variant}
 			/>
 		</div>
 	)
