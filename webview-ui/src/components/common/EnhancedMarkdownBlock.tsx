@@ -261,11 +261,9 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 		// 可选：额外添加你自己的"替换表达式"规则
 		const myPre = [
 			...defaultPreReplace,
-			// 确保 <思索>…</思索> 和 <思考>…</思考> 都能被正确处理
-			// 修复：只转换开始标签，保持结束标签的原始形式
-			{ re: /<\s*(思索)\b([^>]*)>/gi, replace: "<thinking$2>" } as any,
-			{ re: /<\s*\/\s*(思索)\b[^>]*>/gi, replace: "</thinking>" } as any,
-			// 保持 <思考> 标签不变，让它被原始正则匹配
+			// 确保 <思索>…</思索> 被转换为 <thinking>…</thinking> 以便统一处理
+			{ re: /<\s*思索\b([^>]*)>/gi, replace: "<thinking$1>" } as any,
+			{ re: /<\s*\/\s*思索\b[^>]*>/gi, replace: "</thinking>" } as any,
 		]
 
 		// 清理尾部半截标签

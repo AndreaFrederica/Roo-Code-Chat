@@ -55,10 +55,24 @@ export const defaultBlockRules: BlockRule[] = [
     toType: "thinking",
     defaultCollapsed: true,
   },
+  // 1.5) ：简短英文思考块
+  {
+    name: "think-english",
+    re: /<think>(?<content>[\s\S]*?)<\/think>/gi,
+        toType: "thinking",
+    defaultCollapsed: true,
+  },
   // 2) <思考>...</思考>：中文思考块
   {
     name: "thinking-chinese", 
     re: /<思考>(?<content>[\s\S]*?)<\/思考>/gi,
+    toType: "thinking",
+    defaultCollapsed: true,
+  },
+  // 5) <思索>...</思索>：另一种中文思考块
+  {
+    name: "thinking-sisu", 
+    re: /<思索>(?<content>[\s\S]*?)<\/思索>/gi,
     toType: "thinking",
     defaultCollapsed: true,
   },
@@ -96,12 +110,10 @@ export const defaultBlockRules: BlockRule[] = [
 export function getAllRuleNames(rules: BlockRule[]): string {
   const names = rules.map(rule => {
     // 从正则中提取标签名（简化版本，可以根据需要扩展）
-    if (rule.name === "thinking-like") {
-      return "thinking|思考|ThinkingProcess"
+    if (rule.name.includes("thinking")) {
+      return "thinking|思考|ThinkingProcess|思索"
     } else if (rule.name === "update-variable") {
       return "UpdateVariable"
-    } else if (rule.name === "chinese-thinking-variant") {
-      return "思索"
     }
     return ""
   }).filter(Boolean)

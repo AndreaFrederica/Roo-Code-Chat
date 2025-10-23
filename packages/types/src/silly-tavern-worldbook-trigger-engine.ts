@@ -64,7 +64,7 @@ export class WorldBookTriggerEngine {
     const startTime = Date.now();
 
     try {
-      const triggerEntries = entries.map(this.convertToTriggerEntry);
+      const triggerEntries = entries.map(entry => this.convertToTriggerEntry(entry));
 
       // 按优先级排序
       triggerEntries.sort((a, b) => {

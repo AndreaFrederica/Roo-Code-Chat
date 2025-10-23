@@ -12,6 +12,7 @@ import type { RoleModeOverrides } from "@roo-code/types"
 import { applyTemplateVariablesToRole } from "../template-variables"
 import { getModeBySlug, getModeSelection, type Mode } from "../../../shared/modes"
 import { isEmpty } from "../../../utils/object"
+import { PromptAssembler, type PromptSectionVariables } from "../types/prompt-sections"
 
 export interface RoleSectionOptions {
 	summaryOnly?: boolean
@@ -39,16 +40,16 @@ export interface EnhancedRoleInfo {
  */
 export class RoleGenerator {
 	/**
-	 * 生成AI角色详细信息
+	 * 生成AI角色字段变量（新版本）
 	 */
-	generateRoleSection(
+	generateRoleSectionVariables(
 		rolePromptData: RolePromptData,
 		userAvatarRole?: Role,
 		enableUserAvatar?: boolean,
 		options: RoleSectionOptions = {},
-	): string {
+	): PromptSectionVariables {
 		if (!rolePromptData || !rolePromptData.role) {
-			return ""
+			return {}
 		}
 
 		const { summaryOnly, disableTemplateReplacement } = options
@@ -59,13 +60,14 @@ export class RoleGenerator {
 			: applyTemplateVariablesToRole(rolePromptData.role, userAvatarRole, enableUserAvatar)
 
 		const { storyline, memory } = rolePromptData
-		const sections: string[] = []
+		const variables = PromptAssembler.createVariables()
 
 		// 统一处理所有角色字段，不区分来源
 		const { profile } = processedRole
 
-		// Build character overview section
+		// Build character overview section - only basic info
 		const overviewItems: string[] = [`- Name: ${processedRole.name}`, `- Type: ${processedRole.type}`]
+
 		if (processedRole.affiliation) {
 			overviewItems.push(`- Affiliation: ${processedRole.affiliation}`)
 		}
@@ -76,7 +78,7 @@ export class RoleGenerator {
 			overviewItems.push(`- Signature Color: ${processedRole.color}`)
 		}
 
-		// 优先使用顶层description，如果没有则使用profile.appearance的第一个元素（如果是数组）或字符串值
+		// Only put summary in character overview
 		let description = processedRole.description
 		if (!description && profile?.appearance) {
 			if (Array.isArray(profile.appearance)) {
@@ -89,7 +91,7 @@ export class RoleGenerator {
 			overviewItems.push(`- Summary: ${description}`)
 		}
 
-		sections.push(`### Character Overview\n${overviewItems.join("\n")}`)
+		PromptAssembler.setField(variables, 'characterOverview', `### Character Overview\n${overviewItems.join("\n")}`)
 
 		// 处理性格 - 优先使用SillyTavern的personality字段，然后是profile.personality
 		const personalityText =
@@ -100,7 +102,7 @@ export class RoleGenerator {
 			""
 
 		if (personalityText) {
-			sections.push(`### Personality\n${personalityText}`)
+			PromptAssembler.setField(variables, 'personality', `### Personality\n${personalityText}`)
 		}
 
 		// 处理背景 - 优先使用SillyTavern的background字段，然后是profile.background
@@ -112,22 +114,22 @@ export class RoleGenerator {
 			""
 
 		if (backgroundText) {
-			sections.push(`### Background\n${backgroundText}`)
+			PromptAssembler.setField(variables, 'background', `### Background\n${backgroundText}`)
 		}
 
 		// 处理外貌 - 使用profile.appearance，如果有的话
 		if (profile?.appearance && Array.isArray(profile.appearance) && profile.appearance.length > 0) {
-			sections.push(`### Appearance\n${profile.appearance.join("\n")}`)
+			PromptAssembler.setField(variables, 'appearance', `### Appearance\n${profile.appearance.join("\n")}`)
 		}
 
 		// 处理技能 - 使用profile.skills，如果有的话
 		if (profile?.skills && Array.isArray(profile.skills) && profile.skills.length > 0) {
-			sections.push(`### Skills\n${profile.skills.join("\n")}`)
+			PromptAssembler.setField(variables, 'skills', `### Skills\n${profile.skills.join("\n")}`)
 		}
 
 		// 处理爱好 - 使用profile.hobbies，如果有的话
 		if (profile?.hobbies && Array.isArray(profile.hobbies) && profile.hobbies.length > 0) {
-			sections.push(`### Hobbies\n${profile.hobbies.join("\n")}`)
+			PromptAssembler.setField(variables, 'hobbies', `### Hobbies\n${profile.hobbies.join("\n")}`)
 		}
 
 		// 处理对话示例 - 优先使用SillyTavern的mes_example字段，然后是profile.example_messages
@@ -139,7 +141,7 @@ export class RoleGenerator {
 			""
 
 		if (exampleMessagesText) {
-			sections.push(`### Example Interactions\n${exampleMessagesText}`)
+			PromptAssembler.setField(variables, 'exampleInteractions', `### Example Interactions\n${exampleMessagesText}`)
 		}
 
 		// 处理备用问候语 - 使用profile.alternate_greetings，如果有的话
@@ -148,22 +150,22 @@ export class RoleGenerator {
 			Array.isArray(profile.alternate_greetings) &&
 			profile.alternate_greetings.length > 0
 		) {
-			sections.push(`### Alternate Greetings\n${profile.alternate_greetings.join("\n")}`)
+			PromptAssembler.setField(variables, 'alternateGreetings', `### Alternate Greetings\n${profile.alternate_greetings.join("\n")}`)
 		}
 
 		// 处理scenario字段
 		if (processedRole.scenario) {
-			sections.push(`### Scenario\n${processedRole.scenario}`)
+			PromptAssembler.setField(variables, 'scenario', `### Scenario\n${processedRole.scenario}`)
 		}
 
 		// 处理first_mes字段
 		if (processedRole.first_mes) {
-			sections.push(`### First Message\n${processedRole.first_mes}`)
+			PromptAssembler.setField(variables, 'firstMessage', `### First Message\n${processedRole.first_mes}`)
 		}
 
 		// 处理creator_notes字段
 		if (processedRole.creator_notes) {
-			sections.push(`### Creator Notes\n${processedRole.creator_notes}`)
+			PromptAssembler.setField(variables, 'creatorNotes', `### Creator Notes\n${processedRole.creator_notes}`)
 		}
 
 		// 处理系统提示词 - 确保在Character Overview和First Message之后添加
@@ -172,27 +174,27 @@ export class RoleGenerator {
 			const enhancedSystemPrompt = `${processedRole.system_prompt}
 
 **重要提醒：请特别注意上面以 "### Character Overview" 和 "### First Message" 为标题的内容，这些是角色的详细信息，请根据这些内容开始角色扮演。你必须完全按照Character Overview中定义的角色特征和行为方式进行角色扮演。还有 "USER AVATAR" 这是 用户的身份信息\n### First Message 里面的内容是你的初始问候语，请根据这些内容开始角色扮演。**`
-			sections.push(`### System Instructions\n${enhancedSystemPrompt}`)
+			PromptAssembler.setField(variables, 'systemInstructions', `### System Instructions\n${enhancedSystemPrompt}`)
 		}
 
 		// 处理STProfile注入的system_settings字段
 		if (processedRole.system_settings) {
-			sections.push(`### System Settings\n${processedRole.system_settings}`)
+			PromptAssembler.setField(variables, 'systemSettings', `### System Settings\n${processedRole.system_settings}`)
 		}
 
 		// 处理STProfile注入的user_settings字段
 		if (processedRole.user_settings) {
-			sections.push(`### User Settings\n${processedRole.user_settings}`)
+			PromptAssembler.setField(variables, 'userSettings', `### User Settings\n${processedRole.user_settings}`)
 		}
 
 		// 处理STProfile注入的assistant_settings字段
 		if (processedRole.assistant_settings) {
-			sections.push(`### Assistant Settings\n${processedRole.assistant_settings}`)
+			PromptAssembler.setField(variables, 'assistantSettings', `### Assistant Settings\n${processedRole.assistant_settings}`)
 		}
 
 		// 处理历史后指令
 		if (processedRole.post_history_instructions) {
-			sections.push(`### Additional Instructions\n${processedRole.post_history_instructions}`)
+			PromptAssembler.setField(variables, 'additionalInstructions', `### Additional Instructions\n${processedRole.post_history_instructions}`)
 		}
 
 		// 处理扩展字段 (extensions)
@@ -213,7 +215,7 @@ export class RoleGenerator {
 					}
 				})
 				if (extensionItems.length > 0) {
-					sections.push(`### Extensions\n${extensionItems.join("\n")}`)
+					PromptAssembler.setField(variables, 'extensions', `### Extensions\n${extensionItems.join("\n")}`)
 				}
 			}
 		}
@@ -237,13 +239,27 @@ export class RoleGenerator {
 						const stringValues = value.filter((v): v is string => typeof v === "string")
 						if (stringValues.length > 0) {
 							const titleCase = key.charAt(0).toUpperCase() + key.slice(1)
-							sections.push(`### ${titleCase}\n${stringValues.map((v) => `- ${v}`).join("\n")}`)
+							// 使用动态字段
+							if (variables.dynamicFields && typeof variables.dynamicFields === 'object') {
+								variables.dynamicFields[key] = `### ${titleCase}\n${stringValues.map((v) => `- ${v}`).join("\n")}`
+							} else {
+								variables.dynamicFields = {
+									[key]: `### ${titleCase}\n${stringValues.map((v) => `- ${v}`).join("\n")}`
+								}
+							}
 						}
 					}
 					// 处理字符串类型的字段
 					else if (typeof value === "string" && value.trim()) {
 						const titleCase = key.charAt(0).toUpperCase() + key.slice(1)
-						sections.push(`### ${titleCase}\n${value}`)
+						// 使用动态字段
+						if (variables.dynamicFields && typeof variables.dynamicFields === 'object') {
+							variables.dynamicFields[key] = `### ${titleCase}\n${value}`
+						} else {
+							variables.dynamicFields = {
+								[key]: `### ${titleCase}\n${value}`
+							}
+						}
 					}
 				}
 			})
@@ -256,7 +272,8 @@ export class RoleGenerator {
 			}
 			const stringValues = values.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
 			if (stringValues.length > 0) {
-				sections.push(`${title}\n${stringValues.map((v) => `- ${v}`).join("\n")}`)
+				const fieldName = title.replace('### ', '').toLowerCase()
+				PromptAssembler.setField(variables, fieldName as keyof PromptSectionVariables, `${title}\n${stringValues.map((v) => `- ${v}`).join("\n")}`)
 			}
 		}
 
@@ -267,7 +284,13 @@ export class RoleGenerator {
 
 		// 处理V3新增字段
 		if (processedRole.nickname) {
-			sections.push(`### Nickname\n${processedRole.nickname}`)
+			if (variables.dynamicFields && typeof variables.dynamicFields === 'object') {
+				variables.dynamicFields.nickname = `### Nickname\n${processedRole.nickname}`
+			} else {
+				variables.dynamicFields = {
+					nickname: `### Nickname\n${processedRole.nickname}`
+				}
+			}
 		}
 
 		if (processedRole.creator_notes_multilingual) {
@@ -279,82 +302,73 @@ export class RoleGenerator {
 				}
 			})
 			if (notesSections.length > 0) {
-				sections.push(`### Creator Notes (Multilingual)\n${notesSections.join("\n\n")}`)
+				if (variables.dynamicFields && typeof variables.dynamicFields === 'object') {
+					variables.dynamicFields.creatorNotesMultilingual = `### Creator Notes (Multilingual)\n${notesSections.join("\n\n")}`
+				} else {
+					variables.dynamicFields = {
+						creatorNotesMultilingual: `### Creator Notes (Multilingual)\n${notesSections.join("\n\n")}`
+					}
+				}
 			}
 		}
 
 		if (processedRole.group_only_greetings && Array.isArray(processedRole.group_only_greetings)) {
 			const greetings = processedRole.group_only_greetings.filter((g) => typeof g === "string" && g.trim())
 			if (greetings.length > 0) {
-				sections.push(`### Group Greetings\n${greetings.join("\n")}`)
+				if (variables.dynamicFields && typeof variables.dynamicFields === 'object') {
+					variables.dynamicFields.groupGreetings = `### Group Greetings\n${greetings.join("\n")}`
+				} else {
+					variables.dynamicFields = {
+						groupGreetings: `### Group Greetings\n${greetings.join("\n")}`
+					}
+				}
 			}
 		}
 
-		// 过滤掉空的部分
-		const filteredSections = sections.filter((section) => {
-			const lines = section.split("\n").slice(1) // 跳过标题行
-			return lines.some((line) => line.trim() && !line.startsWith("###"))
-		})
-
-		if (filteredSections.length === 0) {
-			return ""
+		// 处理记忆相关字段
+		if (storyline?.arcs && storyline.arcs.length > 0) {
+			const arcs = storyline.arcs.slice(0, 3)
+			PromptAssembler.setField(variables, 'storylineHighlights', `### Storyline Highlights\n${arcs.map((arc) => `- ${arc.title}: ${arc.summary}`).join("\n")}`)
 		}
 
-		if (summaryOnly) {
-			const preferred: string[] = []
-			const usedIndices = new Set<number>()
-			const maxSummarySections = 6
-			const excludedHeadings = new Set([
-				"### Example Interactions",
-				"### Alternate Greetings",
-				"### Creator Notes",
-				"### System Instructions",
-				"### Additional Instructions",
-				"### Timeline",
-				"### World Information",
-			])
+		if (memory) {
+			if (memory.traits && memory.traits.length > 0) {
+				PromptAssembler.setField(variables, 'persistentTraits', `### Persistent Traits\n${memory.traits.map((trait) => {
+					const confidence = trait.confidence !== undefined ? ` (confidence: ${trait.confidence})` : ""
+					return `- ${trait.name}: ${trait.value}${confidence}`
+				}).join("\n")}`)
+			}
 
-			const summaryHeadings = new Set([
-				"### Character Overview",
-				"### Personality",
-				"### Background",
-				"### Appearance",
-				"### Skills",
-				"### Hobbies",
-				"### Titles",
-				"### Relationships",
-				"### Notes",
-				"### Tags",
-			])
+			if (memory.goals && memory.goals.length > 0) {
+				PromptAssembler.setField(variables, 'goals', `### Goals\n${memory.goals.map((goal) => {
+					const priority = goal.priority !== undefined ? ` (priority: ${goal.priority})` : ""
+					return `- ${goal.value}${priority}`
+				}).join("\n")}`)
+			}
 
-			// First add all summary headings
-			filteredSections.forEach((section, index) => {
-				if (preferred.length >= maxSummarySections) {
-					return
-				}
-				const heading = section.split("\n", 1)[0]?.trim()
-				if (heading && summaryHeadings.has(heading)) {
-					preferred.push(section)
-					usedIndices.add(index)
-				}
-			})
-
-			// Add remaining sections until we reach max
-			filteredSections.forEach((section, index) => {
-				if (preferred.length >= maxSummarySections || usedIndices.has(index)) {
-					return
-				}
-				const heading = section.split("\n", 1)[0]?.trim()
-				if (heading && !excludedHeadings.has(heading)) {
-					preferred.push(section)
-					usedIndices.add(index)
-				}
-			})
-
-			return preferred.join("\n\n")
+			if (memory.episodic && memory.episodic.length > 0) {
+				const recent = memory.episodic.slice(-3)
+				PromptAssembler.setField(variables, 'recentMemories', `### Recent Memories\n${recent.map((record) => {
+					const timestamp = new Date(record.timestamp).toISOString()
+					return `- [${timestamp}] ${record.content}`
+				}).join("\n")}`)
+			}
 		}
 
-		return filteredSections.join("\n\n")
+		return variables
+	}
+
+	/**
+	 * 生成AI角色详细信息（保持向后兼容）
+	 */
+	generateRoleSection(
+		rolePromptData: RolePromptData,
+		userAvatarRole?: Role,
+		enableUserAvatar?: boolean,
+		options: RoleSectionOptions = {},
+	): string {
+		const variables = this.generateRoleSectionVariables(rolePromptData, userAvatarRole, enableUserAvatar, options)
+		return PromptAssembler.assemblePrompt(variables, { summaryOnly: options.summaryOnly })
 	}
 
 	/**

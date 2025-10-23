@@ -265,7 +265,7 @@ export class PromptBuilder {
 		const effectiveDiffStrategy = diffEnabled ? diffStrategy : undefined
 		const codeIndexManager = CodeIndexManager.getInstance(context, cwd)
 
-		// 4. 构建角色相关区块
+		// 4. 构建角色相关区块（使用新的字段变量方法）
 		const roleSectionBlock = this.buildRoleSectionBlock(
 			processedRolePromptData,
 			userAvatarRole,
@@ -787,29 +787,64 @@ ${memoryContent}
 		enableUserAvatar: boolean | undefined,
 		userAvatarVisibility: UserAvatarVisibility | undefined,
 	): string {
-		const aiRoleSection = rolePromptData
-			? this.roleGenerator.generateRoleSection(rolePromptData, userAvatarRole, enableUserAvatar, {})
-			: ""
+		if (!rolePromptData) {
+			return ""
+		}
 
-		const userAvatarSectionBlock = this.roleGenerator.generateUserAvatarSection(
+		// 使用新的字段变量方法生成AI角色字段
+		const aiRoleVariables = this.roleGenerator.generateRoleSectionVariables(rolePromptData, userAvatarRole, enableUserAvatar, {})
+		
+		// 生成用户头像字段
+		const userAvatarSection = this.roleGenerator.generateUserAvatarSection(
 			enableUserAvatar,
 			userAvatarRole,
 			userAvatarVisibility ?? "full",
 		)
 
-		const sections: string[] = []
-		if (aiRoleSection) {
-			sections.push(aiRoleSection.trim())
-		}
-		if (userAvatarSectionBlock) {
-			sections.push(userAvatarSectionBlock.trim())
+		// 将用户头像信息添加到字段变量中
+		if (userAvatarSection && userAvatarSection.trim()) {
+			// 提取用户头像内容，去除 "USER AVATAR" 标题
+			const userAvatarContent = userAvatarSection
+				.replace(/USER AVATAR\s*\n/, '')
+				.replace(/以下是目前设置的用户角色信息。在对话中请将用户视为扮演以下角色：\s*\n/, '')
+				.trim()
+
+			if (userAvatarContent) {
+				// 使用 PromptAssembler 的 setField 方法设置用户头像字段
+				// 注意：这里我们直接修改字段变量对象
+				if (aiRoleVariables.dynamicFields && typeof aiRoleVariables.dynamicFields === 'object') {
+					aiRoleVariables.dynamicFields.userAvatar = userAvatarContent
+				} else {
+					aiRoleVariables.dynamicFields = {
+						userAvatar: userAvatarContent
+					}
+				}
+			}
 		}
 
-		if (sections.length === 0) {
-			return ""
+		// 使用 PromptAssembler 组装最终内容，确保 USER AVATAR 在 system settings 前面
+		const finalContent = this.roleGenerator.generateRoleSection(rolePromptData, userAvatarRole, enableUserAvatar, {})
+
+		// 如果有用户头像部分，需要重新组装以确保正确的顺序
+		if (userAvatarSection && userAvatarSection.trim()) {
+			// 使用 PromptAssembler 来确保正确的字段顺序
+			const assembledContent = this.roleGenerator.generateRoleSection(rolePromptData, userAvatarRole, enableUserAvatar, {})
+			
+			// 手动插入用户头像部分到 system settings 前面
+			const systemSettingsIndex = assembledContent.indexOf('### System Settings')
+			if (systemSettingsIndex !== -1) {
+				// 在 system settings 前面插入用户头像
+				const beforeSystemSettings = assembledContent.substring(0, systemSettingsIndex)
+				const afterSystemSettings = assembledContent.substring(systemSettingsIndex)
+				
+				// 构建用户头像部分
+				const userAvatarPart = `\n\nUSER AVATAR\n${userAvatarSection.trim()}\n\n`
+				
+				return beforeSystemSettings + userAvatarPart + afterSystemSettings
+			}
 		}
 
-		return `${sections.join("\n\n")}\n\n`
+		return finalContent
 	}
 
 	private buildRegexVariables(options: {
