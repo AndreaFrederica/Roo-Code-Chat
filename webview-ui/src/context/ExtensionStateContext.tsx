@@ -63,6 +63,8 @@ interface ExtendedExtensionState extends ExtensionState {
 	variableStateDisplayColumns?: number
 	useRefactoredSystemPrompt?: boolean
 	enableInjectSystemPromptVariables?: boolean
+	enableUIDebug?: boolean
+	uiDebugComponents?: string[]
 }
 
 export interface ExtensionStateContextType extends ExtendedExtensionState {
@@ -240,6 +242,10 @@ export interface ExtensionStateContextType extends ExtendedExtensionState {
 	enableInjectSystemPromptVariables?: boolean
 	setEnableInjectSystemPromptVariables: (value: boolean) => void
 	setUseRefactoredSystemPrompt: (value: boolean) => void
+	enableUIDebug?: boolean
+	setEnableUIDebug: (value: boolean) => void
+	uiDebugComponents?: string[]
+	setUIDebugComponents: (value: string[]) => void
 	anhExtensionsRuntime?: AnhExtensionRuntimeState[]
 	anhExtensionCapabilityRegistry?: AnhExtensionCapabilityRegistry
 	setAnhExtensionEnabled: (compositeKey: string, enabled: boolean) => void
@@ -582,6 +588,14 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update customUserAgentFull if present in state message
 					if ((newState as any).customUserAgentFull !== undefined) {
 						setState((prevState) => ({ ...prevState, customUserAgentFull: (newState as any).customUserAgentFull }))
+					}
+					// Update enableUIDebug if present in state message
+					if ((newState as any).enableUIDebug !== undefined) {
+						setState((prevState) => ({ ...prevState, enableUIDebug: (newState as any).enableUIDebug }))
+					}
+					// Update uiDebugComponents if present in state message
+					if ((newState as any).uiDebugComponents !== undefined) {
+						setState((prevState) => ({ ...prevState, uiDebugComponents: (newState as any).uiDebugComponents }))
 					}
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {
@@ -1065,6 +1079,16 @@ const contextValue: ExtensionStateContextType = {
 	customUserAgentFull: state.customUserAgentFull ?? "",
 	setCustomUserAgentFull: (value: string) => {
 		vscode.postMessage({ type: "customUserAgentFull", text: value })
+	},
+	enableUIDebug: state.enableUIDebug ?? false,
+	setEnableUIDebug: (value: boolean) => {
+		setState((prevState) => ({ ...prevState, enableUIDebug: value }))
+		vscode.postMessage({ type: "enableUIDebug", bool: value })
+	},
+	uiDebugComponents: state.uiDebugComponents ?? [],
+	setUIDebugComponents: (value: string[]) => {
+		setState((prevState) => ({ ...prevState, uiDebugComponents: value }))
+		vscode.postMessage({ type: "uiDebugComponents", array: value })
 	},
 }
 

@@ -258,6 +258,10 @@ export const globalSettingsSchema = z.object({
 
 	// System prompt enhancement settings
 	enableInjectSystemPromptVariables: z.boolean().optional(),
+	
+	// UI Debug settings
+	enableUIDebug: z.boolean().optional(),
+	uiDebugComponents: z.array(z.string()).optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>
@@ -452,6 +456,10 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 
 	// System prompt enhancement settings
 	enableInjectSystemPromptVariables: false,
+	
+	// UI Debug settings
+	enableUIDebug: false,
+	uiDebugComponents: [],
 }
 
 export const EVALS_TIMEOUT = 5 * 60 * 1_000

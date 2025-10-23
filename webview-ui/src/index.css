@@ -490,3 +490,167 @@ input[cmdk-input]:focus {
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 	transition-duration: 150ms;
 }
+
+/* Mobile/Desktop transition animations */
+.transition-layout {
+	transition-property: transform, opacity, width, height;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 300ms;
+}
+
+.transition-slide {
+	transition-property: transform;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 300ms;
+}
+
+.transition-fade {
+	transition-property: opacity;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 200ms;
+}
+
+/* Slide out to right animation */
+@keyframes slide-out-right {
+	from {
+		transform: translateX(0);
+		opacity: 1;
+	}
+	to {
+		transform: translateX(100%);
+		opacity: 0;
+	}
+}
+
+/* Slide in from left animation */
+@keyframes slide-in-left {
+	from {
+		transform: translateX(-100%);
+		opacity: 0;
+	}
+	to {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+
+/* Slide out to left animation */
+@keyframes slide-out-left {
+	from {
+		transform: translateX(0);
+		opacity: 1;
+	}
+	to {
+		transform: translateX(-100%);
+		opacity: 0;
+	}
+}
+
+/* Fade out animation */
+@keyframes fade-out {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
+}
+
+.animate-slide-out-right {
+	animation: slide-out-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-slide-in-left {
+	animation: slide-in-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-slide-out-left {
+	animation: slide-out-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-fade-out {
+	animation: fade-out 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Mobile view transition classes */
+.mobile-view-enter {
+	transform: translateX(100%);
+	opacity: 0;
+}
+
+.mobile-view-enter-active {
+	transform: translateX(0);
+	opacity: 1;
+	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-view-exit {
+	transform: translateX(0);
+	opacity: 1;
+}
+
+.mobile-view-exit-active {
+	transform: translateX(-100%);
+	opacity: 0;
+	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Desktop view transition classes */
+.desktop-view-enter {
+	transform: translateX(-100%);
+	opacity: 0;
+}
+
+.desktop-view-enter-active {
+	transform: translateX(0);
+	opacity: 1;
+	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.desktop-view-exit {
+	transform: translateX(0);
+	opacity: 1;
+}
+
+.desktop-view-exit-active {
+	transform: translateX(100%);
+	opacity: 0;
+	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Panel slide animations */
+.panel-slide-in-right {
+	transform: translateX(100%);
+	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-slide-in-right.active {
+	transform: translateX(0);
+}
+
+.panel-slide-out-right {
+	transform: translateX(0);
+	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-slide-out-right.active {
+	transform: translateX(100%);
+}
+
+.panel-slide-in-left {
+	transform: translateX(-100%);
+	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-slide-in-left.active {
+	transform: translateX(0);
+}
+
+.panel-slide-out-left {
+	transform: translateX(0);
+	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-slide-out-left.active {
+	transform: translateX(-100%);
+}

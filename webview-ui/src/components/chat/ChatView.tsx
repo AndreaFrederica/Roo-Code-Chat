@@ -1842,37 +1842,39 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 						</div>
 					)}
 					<div
-						className={` w-full flex flex-col gap-4 m-auto ${isExpanded && tasks.length > 0 ? "mt-0" : ""} px-3.5 min-[370px]:px-10 pt-5 transition-all duration-300`}>
+						className={`flex flex-col flex-1 min-h-0 gap-4 ${isExpanded && tasks.length > 0 ? "mt-0" : ""} px-3.5 min-[370px]:px-10 pt-5 transition-all duration-300`}>
 						{/* Version indicator in top-right corner - only on welcome screen */}
 						<VersionIndicator
 							onClick={() => setShowAnnouncementModal(true)}
 							className="absolute top-2 right-3 z-10"
 						/>
 						{/* TODO 这个是图标 能关或者替换 */}
-						<RooHero />
+						{!isExpanded && <RooHero />}
 						{/* TODO 这个要能关掉<RooTips /> */}
 
-						<div className="mb-2.5">
-							{cloudIsAuthenticated || taskHistory.length < 4 ? (
-								<RooTips />
-							) : (
-								<>
-									<DismissibleUpsell
-										upsellId="taskList"
-										icon={<Cloud className="size-4 mt-0.5 shrink-0" />}
-										onClick={() => openUpsell()}
-										dismissOnClick={false}
-										className="bg-vscode-editor-background p-4 !text-base">
-										<Trans
-											i18nKey="cloud:upsell.taskList"
-											components={{
-												learnMoreLink: <VSCodeLink href="#" />,
-											}}
-										/>
-									</DismissibleUpsell>
-								</>
-							)}
-						</div>
+						{!isExpanded && (
+							<div className="mb-2.5">
+								{cloudIsAuthenticated || taskHistory.length < 4 ? (
+									<RooTips />
+								) : (
+									<>
+										<DismissibleUpsell
+											upsellId="taskList"
+											icon={<Cloud className="size-4 mt-0.5 shrink-0" />}
+											onClick={() => openUpsell()}
+											dismissOnClick={false}
+											className="bg-vscode-editor-background p-4 !text-base">
+											<Trans
+												i18nKey="cloud:upsell.taskList"
+												components={{
+													learnMoreLink: <VSCodeLink href="#" />,
+												}}
+											/>
+										</DismissibleUpsell>
+									</>
+								)}
+							</div>
+						)}
 						{/* Show the task history preview if expanded and tasks exist */}
 						{taskHistory.length > 0 && isExpanded && <HistoryPreview />}
 					</div>

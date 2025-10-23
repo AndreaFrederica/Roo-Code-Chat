@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile View Test - History Preview</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: #1e1e1e;
+            color: #cccccc;
+        }
+        
+        .mobile-container {
+            width: 100%;
+            max-width: 768px;
+            height: 100vh;
+            margin: 0 auto;
+            border: 2px solid #007acc;
+            background-color: #252526;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .desktop-container {
+            width: 100%;
+            max-width: 1200px;
+            height: 100vh;
+            margin: 0 auto;
+            border: 2px solid #007acc;
+            background-color: #252526;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 动画类 */
+        .transition-layout {
+            transition-property: transform, opacity, width, height;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 300ms;
+        }
+        
+        .transition-slide {
+            transition-property: transform;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 300ms;
+        }
+        
+        .mobile-view-enter {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        
+        .mobile-view-enter-active {
+            transform: translateX(0);
+            opacity: 1;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .desktop-view-enter {
+            transform: translateX(-100%);
+            opacity: 0;
+        }
+        
+        .desktop-view-enter-active {
+            transform: translateX(0);
+            opacity: 1;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .panel-slide-in-right {
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .panel-slide-in-right.active {
+            transform: translateX(0);
+        }
+        
+        .panel-slide-out-right {
+            transform: translateX(0);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .panel-slide-out-right.active {
+            transform: translateX(100%);
+        }
+        
+        .panel-slide-in-left {
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .panel-slide-in-left.active {
+            transform: translateX(0);
+        }
+        
+        .panel-slide-out-left {
+            transform: translateX(0);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .panel-slide-out-left.active {
+            transform: translateX(-100%);
+        }
+        
+        .mobile-header {
+            background-color: #333333;
+            padding: 12px 16px;
+            border-bottom: 1px solid #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .mobile-content {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .role-list {
+            flex: 1;
+            overflow-y: auto;
+            background-color: #2d2d2d;
+        }
+        
+        .role-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-bottom: 1px solid #404040;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .role-item:hover {
+            background-color: #404040;
+        }
+        
+        .role-item.selected {
+            background-color: #094771;
+            border-left: 2px solid #007acc;
+        }
+        
+        .role-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        .role-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .role-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #ffffff;
+            margin-bottom: 2px;
+        }
+        
+        .role-info {
+            font-size: 12px;
+            color: #969696;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .debug-info {
+            background-color: #333333;
+            padding: 8px;
+            font-size: 12px;
+            color: #00ff00;
+            border-bottom: 1px solid #555;
+        }
+        
+        .task-list {
+            flex: 1;
+            overflow-y: auto;
+            background-color: #1e1e1e;
+            display: none;
+        }
+        
+        .show-tasks .role-list {
+            display: none;
+        }
+        
+        .show-tasks .task-list {
+            display: block;
+        }
+        
+        .back-button {
+            background-color: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .back-button:hover {
+            background-color: #005a9e;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // 模拟角色数据
+        const mockRoles = [
+            {
+                id: 'all',
+                name: '所有对话',
+                isAll: true,
+                tasks: [
+                    { ts: Date.now() - 1000 * 60 * 5, title: '最新任务 5' },
+                    { ts: Date.now() - 1000 * 60 * 10, title: '最新任务 4' },
+                    { ts: Date.now() - 1000 * 60 * 15, title: '最新任务 3' },
+                    { ts: Date.now() - 1000 * 60 * 20, title: '最新任务 2' },
+                    { ts: Date.now() - 1000 * 60 * 25, title: '最新任务 1' },
+                ]
+            },
+            {
+                id: 'assistant',
+                name: '助手',
+                tasks: [
+                    { ts: Date.now() - 1000 * 60 * 30, title: '助手任务 3' },
+                    { ts: Date.now() - 1000 * 60 * 60, title: '助手任务 2' },
+                    { ts: Date.now() - 1000 * 60 * 90, title: '助手任务 1' },
+                ]
+            },
+            {
+                id: 'developer',
+                name: '开发者',
+                tasks: [
+                    { ts: Date.now() - 1000 * 60 * 45, title: '开发任务 2' },
+                    { ts: Date.now() - 1000 * 60 * 120, title: '开发任务 1' },
+                ]
+            },
+            {
+                id: 'designer',
+                name: '设计师',
+                tasks: [
+                    { ts: Date.now() - 1000 * 60 * 50, title: '设计任务 1' },
+                ]
+            }
+        ];
+
+        function MobileTestApp() {
+            const [selectedRole, setSelectedRole] = useState(mockRoles[0]);
+            const [showTaskList, setShowTaskList] = useState(false);
+            const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+            const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
+            const [isTransitioning, setIsTransitioning] = useState(false);
+            const [animationClass, setAnimationClass] = useState("");
+
+            useEffect(() => {
+                const handleResize = () => {
+                    const newWidth = window.innerWidth;
+                    const newIsMobile = newWidth < 768;
+                    setWindowWidth(newWidth);
+                    
+                    // 检测视图模式变化
+                    if (newIsMobile !== isMobileView) {
+                        setIsTransitioning(true);
+                        
+                        if (newIsMobile) {
+                            // 切换到移动端
+                            setAnimationClass("mobile-view-enter");
+                            setTimeout(() => {
+                                setIsMobileView(newIsMobile);
+                                setAnimationClass("mobile-view-enter-active");
+                                setTimeout(() => {
+                                    setIsTransitioning(false);
+                                    setAnimationClass("");
+                                }, 300);
+                            }, 50);
+                        } else {
+                            // 切换到桌面端
+                            setAnimationClass("desktop-view-enter");
+                            setTimeout(() => {
+                                setIsMobileView(newIsMobile);
+                                setAnimationClass("desktop-view-enter-active");
+                                setTimeout(() => {
+                                    setIsTransitioning(false);
+                                    setAnimationClass("");
+                                }, 300);
+                            }, 50);
+                        }
+                    }
+                };
+                
+                window.addEventListener('resize', handleResize);
+                return () => window.removeEventListener('resize', handleResize);
+            }, [isMobileView]);
+
+            const handleRoleSelect = (role) => {
+                setSelectedRole(role);
+                setShowTaskList(true);
+            };
+
+            const handleBackToRoles = () => {
+                setShowTaskList(false);
+            };
+
+            const formatDate = (timestamp) => {
+                const date = new Date(timestamp);
+                return date.toLocaleDateString('zh-CN', {
+                    month: 'numeric',
+                    day: 'numeric'
+                });
+            };
+
+            return (
+                <div className={`mobile-container transition-layout ${animationClass}`}>
+                    <div className="mobile-header">
+                        <div>
+                            <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+                                {showTaskList ? selectedRole.name : '角色列表'}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#969696' }}>
+                                {showTaskList ? `${selectedRole.tasks.length} 个对话` : `${mockRoles.length} 个角色`}
+                            </div>
+                        </div>
+                        {showTaskList && (
+                            <button className="back-button" onClick={handleBackToRoles}>
+                                返回
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="debug-info">
+                        调试信息: 窗口宽度: {windowWidth}px, 
+                        当前视图: {showTaskList ? '任务列表' : '角色列表'},
+                        选中角色: {selectedRole.name},
+                        角色数量: {mockRoles.length},
+                        任务数量: {selectedRole.tasks.length}
+                    </div>
+
+                    <div className={`mobile-content ${showTaskList ? 'show-tasks' : ''}`}>
+                        <div className="role-list">
+                            {mockRoles.map((role) => (
+                                <div
+                                    key={role.id}
+                                    className={`role-item ${selectedRole.id === role.id ? 'selected' : ''}`}
+                                    onClick={() => handleRoleSelect(role)}
+                                >
+                                    <div className="role-avatar">
+                                        {role.isAll ? '📋' : role.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="role-content">
+                                        <div className="role-name">{role.name}</div>
+                                        <div className="role-info">
+                                            {role.tasks.length > 0 ? (
+                                                `${role.tasks.length} 个对话 · ${formatDate(role.tasks[0].ts)}`
+                                            ) : '暂无对话'}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="task-list">
+                            <div style={{ padding: '12px' }}>
+                                <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>
+                                    {selectedRole.name} 的对话
+                                </h3>
+                                {selectedRole.tasks.map((task, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            padding: '12px',
+                                            marginBottom: '8px',
+                                            backgroundColor: '#2d2d2d',
+                                            borderRadius: '4px',
+                                            border: '1px solid #404040'
+                                        }}
+                                    >
+                                        <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+                                            {task.title}
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: '#969696' }}>
+                                            {formatDate(task.ts)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<MobileTestApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>

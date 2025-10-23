@@ -304,6 +304,8 @@ export interface WebviewMessage {
 		| "customUserAgent"
 		| "customUserAgentMode"
 		| "customUserAgentFull"
+		| "enableUIDebug"
+		| "uiDebugComponents"
 		| "loadTsProfileContent"
 		| "loadTsProfileMixin"
 		| "saveTsProfileMixin"
@@ -340,13 +342,14 @@ export interface WebviewMessage {
 		| "updateGlobalRoleGoals"
 		| "deleteGlobalRoleMemory"
 		| "listGlobalRoleMemories"
-	| "loadGlobalRoleMemory"
-	| "saveGlobalRoleMemory"
-	| "updateGlobalSetting"
+		| "loadGlobalRoleMemory"
+		| "saveGlobalRoleMemory"
+		| "updateGlobalSetting"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
 	disabled?: boolean
+	array?: string[]
 	context?: string
 	dataUri?: string
 	askResponse?: ClineAskResponse

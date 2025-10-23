@@ -1,4 +1,5 @@
-import { memo, useCallback, useMemo, useState } from "react"
+import React, { memo, useCallback, useMemo, useState, useEffect } from "react"
+import { Virtuoso } from "react-virtuoso"
 
 import { vscode } from "@src/utils/vscode"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
@@ -23,9 +24,16 @@ const HistoryPreview = () => {
 	const { tasks } = useTaskSearch()
 	const { t } = useAppTranslation()
 	const [selectedRoleId, setSelectedRoleId] = useState<string>("all")
+	const [isMobileView, setIsMobileView] = useState(false)
+	const [showRoleList, setShowRoleList] = useState(true)
+	const [isTransitioning, setIsTransitioning] = useState(false)
+	const [animationClass, setAnimationClass] = useState<string>("")
+	const [previousViewMode, setPreviousViewMode] = useState<"mobile" | "desktop">("desktop")
 	const {
 		displayMode: persistedDisplayMode = "coding",
 		setDisplayMode: updateDisplayMode,
+		enableUIDebug = false,
+		uiDebugComponents = [],
 	} = useExtensionState()
 
 	const handleDisplayModeToggle = useCallback(() => {
@@ -96,8 +104,8 @@ const HistoryPreview = () => {
 			})
 		}
 
-		// Limit to top 4 roles for preview
-		return roles.slice(0, 4)
+		// Return all roles without limit for virtual scrolling
+		return roles
 	}, [tasks, t])
 
 	// Get current selected role
@@ -105,9 +113,77 @@ const HistoryPreview = () => {
 		return roleList.find(role => role.id === selectedRoleId) || roleList[0]
 	}, [roleList, selectedRoleId])
 
-	// Get tasks for selected role (limit to 5 for preview)
-	const previewTasks = useMemo(() => {
-		return selectedRole.tasks.slice(0, 5).sort((a, b) => (b.ts || 0) - (a.ts || 0))
+	// 监听窗口大小变化，检测是否为移动端视图
+	useEffect(() => {
+		const checkScreenSize = () => {
+			const isMobile = window.innerWidth < 512  // 调整移动端切换阈值：从768px改为1024px
+			
+			// 检测视图模式是否发生变化
+			if (isMobile !== isMobileView) {
+				// 开始动画过渡
+				setIsTransitioning(true)
+				
+				// 设置动画类
+				if (isMobile) {
+					// 从桌面端切换到移动端
+					setAnimationClass("mobile-view-enter")
+					setPreviousViewMode("desktop")
+					
+					// 延迟更新状态，确保动画播放
+					setTimeout(() => {
+						setIsMobileView(isMobile)
+						setAnimationClass("mobile-view-enter-active")
+						
+						// 在移动端自动隐藏角色列表
+						if (roleList.length > 1) {
+							setShowRoleList(false)
+						}
+						
+						// 动画完成后清理
+						setTimeout(() => {
+							setIsTransitioning(false)
+							setAnimationClass("")
+						}, 300)
+					}, 50)
+				} else {
+					// 从移动端切换到桌面端
+					setAnimationClass("desktop-view-enter")
+					setPreviousViewMode("mobile")
+					
+					// 延迟更新状态，确保动画播放
+					setTimeout(() => {
+						setIsMobileView(isMobile)
+						setAnimationClass("desktop-view-enter-active")
+						
+						// 切换到桌面端时总是显示角色列表
+						setShowRoleList(true)
+						
+						// 动画完成后清理
+						setTimeout(() => {
+							setIsTransitioning(false)
+							setAnimationClass("")
+						}, 300)
+					}, 50)
+				}
+			} else {
+				// 只是初始化，没有视图模式变化
+				setIsMobileView(isMobile)
+				if (isMobile && roleList.length > 1) {
+					setShowRoleList(false)
+				} else if (!isMobile) {
+					setShowRoleList(true)
+				}
+			}
+		}
+
+		checkScreenSize()
+		window.addEventListener('resize', checkScreenSize)
+		return () => window.removeEventListener('resize', checkScreenSize)
+	}, [roleList.length, isMobileView])
+
+	// Get tasks for selected role (sorted by time, no limit for virtual scrolling)
+	const sortedTasks = useMemo(() => {
+		return selectedRole.tasks.sort((a, b) => (b.ts || 0) - (a.ts || 0))
 	}, [selectedRole.tasks])
 
 	// Render role list item (WeChat style, compact)
@@ -157,7 +233,7 @@ const HistoryPreview = () => {
 						? 'bg-vscode-list-activeSelectionBackground border-l-2 border-blue-500'
 						: 'hover:bg-vscode-list-hoverBackground'
 				}`}
-				onClick={() => setSelectedRoleId(role.id)}>
+				onClick={() => handleRoleSelect(role.id)}>
 
 				{/* Avatar */}
 				<div className="relative flex-shrink-0">
@@ -210,34 +286,68 @@ const HistoryPreview = () => {
 		vscode.postMessage({ type: "switchTab", tab: "history" })
 	}
 
-	return (
-		<div className="flex flex-col gap-4">
-			{roleList.length > 1 ? (
-				<div className="flex gap-4">
-					{/* Left sidebar - Role list */}
-					<div className="w-48 space-y-1">
-						{roleList.map(renderRoleItem)}
-					</div>
+	const handleBackToRoleList = () => {
+		setShowRoleList(true)
+	}
 
-					{/* Right panel - Selected role's tasks */}
-					<div className="flex-1">
-						<div className="mb-3 flex items-center justify-between">
+	const handleRoleSelect = (roleId: string) => {
+		setSelectedRoleId(roleId)
+		// 在移动端，选择角色后隐藏角色列表，显示任务详情
+		if (isMobileView) {
+			setShowRoleList(false)
+		}
+	}
+
+	return (
+		<div className={`flex flex-col gap-4 h-full transition-layout ${animationClass}`}>
+			{/* 调试信息 - 使用全局设置控制 */}
+			{enableUIDebug && uiDebugComponents.includes('HistoryPreview') && (
+				<div className="text-xs text-vscode-descriptionForeground p-2 border-b border-vscode-panel-border">
+					Debug: isMobileView={isMobileView.toString()}, showRoleList={showRoleList.toString()}, roleList.length={roleList.length}, transitioning={isTransitioning.toString()}, animationClass={animationClass}
+				</div>
+			)}
+			
+			{roleList.length > 0 ? (
+				<>
+					{/* 移动端顶部导航栏 */}
+					{isMobileView && (
+						<div className="flex items-center justify-between p-3 border-b border-vscode-panel-border flex-shrink-0">
+							{!showRoleList && (
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={handleBackToRoleList}
+									className="flex items-center gap-1 text-xs px-2 py-1"
+								>
+									<span className="codicon codicon-arrow-left" />
+									返回
+								</Button>
+							)}
 							<div className="flex items-center gap-2">
-								<div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-									selectedRole.isAll
-										? 'bg-gradient-to-br from-green-500 to-blue-600 text-white'
-										: 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
-								}`}>
-									{selectedRole.isAll ? "📋" : selectedRole.name.charAt(0).toUpperCase()}
-								</div>
-								<div>
-									<h5 className="font-medium text-sm text-vscode-foreground">
-										{selectedRole.name}
-									</h5>
-									<p className="text-xs text-vscode-descriptionForeground">
-										{selectedRole.tasks.length} 个对话
-									</p>
-								</div>
+								{showRoleList && (
+									<h4 className="font-medium text-sm text-vscode-foreground">
+										{t('history:allConversations')}
+									</h4>
+								)}
+								{!showRoleList && (
+									<div className="flex items-center gap-2">
+										<div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+											selectedRole.isAll
+												? 'bg-gradient-to-br from-green-500 to-blue-600 text-white'
+												: 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
+										}`}>
+											{selectedRole.isAll ? "📋" : selectedRole.name.charAt(0).toUpperCase()}
+										</div>
+										<div>
+											<h5 className="font-medium text-sm text-vscode-foreground">
+												{selectedRole.name}
+											</h5>
+											<p className="text-xs text-vscode-descriptionForeground">
+												{selectedRole.tasks.length} 个对话
+											</p>
+										</div>
+									</div>
+								)}
 							</div>
 							<Button
 								variant="secondary"
@@ -249,41 +359,119 @@ const HistoryPreview = () => {
 								{persistedDisplayMode === 'coding' ? '编码' : '聊天'}
 							</Button>
 						</div>
+					)}
 
-						<div className="space-y-2">
-							{previewTasks.length > 0 ? (
-								previewTasks.map((task) => (
-									<TaskItem
-										key={task.id}
-										item={task}
-										variant="compact"
-										displayMode={persistedDisplayMode}
+					<div className={`flex gap-4 flex-1 min-h-0 ${isMobileView ? 'flex-col' : ''}`}>
+						{/* Left sidebar - Role list with virtual scrolling */}
+						{(!isMobileView || showRoleList) && (
+							<div className={`${isMobileView ? 'w-full' : 'w-48'} flex flex-col min-h-0 relative ${
+								isMobileView ? `transition-slide ${showRoleList ? 'panel-slide-in-right active' : 'panel-slide-out-right active'}` : ''
+							}`}>
+								{enableUIDebug && uiDebugComponents.includes('HistoryPreview') && (
+									<div className="absolute top-0 left-0 right-0 bg-red-500 text-white text-xs p-1 z-50">
+										Debug Container: {isMobileView ? 'mobile' : 'desktop'}, showRoleList: {showRoleList.toString()}, roleCount: {roleList.length}
+									</div>
+								)}
+								{isMobileView ? (
+									// 移动端使用简单的滚动容器作为后备方案
+									<div className="flex-1 overflow-y-auto" style={{ height: '300px' }}>
+										{roleList.map((role, index) => (
+											<div key={role.id}>
+												{enableUIDebug && uiDebugComponents.includes('HistoryPreview') && (
+													<div className="text-xs text-yellow-500 p-1">
+														Mobile Role {index}: {role.name} (tasks: {role.tasks.length})
+													</div>
+												)}
+												{renderRoleItem(role)}
+											</div>
+										))}
+									</div>
+								) : (
+									// 桌面端使用 Virtuoso
+									<Virtuoso
+										data={roleList}
+										itemContent={(index, role: RoleItem) => renderRoleItem(role)}
+										fixedItemHeight={60}
+										className="h-full w-full scrollbar-hide"
+										style={{ height: '100%', width: '100%' }}
+										components={{
+											Scroller: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>((props, ref) => (
+												<div {...props} ref={ref} className={`${props.className} overscroll-y-auto scrollbar-hide`} />
+											))
+										}}
 									/>
-								))
-							) : (
-								<div className="text-center py-4 text-vscode-descriptionForeground">
-									<p className="text-sm">暂无对话记录</p>
-								</div>
-							)}
+								)}
+							</div>
+						)}
 
-							{selectedRole.tasks.length > 5 && (
-								<div className="text-center py-2">
-									<button
-										onClick={handleViewAllHistory}
-										className="text-xs text-vscode-textLink-foreground hover:underline">
-										查看更多 {selectedRole.tasks.length - 5} 个对话...
-									</button>
-								</div>
-							)}
+						{/* Right panel - Selected role's tasks */}
+						{(!isMobileView || !showRoleList) && (
+							<div className={`flex-1 flex flex-col h-full ${
+								isMobileView ? `transition-slide ${!showRoleList ? 'panel-slide-in-left active' : 'panel-slide-out-left active'}` : ''
+							}`}>
+								{/* 桌面端头部 */}
+								{!isMobileView && (
+									<div className="mb-3 flex items-center justify-between flex-shrink-0">
+										<div className="flex items-center gap-2">
+											<div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+												selectedRole.isAll
+													? 'bg-gradient-to-br from-green-500 to-blue-600 text-white'
+													: 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
+											}`}>
+												{selectedRole.isAll ? "📋" : selectedRole.name.charAt(0).toUpperCase()}
+											</div>
+											<div>
+												<h5 className="font-medium text-sm text-vscode-foreground">
+													{selectedRole.name}
+												</h5>
+												<p className="text-xs text-vscode-descriptionForeground">
+													{selectedRole.tasks.length} 个对话
+												</p>
+											</div>
+										</div>
+										<Button
+											variant="secondary"
+											size="sm"
+											onClick={handleDisplayModeToggle}
+											className="flex items-center gap-1 text-xs px-2 py-1"
+										>
+											<span className={`codicon ${persistedDisplayMode === 'coding' ? 'codicon-code' : 'codicon-comment-discussion'}`} />
+											{persistedDisplayMode === 'coding' ? '编码' : '聊天'}
+										</Button>
+									</div>
+								)}
 
-							<button
-								onClick={handleViewAllHistory}
-								className="w-full text-center text-sm text-vscode-descriptionForeground hover:text-vscode-textLink-foreground transition-colors cursor-pointer py-2">
-								{t("history:viewAllHistory")}
-							</button>
-						</div>
+								<div className="flex-1 min-h-0">
+									{sortedTasks.length > 0 ? (
+										<Virtuoso
+											data={sortedTasks}
+											itemContent={(index, task: HistoryItem) => (
+												<TaskItem
+													key={task.id}
+													item={task}
+													variant="compact"
+													displayMode={persistedDisplayMode}
+												/>
+											)}
+											fixedItemHeight={80}
+											className="h-full"
+										/>
+									) : (
+										<div className="text-center py-4 text-vscode-descriptionForeground h-full flex items-center justify-center">
+											<p className="text-sm">暂无对话记录</p>
+										</div>
+									)}
+								</div>
+
+								<button
+									onClick={handleViewAllHistory}
+									className="w-full text-center text-sm text-vscode-descriptionForeground hover:text-vscode-textLink-foreground transition-colors cursor-pointer py-2 flex-shrink-0">
+									{t("history:viewAllHistory")}
+								</button>
+							</div>
+						)}
 					</div>
-				</div>
+				</>
 			) : (
 				<div className="text-center py-8 text-vscode-descriptionForeground">
 					<div className="text-4xl mb-2">💬</div>
