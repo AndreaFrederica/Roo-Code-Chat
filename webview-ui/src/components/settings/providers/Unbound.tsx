@@ -10,6 +10,7 @@ import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { VSCodeButtonLink } from "@src/components/common/VSCodeButtonLink"
 import { vscode } from "@src/utils/vscode"
 import { Button } from "@src/components/ui"
+import { createTemporaryListener } from "@/hooks/useMessageListener"
 
 import { inputEventTransform } from "../transforms"
 import { ModelPicker } from "../ModelPicker"
@@ -60,49 +61,32 @@ export const Unbound = ({
 			apiConfiguration: apiConfiguration,
 		})
 
-		const waitForStateUpdate = new Promise<void>((resolve, reject) => {
-			const timeoutId = setTimeout(() => {
-				window.removeEventListener("message", messageHandler)
-				reject(new Error("Timeout waiting for state update"))
-			}, 10000) // 10 second timeout
-
-			const messageHandler = (event: MessageEvent) => {
-				const message = event.data
-				if (message.type === "state") {
-					clearTimeout(timeoutId)
-					window.removeEventListener("message", messageHandler)
-					resolve()
-				}
-			}
-			window.addEventListener("message", messageHandler)
-		})
+		const stateListener = createTemporaryListener(["state"])
 
 		try {
-			await waitForStateUpdate
+			await stateListener.promise
 		} catch (error) {
 			console.error("Failed to save configuration:", error)
+		} finally {
+			stateListener.cleanup()
 		}
 	}, [apiConfiguration])
 
 	const requestModels = useCallback(async () => {
 		vscode.postMessage({ type: "flushRouterModels", text: "unbound" })
 
-		const modelsPromise = new Promise<void>((resolve) => {
-			const messageHandler = (event: MessageEvent) => {
-				const message = event.data
-
-				if (message.type === "routerModels") {
-					window.removeEventListener("message", messageHandler)
-					resolve()
-				}
-			}
-
-			window.addEventListener("message", messageHandler)
-		})
+		const modelsListener = createTemporaryListener(["routerModels"])
 
 		vscode.postMessage({ type: "requestRouterModels" })
 
-		await modelsPromise
+		try {
+			await modelsListener.promise
+		} catch (error) {
+			console.error("Failed to receive router models:", error)
+			throw error
+		} finally {
+			modelsListener.cleanup()
+		}
 
 		await queryClient.invalidateQueries({ queryKey: ["routerModels"] })
 

@@ -3,24 +3,43 @@ import * as http from 'http'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as url from 'url'
+import { WebSocketServer } from 'ws'
+import { WebSocketMessageHandler } from './interfaces'
+import { WebviewMessage } from '../../shared/WebviewMessage'
+
+interface WebSocketClient {
+    id: string
+    ws: any
+    connected: boolean
+    lastActivity: number
+    ip: string
+    userAgent?: string
+    origin?: string
+}
 
 export class ServerHttp {
     private server: http.Server | null = null
     private port: number
     private webSocketPort: number
+    private host: string
     private extensionUri: vscode.Uri
     private outputChannel: vscode.OutputChannel
+    private wss: WebSocketServer | null = null
+    private clients: Map<string, WebSocketClient> = new Map()
+    private messageHandler: WebSocketMessageHandler | null = null
 
     constructor(
         extensionUri: vscode.Uri,
         outputChannel: vscode.OutputChannel,
         port: number = 3002,
-        webSocketPort: number = 3001
+        webSocketPort: number = 3001,
+        host: string = 'localhost'
     ) {
         this.extensionUri = extensionUri
         this.outputChannel = outputChannel
         this.port = port
         this.webSocketPort = webSocketPort
+        this.host = host
     }
 
     async start(): Promise<void> {
@@ -32,8 +51,9 @@ export class ServerHttp {
 
             // 启动服务器
             await new Promise<void>((resolve, reject) => {
-                this.server!.listen(this.port, 'localhost', () => {
-                    this.outputChannel.appendLine(`[ServerHttp] Server started on http://localhost:${this.port}`)
+                this.server!.listen(this.port, this.host, () => {
+                    const serverUrl = this.getServerUrl()
+                    this.outputChannel.appendLine(`[ServerHttp] Server started on ${serverUrl}`)
                     resolve()
                 })
 
@@ -41,12 +61,13 @@ export class ServerHttp {
             })
 
             // 显示通知并提供打开浏览器的选项
+            const accessModeText = this.host === '0.0.0.0' ? ' (网络访问模式)' : ' (本地访问模式)'
             vscode.window.showInformationMessage(
-                `Roo Code Chat Web服务器已启动`,
+                `Roo Code Chat Web服务器已启动${accessModeText}`,
                 '打开浏览器访问'
             ).then(selection => {
                 if (selection === '打开浏览器访问') {
-                    vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${this.port}`))
+                    vscode.env.openExternal(vscode.Uri.parse(this.getServerUrl()))
                 }
             })
 
@@ -62,7 +83,8 @@ export class ServerHttp {
             const parsedUrl = url.parse(req.url || '/', true)
             const pathname = parsedUrl.pathname || '/'
 
-            this.outputChannel.appendLine(`[ServerHttp] Request: ${req.method} ${pathname}`)
+            const clientIP = this.getClientIP(req)
+            this.outputChannel.appendLine(`[ServerHttp] Request: ${req.method} ${pathname} from ${clientIP}`)
 
             // 设置CORS头（虽然同源，但为了完整性）
             res.setHeader('Access-Control-Allow-Origin', '*')
@@ -77,7 +99,10 @@ export class ServerHttp {
             }
 
             // 路由处理
-            if (pathname === '/') {
+            if (pathname === '/ws') {
+                // WebSocket升级处理
+                await this.handleWebSocketUpgrade(req, res)
+            } else if (pathname === '/') {
                 await this.serveWebClient(req, res)
             } else if (pathname.startsWith('/api/')) {
                 await this.handleApiRequest(req, res, pathname)
@@ -122,11 +147,24 @@ export class ServerHttp {
         const indexPath = path.join(this.extensionUri.fsPath, 'webview-ui', 'index.html')
         let htmlContent = ''
 
+        // CSS 链接标签
+        const cssLinks = `
+    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="preload" href="/assets/codicon.ttf" as="font" type="font/ttf" crossorigin>
+    <style>
+        @font-face {
+            font-family: 'codicon';
+            src: url('/assets/codicon.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+    </style>`
+
         const bootstrapScript = `
     <script type="module">
         const sources = [
             "/web-client-entry.js",
-            "/assets/index.js",
+            "/assets/web-client-entry.js",
             "/src/web-client-entry.tsx",
         ]
 
@@ -152,7 +190,7 @@ export class ServerHttp {
             htmlContent = await fs.promises.readFile(indexPath, 'utf-8')
             htmlContent = htmlContent.replace(
                 /<script[^>]*src="[^"]*"[^>]*><\/script>/,
-                bootstrapScript.trim(),
+                `${cssLinks.trim()}\n${bootstrapScript.trim()}`,
             )
         } else {
             // 基础HTML模板
@@ -163,16 +201,13 @@ export class ServerHttp {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
     <title>Roo Code Chat - Web Client</title>
+    ${cssLinks.trim()}
     <style>
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
         #root { height: 100vh; width: 100vw; }
-        .connection-status { position: fixed; top: 10px; right: 10px; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; z-index: 1000; }
-        .connected { background-color: #4CAF50; color: white; }
-        .disconnected { background-color: #f44336; color: white; }
     </style>
 </head>
 <body>
-    <div id="connection-status" class="connection-status disconnected">未连接</div>
     <div id="root"></div>
 ${bootstrapScript.trim()}
 </body>
@@ -194,15 +229,21 @@ ${bootstrapScript.trim()}
             const isChunk = relativePath.startsWith('chunk-') && relativePath.endsWith('.js')
             const isSourcemap = relativePath.endsWith('.map') || relativePath.endsWith('.js.map') ||
                                relativePath.endsWith('.map.json') || relativePath.endsWith('.sourcemap')
+            const isAudioFile = relativePath.endsWith('.wav') || relativePath.endsWith('.mp3') || relativePath.endsWith('.ogg')
 
-            // 特殊处理 web-client-entry.js 映射到 assets/index.js
+            // 特殊处理 web-client-entry.js 映射到 assets/web-client-entry.js
             if (relativePath === 'web-client-entry.js') {
-                relativePath = 'assets/index.js'
+                relativePath = 'assets/web-client-entry.js'
                 this.outputChannel.appendLine(`[ServerHttp] Redirected web-client-entry.js to: ${relativePath}`)
+            }
+            // 特殊处理音频文件映射到 audio 目录
+            else if (isAudioFile) {
+                relativePath = `audio/${relativePath}`
+                this.outputChannel.appendLine(`[ServerHttp] Redirected audio file to: ${relativePath}`)
             }
             // 特殊处理sourcemap文件名称转换
             else if (relativePath === 'web-client-entry.map.json' || relativePath === 'web-client-entry.sourcemap' || relativePath === 'web-client-entry.js.map') {
-                relativePath = 'assets/index.js.map'
+                relativePath = 'assets/web-client-entry.js.map'
                 this.outputChannel.appendLine(`[ServerHttp] Redirected sourcemap to: ${relativePath}`)
             } else if (specificAssets.includes(relativePath) || isChunk || isSourcemap) {
                 relativePath = `assets/${relativePath}`
@@ -380,11 +421,332 @@ document.body.innerHTML = \`
         }
     }
 
+    async startWithWebSocket(messageHandler: WebSocketMessageHandler): Promise<void> {
+        this.messageHandler = messageHandler
+        await this.start()
+    }
+
+    getServerUrl(): string {
+        const host = this.host === '0.0.0.0' ? 'localhost' : this.host
+        return `http://${host}:${this.port}`
+    }
+
+    getPort(): number {
+        return this.port
+    }
+
     isRunning(): boolean {
         return this.server !== null && this.server.listening
     }
 
-    getServerUrl(): string {
-        return `http://localhost:${this.port}`
+    getNetworkUrl(): string | null {
+        if (this.host === '0.0.0.0') {
+            // 获取本机IP地址
+            const { networkInterfaces } = require('os')
+            const nets = networkInterfaces()
+
+            for (const name of Object.keys(nets)) {
+                for (const net of nets[name] || []) {
+                    // 跳过内部地址和非IPv4地址
+                    if (net.family === 'IPv4' && !net.internal) {
+                        return `http://${net.address}:${this.port}`
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * 获取客户端IP地址
+     */
+    private getClientIP(req: http.IncomingMessage): string {
+        const remoteAddr = req.socket?.remoteAddress
+        const forwardedFor = req.headers['x-forwarded-for']
+
+        if (Array.isArray(remoteAddr)) {
+            return remoteAddr[0]
+        }
+        if (remoteAddr) {
+            return remoteAddr
+        }
+        if (Array.isArray(forwardedFor)) {
+            return forwardedFor[0]
+        }
+        if (forwardedFor) {
+            return forwardedFor
+        }
+        return 'unknown'
+    }
+
+    /**
+     * 处理WebSocket升级
+     */
+    private async handleWebSocketUpgrade(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+        try {
+            // 检查是否是WebSocket升级请求
+            const upgrade = req.headers.upgrade
+            const connection = req.headers.connection
+
+            if (upgrade === 'websocket' && connection && connection.toLowerCase().includes('upgrade')) {
+                // 执行WebSocket升级
+                this.upgradeWebSocket(req)
+                return
+            }
+
+            // 如果不是WebSocket升级请求，返回400
+            res.writeHead(400, { 'Content-Type': 'text/plain' })
+            res.end('Bad Request: WebSocket upgrade required')
+        } catch (error) {
+            this.outputChannel.appendLine(`[ServerHttp] WebSocket upgrade error: ${error}`)
+            res.writeHead(500, { 'Content-Type': 'text/plain' })
+            res.end('Internal Server Error')
+        }
+    }
+
+    /**
+     * 升级WebSocket连接
+     */
+    private upgradeWebSocket(req: http.IncomingMessage): void {
+        if (!this.server || !this.messageHandler) {
+            return
+        }
+
+        // 获取客户端信息
+        const clientIP = this.getClientIP(req)
+        const userAgent = req.headers['user-agent']
+        const origin = req.headers['origin']
+
+        // 验证连接
+        if (!this.validateWebSocketConnection(req, clientIP)) {
+            this.outputChannel.appendLine(`[ServerHttp] WebSocket connection rejected from ${clientIP}`)
+            req.socket.destroy()
+            return
+        }
+
+        // 创建WebSocket服务器（如果还没有创建）
+        if (!this.wss) {
+            this.wss = new WebSocketServer({
+                noServer: true,
+                perMessageDeflate: false
+            })
+            this.setupWebSocketHandlers()
+        }
+
+        // 执行升级
+        this.wss.handleUpgrade(req, req.socket, Buffer.alloc(0), (ws) => {
+            this.handleWebSocketConnection(ws, clientIP, userAgent, origin)
+        })
+    }
+
+    /**
+     * 验证WebSocket连接
+     */
+    private validateWebSocketConnection(req: http.IncomingMessage, clientIP: string): boolean {
+        try {
+            // 如果绑定到localhost，只允许本地连接
+            if (this.host === 'localhost' || this.host === '127.0.0.1') {
+                const isLocal = clientIP === '127.0.0.1' || clientIP === '::1' || clientIP === '::ffff:127.0.0.1'
+                if (!isLocal) {
+                    this.outputChannel.appendLine(`[ServerHttp] Rejected non-local WebSocket connection ${clientIP} in localhost mode`)
+                    return false
+                }
+            }
+
+            // 如果绑定到0.0.0.0，允许所有连接
+            if (this.host === '0.0.0.0') {
+                this.outputChannel.appendLine(`[ServerHttp] Accepting WebSocket connection from ${clientIP} (network access mode)`)
+                return true
+            }
+
+            return true
+        } catch (error) {
+            this.outputChannel.appendLine(`[ServerHttp] Error validating WebSocket connection: ${error}`)
+            return false
+        }
+    }
+
+    /**
+     * 设置WebSocket事件处理器
+     */
+    private setupWebSocketHandlers(): void {
+        if (!this.wss) return
+
+        this.wss.on('error', (error) => {
+            this.outputChannel.appendLine(`[ServerHttp] WebSocket server error: ${error}`)
+        })
+
+        // 定期清理断开的连接
+        setInterval(() => {
+            this.cleanupDisconnectedClients()
+        }, 30000) // 30秒清理一次
+    }
+
+    /**
+     * 处理WebSocket连接
+     */
+    private handleWebSocketConnection(ws: any, ip: string, userAgent?: string, origin?: string): void {
+        const clientId = this.generateClientId()
+        const client: WebSocketClient = {
+            id: clientId,
+            ws,
+            connected: true,
+            lastActivity: Date.now(),
+            ip,
+            userAgent,
+            origin
+        }
+
+        this.clients.set(clientId, client)
+        this.outputChannel.appendLine(`[ServerHttp] WebSocket client connected: ${clientId} from ${ip}${origin ? ` (${origin})` : ''}`)
+
+        // 设置客户端事件处理器
+        this.setupWebSocketClientHandlers(client)
+
+        // 发送初始状态
+        this.sendInitialState(client)
+    }
+
+    /**
+     * 设置WebSocket客户端事件处理器
+     */
+    private setupWebSocketClientHandlers(client: WebSocketClient): void {
+        client.ws.on('message', async (data: any) => {
+            try {
+                const message: WebviewMessage = JSON.parse(data.toString())
+                client.lastActivity = Date.now()
+
+                this.outputChannel.appendLine(`[ServerHttp] WebSocket message from ${client.id}: ${message.type}`)
+
+                // 处理消息
+                await this.handleWebSocketMessage(client, message)
+
+            } catch (error) {
+                this.outputChannel.appendLine(`[ServerHttp] Error handling WebSocket message: ${error}`)
+            }
+        })
+
+        client.ws.on('close', (code: number, reason: Buffer) => {
+            client.connected = false
+            const closeReason = reason ? reason.toString('utf8') : 'Unknown'
+            this.outputChannel.appendLine(`[ServerHttp] WebSocket client disconnected: ${client.id} from ${client.ip} (code: ${code}, reason: ${closeReason})`)
+        })
+
+        client.ws.on('error', (error: Error) => {
+            client.connected = false
+            this.outputChannel.appendLine(`[ServerHttp] WebSocket client error ${client.id}: ${error}`)
+        })
+    }
+
+    /**
+     * 处理WebSocket消息
+     */
+    private async handleWebSocketMessage(client: WebSocketClient, message: WebviewMessage): Promise<void> {
+        if (!this.messageHandler) return
+
+        try {
+            await this.messageHandler.handleMessage(message)
+            // 广播响应给所有连接的客户端
+            this.broadcastToWebSocketClients(message)
+        } catch (error) {
+            this.outputChannel.appendLine(`[ServerHttp] Error processing WebSocket message: ${error}`)
+            // 发送错误响应
+            this.sendWebSocketToClient(client, {
+                type: 'error',
+                text: `处理消息失败: ${error}`
+            })
+        }
+    }
+
+    /**
+     * 发送初始状态给WebSocket客户端
+     */
+    private async sendInitialState(client: WebSocketClient): Promise<void> {
+        if (this.messageHandler?.getCurrentState) {
+            try {
+                const state = await this.messageHandler.getCurrentState()
+                this.sendWebSocketToClient(client, {
+                    type: 'state',
+                    state
+                })
+            } catch (error) {
+                this.outputChannel.appendLine(`[ServerHttp] Error sending initial state: ${error}`)
+            }
+        }
+    }
+
+    /**
+     * 广播消息给所有WebSocket客户端
+     */
+    public broadcast(message: WebviewMessage): void {
+        this.broadcastToWebSocketClients(message)
+    }
+
+    /**
+     * 广播消息给所有WebSocket客户端
+     */
+    private broadcastToWebSocketClients(message: WebviewMessage): void {
+        this.clients.forEach(client => {
+            if (client.connected) {
+                this.sendWebSocketToClient(client, message)
+            }
+        })
+    }
+
+    /**
+     * 发送消息给特定WebSocket客户端
+     */
+    private sendWebSocketToClient(client: WebSocketClient, message: any): void {
+        if (client.connected && client.ws.readyState === 1) { // WebSocket.OPEN = 1
+            try {
+                client.ws.send(JSON.stringify(message))
+            } catch (error) {
+                this.outputChannel.appendLine(`[ServerHttp] Error sending to WebSocket client ${client.id}: ${error}`)
+                client.connected = false
+            }
+        }
+    }
+
+    /**
+     * 清理断开的WebSocket客户端
+     */
+    private cleanupDisconnectedClients(): void {
+        const now = Date.now()
+        this.clients.forEach((client, id) => {
+            if (!client.connected || (now - client.lastActivity > 300000)) { // 5分钟超时
+                if (client.ws.readyState === 1) { // WebSocket.OPEN = 1
+                    client.ws.close()
+                }
+                this.clients.delete(id)
+                this.outputChannel.appendLine(`[ServerHttp] Cleaned up WebSocket client: ${id}`)
+            }
+        })
+    }
+
+    /**
+     * 生成客户端ID
+     */
+    private generateClientId(): string {
+        return `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    }
+
+    /**
+     * 获取连接的WebSocket客户端数量
+     */
+    public getConnectedClientsCount(): number {
+        return Array.from(this.clients.values()).filter(client => client.connected).length
+    }
+
+    /**
+     * 获取WebSocket客户端信息
+     */
+    public getWebSocketClientInfo(): Array<{ id: string; connected: boolean; lastActivity: number; ip: string; origin?: string }> {
+        return Array.from(this.clients.values()).map(client => ({
+            id: client.id,
+            connected: client.connected,
+            lastActivity: client.lastActivity,
+            ip: client.ip,
+            origin: client.origin
+        }))
     }
 }

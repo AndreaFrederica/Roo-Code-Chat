@@ -177,6 +177,23 @@
 	/* Higher specififty than VSCode's theme and root. */
 	/* Used for baseline theme overrides, but avoid using for styling. */
 
+	html,
+	body {
+		background-color: var(--background);
+		color: var(--foreground);
+	}
+
+	/* Override standalone theme CSS leaks to ensure proper VSCode theme integration */
+	:root {
+		--background: var(--vscode-editor-background) !important;
+		--foreground: var(--vscode-editor-foreground) !important;
+	}
+
+	#root {
+		background-color: inherit;
+		color: inherit;
+	}
+
 	body {
 		--vscode-input-border: var(--border);
 	}
@@ -618,6 +635,24 @@ input[cmdk-input]:focus {
 	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Accent utility helpers */
+.ui-accent-chip {
+	background-color: color-mix(in srgb, var(--vscode-textLink-foreground, var(--foreground)) 20%, transparent);
+	color: var(--vscode-textLink-foreground, var(--foreground));
+}
+
+.ui-accent-chip:hover {
+	background-color: color-mix(in srgb, var(--vscode-textLink-foreground, var(--foreground)) 32%, transparent);
+}
+
+.ui-accent-border {
+	border-color: color-mix(in srgb, var(--vscode-textLink-foreground, var(--foreground)) 28%, transparent);
+}
+
+.ui-accent-text {
+	color: var(--vscode-textLink-foreground, var(--foreground));
+}
+
 /* Panel slide animations */
 .panel-slide-in-right {
 	transform: translateX(100%);
@@ -653,4 +688,46 @@ input[cmdk-input]:focus {
 
 .panel-slide-out-left.active {
 	transform: translateX(-100%);
+}
+
+/* Web Client Layout Styles */
+.app-container {
+	width: 100%;
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.app-container.vscode-layout {
+	/* Keep original layout for VSCode environment */
+	height: 100%;
+}
+
+.app-container.web-client-layout {
+	height: 100vh;
+}
+
+.web-client-layout .content-area {
+	flex: 1;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	position: relative;
+}
+
+/* Override ChatView's fixed positioning in web client mode */
+.web-client-layout .fixed.top-0.left-0.right-0.bottom-0 {
+	position: relative !important;
+	top: auto !important;
+	left: auto !important;
+	right: auto !important;
+	bottom: auto !important;
+	flex: 1 !important;
+}
+
+.web-client-navigation {
+	background-color: var(--vscode-editor-background);
+	border-bottom: 1px solid var(--vscode-panel-border);
+	flex-shrink: 0;
 }

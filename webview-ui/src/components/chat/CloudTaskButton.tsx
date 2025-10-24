@@ -9,6 +9,7 @@ import { useExtensionState } from "@/context/ExtensionStateContext"
 import { useCopyToClipboard } from "@/utils/clipboard"
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, StandardTooltip } from "@/components/ui"
 import { vscode } from "@/utils/vscode"
+import { getCssVariableValue } from "@/utils/theme-manager"
 
 interface CloudTaskButtonProps {
 	item?: HistoryItem
@@ -32,6 +33,9 @@ export const CloudTaskButton = ({ item, disabled = false }: CloudTaskButtonProps
 				return
 			}
 
+			const darkColor = getCssVariableValue("--vscode-foreground") || "#000000"
+			const lightColor = getCssVariableValue("--vscode-editor-background") || "#ffffff"
+
 			QRCode.toCanvas(
 				canvas,
 				cloudTaskUrl,
@@ -39,8 +43,8 @@ export const CloudTaskButton = ({ item, disabled = false }: CloudTaskButtonProps
 					width: 140,
 					margin: 0,
 					color: {
-						dark: "#000000",
-						light: "#FFFFFF",
+						dark: darkColor,
+						light: lightColor,
 					},
 				},
 				(error: Error | null | undefined) => {
@@ -106,7 +110,11 @@ export const CloudTaskButton = ({ item, disabled = false }: CloudTaskButtonProps
 						<p className="text-center md:text-left max-w-80">{t("chat:task.openInCloudIntro")}</p>
 						<div className="flex justify-center md:justify-start">
 							<div
-								className="w-[170px] h-[170px] bg-white rounded-lg border-border cursor-pointer hover:opacity-70 transition-opacity"
+								className="w-[170px] h-[170px] rounded-lg border border-border cursor-pointer hover:opacity-70 transition-opacity"
+								style={{
+									background: "var(--card)",
+									color: "var(--card-foreground)",
+								}}
 								onClick={() => vscode.postMessage({ type: "openExternal", url: cloudTaskUrl })}
 								title={t("chat:task.openInCloud")}>
 								<canvas ref={canvasRef} className="m-[15px]" />

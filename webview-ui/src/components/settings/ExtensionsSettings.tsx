@@ -172,7 +172,7 @@ export const ExtensionsSettings = ({
 						color: 'var(--vscode-descriptionForeground)',
 						marginTop: '8px'
 					}}>
-						<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+						<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 						<span>全局扩展适用于所有工作区，工作区扩展仅适用于当前工作区</span>
 					</div>
 
@@ -412,7 +412,7 @@ export const ExtensionsSettings = ({
 												<div className="flex items-center gap-2">
 													{isGlobalExtension(extension.entryPath) ? (
 														<span title="全局扩展">
-															<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+															<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 														</span>
 													) : (
 														<span title="工作区扩展">

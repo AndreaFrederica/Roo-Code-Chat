@@ -27,20 +27,26 @@ interface UpdateTodoListToolBlockProps {
 }
 
 const STATUS_OPTIONS = [
-	{ value: "", label: "Not Started", color: "var(--vscode-foreground)", border: "#bbb", bg: "transparent" },
+	{
+		value: "",
+		label: "Not Started",
+		color: "var(--foreground)",
+		border: "var(--border)",
+		bg: "transparent",
+	},
 	{
 		value: "in_progress",
 		label: "In Progress",
-		color: "var(--vscode-charts-yellow)",
-		border: "var(--vscode-charts-yellow)",
-		bg: "rgba(255, 221, 51, 0.15)",
+		color: "var(--vscode-charts-yellow, var(--vscode-warning-foreground, var(--foreground)))",
+		border: "var(--vscode-charts-yellow, var(--vscode-warning-foreground, var(--foreground)))",
+		bg: "color-mix(in srgb, var(--vscode-charts-yellow, var(--vscode-warning-foreground, var(--foreground))) 22%, transparent)",
 	},
 	{
 		value: "completed",
 		label: "Completed",
-		color: "var(--vscode-charts-green)",
-		border: "var(--vscode-charts-green)",
-		bg: "var(--vscode-charts-green)",
+		color: "var(--vscode-charts-green, var(--vscode-button-background, var(--foreground)))",
+		border: "var(--vscode-charts-green, var(--vscode-button-background, var(--foreground)))",
+		bg: "color-mix(in srgb, var(--vscode-charts-green, var(--vscode-button-background, var(--foreground))) 25%, transparent)",
 	},
 ]
 
@@ -336,7 +342,7 @@ const UpdateTodoListToolBlock: React.FC<UpdateTodoListToolBlockProps> = ({
 												style={{
 													border: "none",
 													background: "transparent",
-													color: "#f14c4c",
+													color: "var(--vscode-errorForeground, var(--foreground))",
 													cursor: "pointer",
 													fontSize: 14,
 													marginLeft: 2,
@@ -371,7 +377,7 @@ const UpdateTodoListToolBlock: React.FC<UpdateTodoListToolBlockProps> = ({
 											fontSize: 13,
 											marginRight: 6,
 											padding: "1px 3px",
-											borderBottom: "1px solid #eee",
+											borderBottom: "1px solid var(--border)",
 										}}
 									/>
 									<button
@@ -439,7 +445,8 @@ const UpdateTodoListToolBlock: React.FC<UpdateTodoListToolBlockProps> = ({
 							top: 0,
 							right: 0,
 							bottom: 0,
-							background: "rgba(0,0,0,0.15)",
+							background:
+								"color-mix(in srgb, rgba(0, 0, 0, 0.6) 45%, var(--background) 55%)",
 							zIndex: 9999,
 							display: "flex",
 							alignItems: "center",
@@ -448,24 +455,25 @@ const UpdateTodoListToolBlock: React.FC<UpdateTodoListToolBlockProps> = ({
 						onClick={cancelDelete}>
 						<div
 							style={{
-								background: "#fff",
+								background: "var(--card)",
+								color: "var(--card-foreground)",
 								borderRadius: 8,
-								boxShadow: "0 2px 16px rgba(0,0,0,0.15)",
+								boxShadow: "0 2px 16px color-mix(in srgb, rgba(0, 0, 0, 0.55) 45%, transparent)",
 								padding: "16px 20px",
 								minWidth: 200,
 								zIndex: 10000,
 							}}
 							onClick={(e) => e.stopPropagation()}>
-							<div style={{ marginBottom: 12, fontSize: 14, color: "#333" }}>
+							<div style={{ marginBottom: 12, fontSize: 14, color: "var(--foreground)" }}>
 								Are you sure you want to delete this todo item?
 							</div>
 							<div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
 								<button
 									onClick={cancelDelete}
 									style={{
-										border: "1px solid #bbb",
+										border: "1px solid var(--border)",
 										background: "transparent",
-										color: "#888",
+										color: "var(--muted-foreground)",
 										borderRadius: 4,
 										padding: "2px 10px",
 										cursor: "pointer",
@@ -476,9 +484,9 @@ const UpdateTodoListToolBlock: React.FC<UpdateTodoListToolBlockProps> = ({
 								<button
 									onClick={confirmDelete}
 									style={{
-										border: "1px solid #f14c4c",
-										background: "#f14c4c",
-										color: "#fff",
+										border: "1px solid var(--vscode-errorForeground, var(--foreground))",
+										background: "var(--vscode-errorForeground, var(--foreground))",
+										color: "var(--vscode-button-foreground, var(--foreground))",
 										borderRadius: 4,
 										padding: "2px 10px",
 										cursor: "pointer",

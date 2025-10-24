@@ -185,6 +185,13 @@ export class ClineProvider
 	private taskEventListeners: WeakMap<Task, Array<() => void>> = new WeakMap()
 	private currentWorkspacePath: string | undefined
 	private serverManager: ExtensionServerManager | null = null
+	private currentServerConfig: {
+		webSocketPort: number
+		httpPort: number
+		bindHost: string
+		enableWebSocket: boolean
+		autoStart: boolean
+	} | null = null
 
 	private recentTasksCache?: string[]
 	private activeRoleUuid?: string
@@ -384,6 +391,9 @@ export class ClineProvider
 		this.initializeWebSocketBridge().catch((error) => {
 			this.log(`Failed to initialize WebSocket bridge: ${error}`)
 		})
+
+		// 设置变更监听器
+		this.setupConfigurationChangeListener()
 	}
 
 	/**
@@ -671,9 +681,9 @@ export class ClineProvider
 			const enableWebSocketServer = config.get<boolean>('enableWebSocketServer', false)
 
 			if (enableWebSocketServer) {
-				// 获取端口配置
-				const webSocketPort = config.get<number>('webSocketServerPort', 3001)
-				const httpPort = config.get<number>('httpServerPort', 3002)
+				// 获取端口和绑定配置 - 使用同一个端口
+				const port = config.get<number>('httpServerPort', 3002)
+				const bindHost = config.get<string>('serverBindHost', 'localhost')
 
 				// 创建服务器管理器
 				this.serverManager = new ExtensionServerManager(
@@ -683,16 +693,146 @@ export class ClineProvider
 
 				// 启动服务器
 				await this.serverManager.start({
-					webSocketPort,
-					httpPort,
+					webSocketPort: port,
+					httpPort: port,
 					enableWebSocket: true,
-					autoStart: true
+					autoStart: true,
+					bindHost
 				}, this)
 
-				this.outputChannel.appendLine(`[ClineProvider] ServerManager started with WebSocket (port ${webSocketPort}) and HTTP (port ${httpPort})`)
+				this.outputChannel.appendLine(`[ClineProvider] ServerManager started with WebSocket and HTTP on port ${port}`)
 			}
 		} catch (error) {
 			this.outputChannel.appendLine(`[ClineProvider] Failed to initialize servers: ${error}`)
+		}
+	}
+
+	/**
+	 * 设置配置变更监听器
+	 */
+	private setupConfigurationChangeListener(): void {
+		// 监听配置变更
+		const configChangeListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
+			// 检查是否影响我们关心的配置
+			const relevantSettings = [
+				'anh-cline.enableWebSocketServer',
+				'anh-cline.webSocketServerPort',
+				'anh-cline.httpServerPort',
+				'anh-cline.serverBindHost'
+			]
+
+			const affectsRelevantSettings = relevantSettings.some(setting => event.affectsConfiguration(setting))
+
+			if (affectsRelevantSettings) {
+				this.outputChannel.appendLine('[ClineProvider] Configuration changed, checking if server restart is needed...')
+				await this.handleConfigurationChange()
+			}
+		})
+
+		// 将监听器添加到context.subscriptions中，确保在插件卸载时清理
+		this.context.subscriptions.push(configChangeListener)
+	}
+
+	/**
+	 * 处理配置变更
+	 */
+	private async handleConfigurationChange(): Promise<void> {
+		try {
+			const config = vscode.workspace.getConfiguration('anh-cline')
+			const enableWebSocketServer = config.get<boolean>('enableWebSocketServer', false)
+			const port = config.get<number>('httpServerPort', 3002)
+			const bindHost = config.get<string>('serverBindHost', 'localhost')
+
+			// 如果当前没有运行服务器，但配置启用了服务器
+			if (!this.serverManager && enableWebSocketServer) {
+				this.outputChannel.appendLine('[ClineProvider] WebSocket server enabled in settings, starting server...')
+				await this.startWebSocketServer()
+				return
+			}
+
+			// 如果当前运行着服务器，但配置禁用了服务器
+			if (this.serverManager && !enableWebSocketServer) {
+				this.outputChannel.appendLine('[ClineProvider] WebSocket server disabled in settings, stopping server...')
+				this.stopWebSocketServer()
+				return
+			}
+
+			// 如果服务器正在运行且配置启用，检查是否需要重启
+			if (this.serverManager && enableWebSocketServer) {
+				const serverInfo = this.serverManager.getServerInfo()
+				const currentPort = serverInfo.webSocket?.port || (serverInfo.http?.url ? parseInt(serverInfo.http.url.split(':')[2]) : null)
+
+				const portChanged = currentPort !== port
+
+				// 检查绑定主机是否改变（这里需要额外的逻辑来比较）
+				const bindHostChanged = await this.checkBindHostChanged(bindHost)
+
+				if (portChanged || bindHostChanged) {
+					this.outputChannel.appendLine(`[ClineProvider] Server configuration changed (ports: ${portChanged}, bindHost: ${bindHostChanged})`)
+
+					// 询问用户是否重启服务器
+					const restartOption = await vscode.window.showInformationMessage(
+						'服务器配置已更改，是否重启WebSocket服务器？',
+						'重启服务器',
+						'稍后重启',
+						'忽略'
+					)
+
+					switch (restartOption) {
+						case '重启服务器':
+							this.outputChannel.appendLine('[ClineProvider] User chose to restart server...')
+							await this.restartWebSocketServer()
+							break
+						case '稍后重启':
+							this.outputChannel.appendLine('[ClineProvider] User chose to restart later...')
+							// 可以在这里添加一个延迟重启的逻辑
+							break
+						case '忽略':
+							this.outputChannel.appendLine('[ClineProvider] User chose to ignore configuration change...')
+							break
+						default:
+							// 用户取消了对话框
+							break
+					}
+				}
+			}
+		} catch (error) {
+			this.outputChannel.appendLine(`[ClineProvider] Error handling configuration change: ${error}`)
+			vscode.window.showErrorMessage(`处理配置变更时出错: ${error}`)
+		}
+	}
+
+	/**
+	 * 检查绑定主机是否改变
+	 */
+	private async checkBindHostChanged(newBindHost: string): Promise<boolean> {
+		// 这里需要比较当前的绑定主机和新的绑定主机
+		// 由于我们无法直接从serverManager获取当前的bindHost，我们需要跟踪它
+		const currentBindHost = this.currentServerConfig?.bindHost || 'localhost'
+		return currentBindHost !== newBindHost
+	}
+
+	/**
+	 * 重启WebSocket服务器
+	 */
+	private async restartWebSocketServer(): Promise<void> {
+		try {
+			this.outputChannel.appendLine('[ClineProvider] Restarting WebSocket server...')
+
+			// 停止当前服务器
+			this.stopWebSocketServer()
+
+			// 等待一小段时间确保服务器完全停止
+			await new Promise(resolve => setTimeout(resolve, 1000))
+
+			// 启动新服务器
+			await this.startWebSocketServer()
+
+			this.outputChannel.appendLine('[ClineProvider] WebSocket server restarted successfully')
+			vscode.window.showInformationMessage('WebSocket服务器已重启')
+		} catch (error) {
+			this.outputChannel.appendLine(`[ClineProvider] Error restarting server: ${error}`)
+			vscode.window.showErrorMessage(`重启服务器失败: ${error}`)
 		}
 	}
 
@@ -744,8 +884,17 @@ export class ClineProvider
 	public async startWebSocketServer(): Promise<void> {
 		if (!this.serverManager) {
 			const config = vscode.workspace.getConfiguration('anh-cline')
-			const webSocketPort = config.get<number>('webSocketServerPort', 3001)
-			const httpPort = config.get<number>('httpServerPort', 3002)
+			const port = config.get<number>('httpServerPort', 3002)
+			const bindHost = config.get<string>('serverBindHost', 'localhost')
+
+			// 保存当前配置
+			this.currentServerConfig = {
+				webSocketPort: port,
+				httpPort: port,
+				bindHost,
+				enableWebSocket: true,
+				autoStart: true
+			}
 
 			this.serverManager = new ExtensionServerManager(
 				this.context.extensionUri,
@@ -753,10 +902,11 @@ export class ClineProvider
 			)
 
 			await this.serverManager.start({
-				webSocketPort,
-				httpPort,
+				webSocketPort: port,
+				httpPort: port,
 				enableWebSocket: true,
-				autoStart: true
+				autoStart: true,
+				bindHost
 			}, this)
 		}
 	}
@@ -765,6 +915,7 @@ export class ClineProvider
 		if (this.serverManager) {
 			this.serverManager.stop()
 			this.serverManager = null
+			this.currentServerConfig = null
 		}
 	}
 
@@ -1454,7 +1605,7 @@ export class ClineProvider
 			"webview-ui",
 			"build",
 			"assets",
-			"index.css",
+			"style.css",
 		])
 
 		const codiconsUri = getUri(webview, this.contextProxy.extensionUri, ["assets", "codicons", "codicon.css"])
@@ -1534,10 +1685,10 @@ export class ClineProvider
 			"webview-ui",
 			"build",
 			"assets",
-			"index.css",
+			"style.css",
 		])
 
-		const scriptUri = getUri(webview, this.contextProxy.extensionUri, ["webview-ui", "build", "assets", "index.js"])
+		const scriptUri = getUri(webview, this.contextProxy.extensionUri, ["webview-ui", "build", "assets", "main.js"])
 		const codiconsUri = getUri(webview, this.contextProxy.extensionUri, ["assets", "codicons", "codicon.css"])
 		const materialIconsUri = getUri(webview, this.contextProxy.extensionUri, [
 			"assets",
@@ -2122,6 +2273,7 @@ export class ClineProvider
 
 	async postStateToWebview() {
 		const state = await this.getStateToPostToWebview()
+		console.log("[ClineProvider.postStateToWebview] State to post:", state)
 		this.postMessageToWebview({ type: "state", state })
 
 		// Check MDM compliance and send user to account tab if not compliant

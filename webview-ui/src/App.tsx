@@ -28,6 +28,7 @@ import { TooltipProvider } from "./components/ui/tooltip"
 import { STANDARD_TOOLTIP_DELAY } from "./components/ui/standard-tooltip"
 import NotificationProvider from "./components/ui/Notification"
 import StandaloneHydrationGate from "./components/standalone/StandaloneHydrationGate"
+import WebClientNavigation from "./components/standalone/WebClientNavigation"
 
 type Tab = "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
 
@@ -275,40 +276,58 @@ const App = () => {
 		return <StandaloneHydrationGate />
 	}
 
+	// Check if running in standalone web client mode
+	const isWebClient = vscode.isStandaloneMode?.() ?? false
+
 	// Do not conditionally load ChatView, it's expensive and there's state we
 	// don't want to lose (user input, disableInput, askResponse promise, etc.)
 	return showWelcome ? (
 		<WelcomeView />
 	) : (
 		<>
-			{tab === "modes" && <ModesView onDone={() => switchTab("chat")} />}
-			{tab === "mcp" && <McpView onDone={() => switchTab("chat")} />}
-			{tab === "history" && <GroupedHistoryView onDone={() => switchTab("chat")} />}
-			{tab === "settings" && (
-				<SettingsView ref={settingsRef} onDone={() => setTab("chat")} targetSection={currentSection} />
-			)}
-			{tab === "marketplace" && (
-				<MarketplaceView
-					stateManager={marketplaceStateManager}
-					onDone={() => switchTab("chat")}
-					targetTab={currentMarketplaceTab as "mcp" | "mode" | undefined}
-				/>
-			)}
-			{tab === "cloud" && enableRooCloudServices && (
-				<CloudView
-					userInfo={cloudUserInfo}
-					isAuthenticated={cloudIsAuthenticated}
-					cloudApiUrl={cloudApiUrl}
-					organizations={cloudOrganizations}
-					onDone={() => switchTab("chat")}
-				/>
-			)}
-			<ChatView
-				ref={chatViewRef}
-				isHidden={tab !== "chat"}
-				showAnnouncement={showAnnouncement}
-				hideAnnouncement={() => setShowAnnouncement(false)}
-			/>
+			<div className={`app-container ${isWebClient ? 'web-client-layout' : 'vscode-layout'}`}>
+				{/* Show navigation in web client mode */}
+				{isWebClient && (
+					<WebClientNavigation
+						currentTab={tab}
+						onTabChange={setTab}
+						enableRooCloudServices={enableRooCloudServices}
+					/>
+				)}
+
+				<div className="content-area">
+					{tab === "modes" && <ModesView onDone={() => switchTab("chat")} />}
+					{tab === "mcp" && <McpView onDone={() => switchTab("chat")} />}
+					{tab === "history" && <GroupedHistoryView onDone={() => switchTab("chat")} />}
+					{tab === "settings" && (
+						<SettingsView ref={settingsRef} onDone={() => setTab("chat")} targetSection={currentSection} />
+					)}
+					{tab === "marketplace" && (
+						<MarketplaceView
+							stateManager={marketplaceStateManager}
+							onDone={() => switchTab("chat")}
+							targetTab={currentMarketplaceTab as "mcp" | "mode" | undefined}
+						/>
+					)}
+					{tab === "cloud" && enableRooCloudServices && (
+						<CloudView
+							userInfo={cloudUserInfo}
+							isAuthenticated={cloudIsAuthenticated}
+							cloudApiUrl={cloudApiUrl}
+							organizations={cloudOrganizations}
+							onDone={() => switchTab("chat")}
+						/>
+					)}
+					<ChatView
+						ref={chatViewRef}
+						isHidden={tab !== "chat"}
+						showAnnouncement={showAnnouncement}
+						hideAnnouncement={() => setShowAnnouncement(false)}
+					/>
+				</div>
+			</div>
+
+			{/* Dialogs - positioned as siblings to avoid layout conflicts */}
 			<MemoizedHumanRelayDialog
 				isOpen={humanRelayDialogState.isOpen}
 				requestId={humanRelayDialogState.requestId}

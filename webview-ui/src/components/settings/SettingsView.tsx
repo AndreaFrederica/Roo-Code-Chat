@@ -38,6 +38,7 @@ import {
 import type { ProviderSettings, ExperimentId, TelemetrySetting, UserAvatarVisibility } from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
+import { useMessageListener } from "@/hooks/useMessageListener"
 import { cn } from "@src/lib/utils"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { ExtensionStateContextType, useExtensionState } from "@src/context/ExtensionStateContext"
@@ -299,7 +300,11 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		useRefactoredSystemPrompt,
 	} = cachedState
 
-	const apiConfiguration = useMemo(() => cachedState.apiConfiguration ?? {}, [cachedState.apiConfiguration])
+	const apiConfiguration = useMemo(() => {
+		console.log('[SettingsView] cachedState.apiConfiguration type:', typeof cachedState.apiConfiguration)
+		console.log('[SettingsView] cachedState.apiConfiguration:', cachedState.apiConfiguration)
+		return cachedState.apiConfiguration ?? {}
+	}, [cachedState.apiConfiguration])
 
 	useEffect(() => {
 		// Update only when currentApiConfigName is changed.
@@ -848,19 +853,10 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		scrollToActiveTab()
 	}, [activeTab])
 
-	// Effect to scroll when the webview becomes visible
-	useLayoutEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
-			if (message.type === "action" && message.action === "didBecomeVisible") {
-				scrollToActiveTab()
-			}
-		}
-
-		window.addEventListener("message", handleMessage)
-
-		return () => {
-			window.removeEventListener("message", handleMessage)
+	// 使用统一的消息监听 Hook 来处理webview可见性变化
+	useMessageListener(["action"], (message: any) => {
+		if (message.type === "action" && message.action === "didBecomeVisible") {
+			scrollToActiveTab()
 		}
 	}, [scrollToActiveTab])
 

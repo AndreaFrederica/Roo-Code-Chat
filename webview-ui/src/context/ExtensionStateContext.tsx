@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react"
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 
 import {
 	type ProviderSettings,
@@ -31,6 +31,7 @@ import { RouterModels } from "@roo/api"
 
 import { vscode } from "@src/utils/vscode"
 import { convertTextMateToHljs } from "@src/utils/textMateToHljs"
+import { useMessageListener } from "@src/hooks/useMessageListener"
 
 // Add the normalizeWorkspaceContextSettings function
 const normalizeWorkspaceContextSettings = (
@@ -276,6 +277,12 @@ export interface ExtensionStateContextType extends ExtendedExtensionState {
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
 
 export const mergeExtensionState = (prevState: ExtendedExtensionState, newState: ExtensionState) => {
+		// 安全检查：如果newState为undefined，返回prevState
+		if (!newState) {
+			console.warn("[ExtensionStateContext] mergeExtensionState called with undefined newState")
+			return prevState
+		}
+
 		// 如果正在重置，只保留重置相关的状态，避免被其他状态更新覆盖
 	if (prevState._isResetting) {
 		const resetState: Partial<ExtendedExtensionState> = {}
@@ -523,10 +530,16 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 			const message = messageOrEvent
 			switch (message.type) {
 				case "state": {
-					const newState = message.state!
+					const newState = message.state
+					console.log("[ExtensionStateContext] Received state message, state data:", newState)
+					if (!newState) {
+						console.warn("[ExtensionStateContext] Received state message without state data:", message)
+						return
+					}
 					setState((prevState) => mergeExtensionState(prevState, newState))
 					setShowWelcome(!checkExistKey(newState.apiConfiguration))
 					setDidHydrateState(true)
+					console.log("[ExtensionStateContext] Setting didHydrateState to true, should hide StandaloneHydrationGate")
 					// Update alwaysAllowFollowupQuestions if present in state message
 					if ((newState as any).alwaysAllowFollowupQuestions !== undefined) {
 						setAlwaysAllowFollowupQuestions((newState as any).alwaysAllowFollowupQuestions)
@@ -722,35 +735,30 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		[setListApiConfigMeta],
 	)
 
-	const handleWindowMessage = useCallback(
-		(event: MessageEvent) => {
-			if (!event?.data || typeof event.data !== "object") {
+	const handleMessage = useCallback(
+		(message: ExtensionMessage) => {
+			if (!message || typeof message !== "object") {
 				return
 			}
-			processExtensionMessage(event.data as ExtensionMessage)
-		},
-		[processExtensionMessage],
-	)
-
-	const handleSocketMessage = useCallback(
-		(message: ExtensionMessage) => {
 			processExtensionMessage(message)
 		},
 		[processExtensionMessage],
 	)
 
-	useEffect(() => {
-		window.addEventListener("message", handleWindowMessage)
-		const cleanupSocket = vscode.onMessage("*", handleSocketMessage)
-		return () => {
-			window.removeEventListener("message", handleWindowMessage)
-			if (typeof cleanupSocket === "function") {
-				cleanupSocket()
-			} else {
-				vscode.offMessage("*", handleSocketMessage)
+	// 直接使用 VSCode 消息监听器
+	const handleStateMessage = useCallback(
+		(message: any) => {
+			if (!message || typeof message !== "object") {
+				return
 			}
-		}
-	}, [handleWindowMessage, handleSocketMessage])
+			processExtensionMessage(message)
+		},
+		[processExtensionMessage],
+	)
+
+	const stateMessageTypes = useMemo(() => ["*"], [])
+
+	useMessageListener(stateMessageTypes, handleStateMessage, [handleStateMessage])
 
 	useEffect(() => {
 		if (vscode.isConnected()) {

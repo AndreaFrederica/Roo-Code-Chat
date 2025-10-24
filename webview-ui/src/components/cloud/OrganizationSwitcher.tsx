@@ -5,6 +5,7 @@ import { type CloudUserInfo, type CloudOrganizationMembership } from "@roo-code/
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { vscode } from "@src/utils/vscode"
 import { type ExtensionMessage } from "@roo/ExtensionMessage"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 type OrganizationSwitcherProps = {
 	userInfo: CloudUserInfo
@@ -29,26 +30,22 @@ export const OrganizationSwitcher = ({
 	}, [userInfo.organizationId])
 
 	// Listen for organization switch results
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data as ExtensionMessage
-			if (message.type === "organizationSwitchResult") {
-				// Reset loading state when we receive the result
-				setIsLoading(false)
+	useMessageListener(
+		["organizationSwitchResult"],
+		(message) => {
+			// Reset loading state when we receive the result
+			setIsLoading(false)
 
-				if (message.success) {
-					// Update selected org based on the result
-					setSelectedOrgId(message.organizationId ?? null)
-				} else {
-					// Revert to the previous organization on error
-					setSelectedOrgId(userInfo.organizationId || null)
-				}
+			if (message.success) {
+				// Update selected org based on the result
+				setSelectedOrgId(message.organizationId ?? null)
+			} else {
+				// Revert to the previous organization on error
+				setSelectedOrgId(userInfo.organizationId || null)
 			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [userInfo.organizationId])
+		},
+		[userInfo.organizationId]
+	)
 
 	const handleOrganizationChange = async (value: string) => {
 		// Handle "Create Team Account" option

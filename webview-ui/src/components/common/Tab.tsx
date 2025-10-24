@@ -1,15 +1,29 @@
 import React, { HTMLAttributes, useCallback, forwardRef } from "react"
 
 import { useExtensionState } from "@/context/ExtensionStateContext"
+import { vscode } from "@src/utils/vscode"
 import { cn } from "@/lib/utils"
 
 type TabProps = HTMLAttributes<HTMLDivElement>
 
-export const Tab = ({ className, children, ...props }: TabProps) => (
-	<div className={cn("fixed inset-0 flex flex-col", className)} {...props}>
-		{children}
-	</div>
-)
+export const Tab = ({ className, children, ...props }: TabProps) => {
+	// Check if running in web client mode
+	const isWebClient = vscode.isStandaloneMode?.() ?? false
+
+	return (
+		<div
+			className={cn(
+				isWebClient
+					? "flex-1 flex flex-col w-full h-full"
+					: "fixed inset-0 flex flex-col",
+				className
+			)}
+			{...props}
+		>
+			{children}
+		</div>
+	)
+}
 
 export const TabHeader = ({ className, children, ...props }: TabProps) => (
 	<div className={cn("px-5 py-2.5 border-b border-vscode-panel-border", className)} {...props}>

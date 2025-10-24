@@ -3,7 +3,7 @@
 	"name": "Dark (Visual Studio)",
 	"colors": {
 		"checkbox.border": "#6B6B6B",
-		"editor.background": "#1E1E1E",
+		"editor.background": "#1e1e1e",
 		"editor.foreground": "#D4D4D4",
 		"editor.inactiveSelectionBackground": "#3A3D41",
 		"editorIndentGuide.background1": "#404040",

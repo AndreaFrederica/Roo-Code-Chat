@@ -342,46 +342,48 @@ const NotificationItem: React.FC<{
 	notification: Notification
 	onClose: () => void
 }> = ({ notification, onClose }) => {
-	const getIcon = () => {
-		switch (notification.type) {
+	const resolveAccentColor = (type: Notification["type"]) => {
+		switch (type) {
 			case "success":
-				return <Check className="size-5 text-green-500" />
+				return "var(--vscode-testing-foreground, var(--vscode-charts-green, var(--foreground)))"
 			case "error":
-				return <X className="size-5 text-red-500" />
+				return "var(--vscode-errorForeground, var(--foreground))"
 			case "warning":
-				return <Info className="size-5 text-yellow-500" />
+				return "var(--vscode-warning-foreground, var(--foreground))"
 			default:
-				return <Info className="size-5 text-blue-500" />
+				return "var(--vscode-textLink-foreground, var(--foreground))"
 		}
 	}
 
-	const getBgColor = () => {
-		switch (notification.type) {
-			case "success":
-				return "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
-			case "error":
-				return "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
-			case "warning":
-				return "bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800"
-			default:
-				return "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
-		}
+	const accentColor = resolveAccentColor(notification.type)
+	const icon =
+		notification.type === "success" ? (
+			<Check className="size-5" style={{ color: accentColor }} />
+		) : notification.type === "error" ? (
+			<X className="size-5" style={{ color: accentColor }} />
+		) : (
+			<Info className="size-5" style={{ color: accentColor }} />
+		)
+
+	const containerStyle: React.CSSProperties = {
+		background: `color-mix(in srgb, ${accentColor} 14%, var(--background))`,
+		borderColor: `color-mix(in srgb, ${accentColor} 28%, transparent)`,
 	}
 
 	return (
-		<div className={`
-			p-4 rounded-lg border shadow-lg backdrop-blur-sm max-h-[70vh] overflow-y-auto
-			animate-in slide-in-from-bottom-2 fade-in-0 duration-200
-			${getBgColor()}
-		`}>
+		<div
+			className="p-4 rounded-lg border shadow-lg backdrop-blur-sm max-h-[70vh] overflow-y-auto animate-in slide-in-from-bottom-2 fade-in-0 duration-200"
+			style={containerStyle}>
 			<div className="flex items-start gap-3">
-				{getIcon()}
+				{icon}
 				<div className="flex-1 min-w-0">
-					<h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+					<h4 className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
 						{notification.title}
 					</h4>
 					{notification.message && (
-						<div className="mt-1 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-line font-mono leading-relaxed overflow-x-auto">
+						<div
+							className="mt-1 text-xs whitespace-pre-line font-mono leading-relaxed overflow-x-auto"
+							style={{ color: "var(--vscode-descriptionForeground)" }}>
 							{notification.message}
 						</div>
 					)}
@@ -391,14 +393,20 @@ const NotificationItem: React.FC<{
 								<button
 									key={index}
 									onClick={action.onClick}
-									className={`
-										px-3 py-1 text-xs rounded font-medium transition-colors
-										${action.primary
-											? "bg-blue-500 text-white hover:bg-blue-600"
-											: "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
-										}
-									`}
-								>
+									style={
+										action.primary
+											? {
+													background: accentColor,
+													color: "var(--background)",
+													borderColor: `color-mix(in srgb, ${accentColor} 40%, transparent)`,
+												}
+											: {
+													background: "var(--vscode-button-secondaryBackground)",
+													color: "var(--vscode-button-secondaryForeground)",
+													borderColor: "var(--vscode-button-secondaryBorder, transparent)",
+												}
+									}
+									className="px-3 py-1 text-xs rounded font-medium transition-colors border">
 									{action.label}
 								</button>
 							))}
@@ -407,8 +415,11 @@ const NotificationItem: React.FC<{
 				</div>
 				<button
 					onClick={onClose}
-					className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-				>
+					className="rounded p-1 transition-colors"
+					style={{
+						color: "var(--vscode-descriptionForeground)",
+						background: "transparent",
+					}}>
 					<X className="size-4" />
 				</button>
 			</div>

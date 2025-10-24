@@ -191,29 +191,31 @@ const HistoryPreview = () => {
 		const isSelected = selectedRoleId === role.id
 		const latestTask = role.tasks[0]
 		const unreadCount = role.tasks.length
+		const taskWithAvatar = role.tasks.find((task) => task.anhRoleAvatar)
 
 		// Get avatar from character card V3 or fallback to text avatar
 		const getAvatarContent = () => {
 			if (role.isAll) {
 				return "📋"
 			}
-			
-			// Try to get avatar from the latest task that has role information
-			const taskWithAvatar = role.tasks.find(task => task.anhRoleAvatar)
+
 			if (taskWithAvatar?.anhRoleAvatar) {
 				return (
-					<img 
-						src={taskWithAvatar.anhRoleAvatar} 
+					<img
+						src={taskWithAvatar.anhRoleAvatar}
 						alt={role.name}
 						className="w-full h-full object-cover rounded-full"
 						onError={(e) => {
 							// Fallback to text avatar if image fails to load
 							const target = e.target as HTMLImageElement
-							target.style.display = 'none'
+							target.style.display = "none"
 							const parent = target.parentElement
 							if (parent) {
-								const fallback = document.createElement('div')
-								fallback.className = 'w-full h-full flex items-center justify-center text-sm font-medium bg-gradient-to-br from-blue-500 to-purple-600 text-white'
+								const fallback = document.createElement("div")
+								fallback.className =
+									"w-full h-full flex items-center justify-center text-sm font-medium"
+								fallback.style.background = "var(--vscode-button-background)"
+								fallback.style.color = "var(--vscode-button-foreground)"
 								fallback.textContent = role.name.charAt(0).toUpperCase()
 								parent.appendChild(fallback)
 							}
@@ -225,33 +227,48 @@ const HistoryPreview = () => {
 			return role.name.charAt(0).toUpperCase()
 		}
 
+		const roleItemStyle: React.CSSProperties = {
+			borderLeftColor: isSelected ? "var(--vscode-focusBorder)" : "transparent",
+			borderLeftWidth: "2px",
+			borderLeftStyle: "solid",
+		}
+
 		return (
 			<div
 				key={role.id}
 				className={`flex items-center gap-2 p-2 cursor-pointer transition-colors rounded ${
-					isSelected
-						? 'bg-vscode-list-activeSelectionBackground border-l-2 border-blue-500'
-						: 'hover:bg-vscode-list-hoverBackground'
+					isSelected ? "bg-vscode-list-activeSelectionBackground" : "hover:bg-vscode-list-hoverBackground"
 				}`}
+				style={roleItemStyle}
 				onClick={() => handleRoleSelect(role.id)}>
 
-				{/* Avatar */}
-				<div className="relative flex-shrink-0">
-					<div className={`w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-sm font-medium ${
-						role.isAll
-							? 'bg-gradient-to-br from-green-500 to-blue-600 text-white'
-							: role.tasks.some(task => task.anhRoleAvatar)
-								? 'bg-gray-200'
-								: 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
-					}`}>
-						{getAvatarContent()}
-					</div>
-					{unreadCount > 1 && (
-						<div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
-							{unreadCount > 9 ? '9+' : unreadCount}
-						</div>
-					)}
+		{/* Avatar */}
+		<div className="relative flex-shrink-0">
+			<div
+				className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-sm font-medium"
+				style={{
+					background: role.isAll
+						? "var(--vscode-charts-green, var(--vscode-button-background))"
+						: taskWithAvatar?.anhRoleAvatar
+							? "var(--vscode-input-background)"
+							: "var(--vscode-button-background)",
+					color: taskWithAvatar?.anhRoleAvatar
+						? "var(--vscode-foreground)"
+						: "var(--vscode-button-foreground)",
+				}}>
+				{getAvatarContent()}
+			</div>
+			{unreadCount > 1 && (
+				<div
+					className="absolute -top-1 -right-1 text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold"
+					style={{
+						background: "var(--vscode-errorForeground)",
+						color: "var(--vscode-button-foreground)",
+					}}>
+					{unreadCount > 9 ? "9+" : unreadCount}
 				</div>
+			)}
+		</div>
 
 				{/* Content */}
 				<div className="flex-1 min-w-0">
@@ -283,8 +300,18 @@ const HistoryPreview = () => {
 	}
 
 	const handleViewAllHistory = () => {
-		vscode.postMessage({ type: "switchTab", tab: "history" })
+		// 在独立浏览器模式中，用户应该直接点击顶部导航栏的历史标签
+		// 这个按钮主要在 VSCode 扩展模式中使用
+		const isWebClient = vscode.isStandaloneMode?.() ?? false
+
+		if (!isWebClient) {
+			vscode.postMessage({ type: "switchTab", tab: "history" })
+		}
+		// 在独立浏览器模式中不执行任何操作，因为用户可以使用顶栏导航
 	}
+
+	// 检查是否在独立浏览器模式
+	const isWebClient = vscode.isStandaloneMode?.() ?? false
 
 	const handleBackToRoleList = () => {
 		setShowRoleList(true)
@@ -331,13 +358,16 @@ const HistoryPreview = () => {
 								)}
 								{!showRoleList && (
 									<div className="flex items-center gap-2">
-										<div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-											selectedRole.isAll
-												? 'bg-gradient-to-br from-green-500 to-blue-600 text-white'
-												: 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
-										}`}>
-											{selectedRole.isAll ? "📋" : selectedRole.name.charAt(0).toUpperCase()}
-										</div>
+											<div
+												className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium"
+												style={{
+													background: selectedRole.isAll
+														? "var(--vscode-charts-green, var(--vscode-button-background))"
+														: "var(--vscode-button-background)",
+													color: "var(--vscode-button-foreground)",
+												}}>
+												{selectedRole.isAll ? "📋" : selectedRole.name.charAt(0).toUpperCase()}
+											</div>
 										<div>
 											<h5 className="font-medium text-sm text-vscode-foreground">
 												{selectedRole.name}
@@ -367,9 +397,15 @@ const HistoryPreview = () => {
 							<div className={`${isMobileView ? 'w-full' : 'w-48'} flex flex-col min-h-0 relative ${
 								isMobileView ? `transition-slide ${showRoleList ? 'panel-slide-in-right active' : 'panel-slide-out-right active'}` : ''
 							}`}>
-								{enableUIDebug && uiDebugComponents.includes('HistoryPreview') && (
-									<div className="absolute top-0 left-0 right-0 bg-red-500 text-white text-xs p-1 z-50">
-										Debug Container: {isMobileView ? 'mobile' : 'desktop'}, showRoleList: {showRoleList.toString()}, roleCount: {roleList.length}
+								{enableUIDebug && uiDebugComponents.includes("HistoryPreview") && (
+									<div
+										className="absolute top-0 left-0 right-0 text-xs p-1 z-50"
+										style={{
+											background: "var(--vscode-errorForeground)",
+											color: "var(--vscode-button-foreground)",
+										}}>
+										Debug Container: {isMobileView ? "mobile" : "desktop"}, showRoleList:{" "}
+										{showRoleList.toString()}, roleCount: {roleList.length}
 									</div>
 								)}
 								{isMobileView ? (
@@ -413,11 +449,14 @@ const HistoryPreview = () => {
 								{!isMobileView && (
 									<div className="mb-3 flex items-center justify-between flex-shrink-0">
 										<div className="flex items-center gap-2">
-											<div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-												selectedRole.isAll
-													? 'bg-gradient-to-br from-green-500 to-blue-600 text-white'
-													: 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
-											}`}>
+											<div
+												className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium"
+												style={{
+													background: selectedRole.isAll
+														? "var(--vscode-charts-green, var(--vscode-button-background))"
+														: "var(--vscode-button-background)",
+													color: "var(--vscode-button-foreground)",
+												}}>
 												{selectedRole.isAll ? "📋" : selectedRole.name.charAt(0).toUpperCase()}
 											</div>
 											<div>
@@ -463,11 +502,14 @@ const HistoryPreview = () => {
 									)}
 								</div>
 
-								<button
-									onClick={handleViewAllHistory}
-									className="w-full text-center text-sm text-vscode-descriptionForeground hover:text-vscode-textLink-foreground transition-colors cursor-pointer py-2 flex-shrink-0">
-									{t("history:viewAllHistory")}
-								</button>
+								{/* 在独立浏览器模式中隐藏"查看所有历史记录"按钮，因为用户可以使用顶栏导航 */}
+								{!isWebClient && (
+									<button
+										onClick={handleViewAllHistory}
+										className="w-full text-center text-sm text-vscode-descriptionForeground hover:text-vscode-textLink-foreground transition-colors cursor-pointer py-2 flex-shrink-0">
+										{t("history:viewAllHistory")}
+									</button>
+								)}
 							</div>
 						)}
 					</div>

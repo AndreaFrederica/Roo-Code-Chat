@@ -10,6 +10,7 @@ import { ExtensionMessage } from "@roo/ExtensionMessage"
 import { type Role, DEFAULT_ASSISTANT_ROLE, DEFAULT_ASSISTANT_ROLE_UUID } from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
+import { useMessageListener } from "@/hooks/useMessageListener"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import {
@@ -131,11 +132,10 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			return () => document.removeEventListener("mousedown", handleClickOutside)
 		}, [showDropdown])
 
-		// Handle enhanced prompt response and search results.
-		useEffect(() => {
-			const messageHandler = (event: MessageEvent) => {
-				const message = event.data
-
+		// 使用统一的消息监听 Hook 来处理增强提示和文件搜索结果。
+		useMessageListener(
+			["enhancedPrompt", "insertTextIntoTextarea", "commitSearchResults", "fileSearchResults"],
+			(message) => {
 				if (message.type === "enhancedPrompt") {
 					if (message.text && textAreaRef.current) {
 						try {
@@ -205,11 +205,9 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						setFileSearchResults(message.results || [])
 					}
 				}
-			}
-
-			window.addEventListener("message", messageHandler)
-			return () => window.removeEventListener("message", messageHandler)
-		}, [setInputValue, searchRequestId, inputValue])
+			},
+			[setInputValue, searchRequestId, inputValue]
+		)
 
 		const [isDraggingOver, setIsDraggingOver] = useState(false)
 		const [textAreaBaseHeight, setTextAreaBaseHeight] = useState<number | undefined>(undefined)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useContext } from "react"
+import { useState, useEffect, useMemo, useContext, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Tab, TabContent, TabHeader } from "../common/Tab"
 import { MarketplaceViewStateManager } from "./MarketplaceViewStateManager"
@@ -9,6 +9,7 @@ import { MarketplaceListView } from "./MarketplaceListView"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ExtensionStateContext } from "@/context/ExtensionStateContext"
+import { useUniversalMessageListener, useMessageListener } from "@/hooks/useMessageListener"
 
 interface MarketplaceViewProps {
 	onDone?: () => void
@@ -48,6 +49,38 @@ export function MarketplaceView({ stateManager, onDone, targetTab }: Marketplace
 		}
 	}, [targetTab, manager])
 
+	// Listen for specific webview visibility changes
+	useMessageListener(
+		["webviewVisible"],
+		(message) => {
+			if (message.visible === true) {
+				// Data will be automatically fresh when panel becomes visible
+				// No manual fetching needed since we removed caching
+			}
+		},
+		[manager, hasReceivedInitialState, state.allItems.length]
+	)
+
+	// Universal message listener for all marketplace-related messages
+	const handleMarketplaceMessage = useCallback((message: any) => {
+		if (message) {
+			manager.handleMessage(message)
+		}
+	}, [manager])
+
+	useUniversalMessageListener(handleMarketplaceMessage, {
+		filterInvalid: true,
+		messageFilter: (message) => {
+			// Filter messages that are relevant to marketplace
+			// This prevents unnecessary processing of unrelated messages
+			return message.type === "state" ||
+				message.type === "marketplaceData" ||
+				message.type === "marketplaceButtonClicked" ||
+				message.type === "marketplaceInstallResult" ||
+				message.type === "marketplaceRemoveResult"
+		}
+	})
+
 	// Ensure marketplace state manager processes messages when component mounts
 	useEffect(() => {
 		// When the marketplace view first mounts, we need to trigger a state update
@@ -71,17 +104,7 @@ export function MarketplaceView({ stateManager, onDone, targetTab }: Marketplace
 			}
 		})
 
-		const handleVisibilityMessage = (event: MessageEvent) => {
-			const message = event.data
-			if (message.type === "webviewVisible" && message.visible === true) {
-				// Data will be automatically fresh when panel becomes visible
-				// No manual fetching needed since we removed caching
-			}
-		}
-
-		window.addEventListener("message", handleVisibilityMessage)
 		return () => {
-			window.removeEventListener("message", handleVisibilityMessage)
 			unsubscribe()
 		}
 	}, [manager, hasReceivedInitialState, state.allItems.length])

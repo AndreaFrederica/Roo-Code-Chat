@@ -160,7 +160,7 @@ export const StyledPre = styled.div<{
 	}
 
 	.hljs {
-		color: var(--vscode-editor-foreground, #fff);
+		color: var(--vscode-editor-foreground, var(--foreground));
 		background-color: ${CODE_BLOCK_BG_COLOR};
 	}
 `

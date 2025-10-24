@@ -148,7 +148,7 @@ export const WorldBookList: React.FC<WorldBookListProps> = ({
                   <div className="worldbook-info">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                       {worldBook.scope === 'global' ? (
-                        <Globe className="w-4 h-4 text-blue-400" />
+                        <Globe className="w-4 h-4 ui-accent-text" />
                       ) : (
                         <Folder className="w-4 h-4 text-green-400" />
                       )}

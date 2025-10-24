@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Client Navigation Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 6px;
+        }
+
+        .test-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #569cd6;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background-color: #4caf50;
+            color: white;
+        }
+
+        .status.info {
+            background-color: #2196f3;
+            color: white;
+        }
+
+        .status.warning {
+            background-color: #ff9800;
+            color: white;
+        }
+
+        code {
+            background-color: #1e1e1e;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #3e3e42;
+        }
+
+        .feature-list li:before {
+            content: "✅ ";
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-section">
+            <div class="test-title">🌐 网页端导航系统测试</div>
+            <div class="status success">✅ 构建成功 - 布局问题已修复</div>
+            <p>已成功实现网页端导航功能，解决了页面无法切换和导航栏遮挡内容的问题。</p>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🔧 已实现的功能</div>
+            <ul class="feature-list">
+                <li><strong>网页端环境检测</strong>: 自动识别运行在独立浏览器环境</li>
+                <li><strong>独立导航栏</strong>: 为网页端添加了专用的导航组件</li>
+                <li><strong>页面切换</strong>: 支持在聊天、设置、MCP商店、历史记录等页面间切换</li>
+                <li><strong>响应式设计</strong>: 导航栏适配不同屏幕尺寸</li>
+                <li><strong>连接状态指示</strong>: 显示WebSocket连接状态</li>
+                <li><strong>主题适配</strong>: 使用VSCode主题变量保持视觉一致性</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">📁 创建的文件</div>
+            <ul class="feature-list">
+                <li><code>WebClientNavigation.tsx</code> - 网页端导航组件</li>
+                <li><code>web-client-navigation.css</code> - 导航组件样式</li>
+                <li><code>web-client-test.html</code> - 测试页面（本文件）</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🔄 修改的文件</div>
+            <ul class="feature-list">
+                <li><code>App.tsx</code> - 添加网页端导航检测和渲染</li>
+                <li><code>web-client-entry.tsx</code> - 网页端入口文件（已存在）</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">💡 解决方案说明</div>
+            <p><strong>问题原因:</strong> 网页端缺少导航栏，用户无法切换到聊天页面以外的其他页面。同时导航栏布局存在遮挡问题。</p>
+            <br>
+            <p><strong>解决方案:</strong></p>
+            <ol>
+                <li>创建 <code>WebClientNavigation</code> 组件提供网页端专用导航</li>
+                <li>在 <code>App.tsx</code> 中检测网页端环境并添加合适的布局结构</li>
+                <li>使用flexbox布局避免导航栏遮挡页面内容</li>
+                <li>导航栏直接控制App组件的tab状态，实现页面切换</li>
+                <li>覆盖ChatView的固定定位以适应新的布局结构</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🚀 如何使用</div>
+            <p>网页端用户现在可以：</p>
+            <ul class="feature-list">
+                <li>点击导航栏中的图标切换页面</li>
+                <li>访问设置页面配置应用</li>
+                <li>浏览MCP商店安装扩展</li>
+                <li>查看聊天历史记录</li>
+                <li>配置AI模式和提示词</li>
+                <li>访问云端功能（如果启用）</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">📱 响应式设计</div>
+            <p>导航栏在移动设备上会自动调整：</p>
+            <ul class="feature-list">
+                <li>小屏幕隐藏文字标签，只显示图标</li>
+                <li>按钮尺寸优化，适合触摸操作</li>
+                <li>导航栏居中显示，提升用户体验</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🔧 布局问题修复</div>
+            <p><strong>原问题:</strong> 导航栏使用固定定位遮挡了页面内容</p>
+            <p><strong>修复方案:</strong></p>
+            <ul class="feature-list">
+                <li>使用flexbox布局替代固定定位</li>
+                <li>导航栏作为固定高度的容器，不再遮挡内容</li>
+                <li>内容区域使用 <code>flex: 1</code> 自动填充剩余空间</li>
+                <li>覆盖ChatView的固定定位以适应新布局</li>
+                <li>Dialog组件作为兄弟元素避免布局冲突</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🎯 Tab组件兼容性修复</div>
+            <p><strong>问题发现:</strong> 设置、MCP、商店、模式页面都使用了Tab组件，而Tab组件使用<code>fixed inset-0</code>强制占据整个屏幕</p>
+            <p><strong>解决方案:</strong></p>
+            <ul class="feature-list">
+                <li>修改Tab组件检测网页端环境</li>
+                <li>网页端模式下使用<code>flex-1 flex flex-col w-full h-full</code>替代固定定位</li>
+                <li>VSCode环境下保持原有的<code>fixed inset-0</code>布局</li>
+                <li>确保所有使用Tab组件的页面都能正常显示</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">✅ 修复验证</div>
+            <p><strong>已验证的页面:</strong></p>
+            <ul class="feature-list">
+                <li>✅ 聊天页面 - 正常显示，无遮挡</li>
+                <li>✅ 设置页面 - Tab布局正常，内容不被遮挡</li>
+                <li>✅ MCP页面 - Tab布局正常，功能完整</li>
+                <li>✅ 商店页面 - Tab布局正常，浏览体验良好</li>
+                <li>✅ 模式页面 - Tab布局正常，配置功能正常</li>
+                <li>✅ 历史页面 - 显示正常</li>
+                <li>✅ 云端页面 - 显示正常（如果启用）</li>
+            </ul>
+            <p><strong>布局特性:</strong></p>
+            <ul class="feature-list">
+                <li>导航栏固定在顶部，不滚动</li>
+                <li>页面内容可正常滚动</li>
+                <li>所有页面都能完整显示，无截断</li>
+                <li>响应式设计在移动端正常工作</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

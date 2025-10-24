@@ -8,42 +8,55 @@ export interface WebSocketClient {
     ws: WebSocket
     connected: boolean
     lastActivity: number
+    ip: string
+    userAgent?: string
+    origin?: string
 }
 
 export class ServerWebSocket {
     private wss: WebSocketServer | null = null
     private clients: Map<string, WebSocketClient> = new Map()
     private port: number
+    private host: string
     private messageHandler: WebSocketMessageHandler
     private outputChannel: vscode.OutputChannel
 
     constructor(
         messageHandler: WebSocketMessageHandler,
         outputChannel: vscode.OutputChannel,
-        port: number = 3001
+        port: number = 3001,
+        host: string = 'localhost'
     ) {
         this.messageHandler = messageHandler
         this.outputChannel = outputChannel
         this.port = port
+        this.host = host
     }
 
     async start(): Promise<void> {
         try {
             this.wss = new WebSocketServer({
                 port: this.port,
-                perMessageDeflate: false
+                host: this.host,
+                perMessageDeflate: false,
+                verifyClient: (info: { origin: string; secure: boolean; req: any }) => {
+                    return this.verifyClientConnection(info)
+                }
             })
 
             this.setupServerHandlers()
-            this.outputChannel.appendLine(`[ServerWebSocket] Server started on port ${this.port}`)
+
+            const accessModeText = this.host === '0.0.0.0' ? ' (网络访问模式)' : ' (本地访问模式)'
+            this.outputChannel.appendLine(`[ServerWebSocket] Server started on ${this.host}:${this.port}${accessModeText}`)
 
             // 显示通知
             vscode.window.showInformationMessage(
-                `Roo Code Chat WebSocket服务器已启动，端口: ${this.port}`,
+                `Roo Code Chat WebSocket服务器已启动，端口: ${this.port}${accessModeText}`,
                 '打开浏览器'
             ).then(selection => {
                 if (selection === '打开浏览器') {
-                    vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${this.port + 1}`))
+                    // 打开HTTP服务器而不是WebSocket服务器
+                    vscode.env.openExternal(vscode.Uri.parse(`http://${this.host === '0.0.0.0' ? 'localhost' : this.host}:${this.port + 1}`))
                 }
             })
 
@@ -57,16 +70,29 @@ export class ServerWebSocket {
         if (!this.wss) return
 
         this.wss.on('connection', (ws: WebSocket, req) => {
+            // 获取客户端信息
+            const clientInfo = this.extractClientInfo(req)
+
+            // 验证连接（可选的Origin验证等）
+            if (!this.validateConnection(ws)) {
+                this.outputChannel.appendLine(`[ServerWebSocket] Connection rejected from ${clientInfo.ip}`)
+                ws.close(1008, 'Connection not allowed')
+                return
+            }
+
             const clientId = this.generateClientId()
             const client: WebSocketClient = {
                 id: clientId,
                 ws,
                 connected: true,
-                lastActivity: Date.now()
+                lastActivity: Date.now(),
+                ip: clientInfo.ip,
+                userAgent: clientInfo.userAgent,
+                origin: clientInfo.origin
             }
 
             this.clients.set(clientId, client)
-            this.outputChannel.appendLine(`[ServerWebSocket] Client connected: ${clientId}`)
+            this.outputChannel.appendLine(`[ServerWebSocket] Client connected: ${clientId} from ${clientInfo.ip}${clientInfo.origin ? ` (${clientInfo.origin})` : ''}`)
 
             // 发送初始状态
             this.sendInitialState(client)
@@ -101,14 +127,15 @@ export class ServerWebSocket {
             }
         })
 
-        client.ws.on('close', () => {
+        client.ws.on('close', (code, reason) => {
             client.connected = false
-            this.outputChannel.appendLine(`[ServerWebSocket] Client disconnected: ${client.id}`)
+            const closeReason = reason ? reason.toString('utf8') : 'Unknown'
+            this.outputChannel.appendLine(`[ServerWebSocket] Client disconnected: ${client.id} from ${client.ip} (code: ${code}, reason: ${closeReason})`)
         })
 
         client.ws.on('error', (error) => {
             client.connected = false
-            this.outputChannel.appendLine(`[ServerWebSocket] Client error ${client.id}: ${error}`)
+            this.outputChannel.appendLine(`[ServerWebSocket] Client error ${client.id} from ${client.ip}: ${error}`)
         })
     }
 
@@ -213,11 +240,88 @@ export class ServerWebSocket {
         return this.port
     }
 
-    getClientInfo(): Array<{ id: string; connected: boolean; lastActivity: number }> {
+    getClientInfo(): Array<{ id: string; connected: boolean; lastActivity: number; ip: string; origin?: string }> {
         return Array.from(this.clients.values()).map(client => ({
             id: client.id,
             connected: client.connected,
-            lastActivity: client.lastActivity
+            lastActivity: client.lastActivity,
+            ip: client.ip,
+            origin: client.origin
         }))
+    }
+
+    /**
+     * 验证客户端连接
+     */
+    private verifyClientConnection(info: { origin: string; secure: boolean; req: any }): boolean {
+        try {
+            const { origin, req } = info
+
+            // 获取客户端IP
+            const clientIP = req.socket?.remoteAddress || req.headers['x-forwarded-for'] || 'unknown'
+
+            this.outputChannel.appendLine(`[ServerWebSocket] Connection attempt from ${clientIP}, origin: ${origin || 'none'}`)
+
+            // 如果绑定到localhost，只允许本地连接
+            if (this.host === 'localhost' || this.host === '127.0.0.1') {
+                const isLocal = clientIP === '127.0.0.1' || clientIP === '::1' || clientIP === '::ffff:127.0.0.1'
+                if (!isLocal) {
+                    this.outputChannel.appendLine(`[ServerWebSocket] Rejected non-local connection ${clientIP} in localhost mode`)
+                    return false
+                }
+            }
+
+            // 如果绑定到0.0.0.0，允许所有连接
+            if (this.host === '0.0.0.0') {
+                this.outputChannel.appendLine(`[ServerWebSocket] Accepting external connection from ${clientIP} (network access mode)`)
+                return true
+            }
+
+            this.outputChannel.appendLine(`[ServerWebSocket] Connection approved for ${clientIP}`)
+            return true
+
+        } catch (error) {
+            this.outputChannel.appendLine(`[ServerWebSocket] Error verifying client connection: ${error}`)
+            return false
+        }
+    }
+
+    /**
+     * 提取客户端信息
+     */
+    private extractClientInfo(req: any): { ip: string; userAgent?: string; origin?: string } {
+        const ip = req.socket?.remoteAddress ||
+                  req.headers['x-forwarded-for'] ||
+                  req.headers['x-real-ip'] ||
+                  'unknown'
+
+        const userAgent = req.headers['user-agent']
+        const origin = req.headers['origin']
+
+        return {
+            ip: Array.isArray(ip) ? ip[0] : ip,
+            userAgent,
+            origin
+        }
+    }
+
+    /**
+     * 验证连接（额外的连接验证）
+     */
+    private validateConnection(ws: WebSocket): boolean {
+        try {
+            // 可以在这里添加额外的连接验证逻辑
+            // 例如检查认证头、速率限制等
+
+            // 基本验证：检查连接状态
+            if (ws.readyState !== WebSocket.CONNECTING) {
+                return false
+            }
+
+            return true
+        } catch (error) {
+            this.outputChannel.appendLine(`[ServerWebSocket] Error validating connection: ${error}`)
+            return false
+        }
     }
 }

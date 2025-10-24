@@ -1,0 +1,309 @@
+.web-client-navigation {
+  background-color: var(--vscode-editor-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+  min-height: 60px;
+  position: relative;
+  z-index: 10;
+}
+
+.web-client-navigation nav {
+  /* 扁平化设计：移除阴影，使用更细的边框 */
+  box-shadow: none;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  position: relative;
+  z-index: 15;
+  min-height: inherit;
+}
+
+.web-client-navigation button {
+  transition: all 0.2s ease-in-out;
+  border-radius: 6px;
+  min-width: 40px;
+  min-height: 40px;
+  /* 扁平化设计：减少内边距和字体大小 */
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.web-client-navigation button:hover {
+  /* 扁平化设计：移除向上移动效果，只保留颜色变化 */
+  transform: none;
+  background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.web-client-navigation button.active {
+  font-weight: 500;
+  /* 扁平化设计：移除阴影，使用更简洁的背景 */
+  background-color: var(--vscode-tab-activeBackground);
+  color: var(--vscode-tab-activeForeground);
+  transform: none;
+  box-shadow: none;
+}
+
+/* 右侧操作按钮样式 */
+.web-client-navigation .action-buttons button {
+  min-width: auto;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--vscode-button-border);
+}
+
+.web-client-navigation .action-buttons button:hover {
+  transform: scale(1.02);
+}
+
+.web-client-navigation .action-buttons button:active {
+  transform: scale(0.98);
+}
+
+/* 连接状态指示器样式 */
+.web-client-navigation .action-buttons .connection-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+.web-client-navigation .action-buttons .connection-indicator svg {
+  transition: all 0.2s ease-in-out;
+}
+
+.web-client-navigation .action-buttons .connection-indicator .text-green-500 {
+  color: var(--vscode-charts-green, var(--vscode-testing-iconPassed));
+}
+
+.web-client-navigation .action-buttons .connection-indicator .text-yellow-500 {
+  color: var(--vscode-charts-orange, var(--vscode-input-placeholderForeground));
+}
+
+.web-client-navigation .action-buttons .connection-indicator .animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.connection-status.connected {
+  background-color: var(--vscode-testing-iconPassed);
+  color: var(--vscode-button-foreground);
+}
+
+.connection-status.disconnected {
+  background-color: var(--vscode-testing-iconFailed);
+  color: var(--vscode-button-foreground);
+}
+
+.connection-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  animation: pulse 2s infinite;
+}
+
+.connection-status.connected::before {
+  background-color: #4CAF50;
+}
+
+.connection-status.disconnected::before {
+  background-color: #F44336;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 640px) {
+  .web-client-navigation {
+    min-height: 56px;
+  }
+
+  .web-client-navigation nav {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .web-client-navigation button span:not(.text-lg) {
+    display: none;
+  }
+
+  .web-client-navigation button {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px;
+    font-size: 11px;
+  }
+
+  /* 右侧按钮在小屏幕上的样式 */
+  .web-client-navigation .action-buttons {
+    gap: 4px;
+  }
+
+  .web-client-navigation .action-buttons button {
+    min-width: auto;
+    min-height: 32px;
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+}
+
+/* 移动端专用样式（480px以下） */
+@media (max-width: 480px) {
+  .web-client-navigation.mobile-nav .transform.rotate-90 {
+    transform: rotate(90deg);
+  }
+  .web-client-navigation.mobile-nav nav {
+    padding: 4px 8px;
+    gap: 2px;
+  }
+
+  .web-client-navigation.mobile-nav .flex-1 {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .web-client-navigation.mobile-nav button {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  .web-client-navigation.mobile-nav button span.hidden.xs\:inline {
+    display: none;
+  }
+
+  .web-client-navigation.mobile-nav button span.hidden.xs\:inline.sm\:inline {
+    display: inline;
+  }
+
+  /* 移动端菜单覆盖层 */
+  .mobile-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 0;
+  }
+
+  .mobile-menu {
+    position: fixed;
+    top: 56px; /* 导航栏高度 */
+    right: 8px;
+    background-color: var(--vscode-dropdown-background);
+    border: 1px solid var(--vscode-dropdown-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 180px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 72px);
+    overflow-y: auto;
+    z-index: 1001;
+  }
+
+  .mobile-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--vscode-dropdown-border);
+    font-weight: 500;
+    color: var(--vscode-dropdown-foreground);
+  }
+
+  .mobile-menu-close {
+    background: none;
+    border: none;
+    color: var(--vscode-dropdown-foreground);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+  }
+
+  .mobile-menu-close:hover {
+    background-color: var(--vscode-list-hoverBackground);
+  }
+
+  .mobile-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    color: var(--vscode-dropdown-foreground);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  .mobile-menu-item:hover {
+    background-color: var(--vscode-list-hoverBackground);
+  }
+
+  .mobile-menu-item.active {
+    background-color: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+  }
+
+  .web-client-navigation.mobile-nav .action-buttons {
+    gap: 2px;
+  }
+}
+
+/* 超小屏幕（360px以下） */
+@media (max-width: 360px) {
+  .web-client-navigation.mobile-nav nav {
+    padding: 2px 4px;
+  }
+
+  .web-client-navigation.mobile-nav button {
+    min-width: 28px;
+    min-height: 28px;
+    padding: 3px 4px;
+    font-size: 10px;
+  }
+
+  .mobile-menu {
+    min-width: 160px;
+  }
+}

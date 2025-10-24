@@ -20,6 +20,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 interface ItemInstalledMetadata {
 	type: string
@@ -44,10 +45,10 @@ export const MarketplaceItemCard: React.FC<MarketplaceItemCardProps> = ({ item, 
 	const [removeError, setRemoveError] = useState<string | null>(null)
 
 	// Listen for removal result messages
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
-			if (message.type === "marketplaceRemoveResult" && message.slug === item.id) {
+	useMessageListener(
+		["marketplaceRemoveResult"],
+		(message) => {
+			if (message.slug === item.id) {
 				if (message.success) {
 					// Removal succeeded - refresh marketplace data
 					vscode.postMessage({
@@ -58,11 +59,9 @@ export const MarketplaceItemCard: React.FC<MarketplaceItemCardProps> = ({ item, 
 					setRemoveError(message.error || t("marketplace:items.unknownError"))
 				}
 			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [item.id, t])
+		},
+		[item.id, t]
+	)
 
 	const typeLabel = useMemo(() => {
 		const labels: Partial<Record<MarketplaceItem["type"], string>> = {

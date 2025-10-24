@@ -580,11 +580,14 @@ export const webviewMessageHandler = async (
 
 	switch (message.type) {
 		case "webviewDidLaunch":
+			console.log("[webviewMessageHandler] Received webviewDidLaunch message")
 			// Load custom modes first
 			const customModes = await provider.customModesManager.getCustomModes()
 			await updateGlobalState("customModes", customModes)
 
+			console.log("[webviewMessageHandler] About to call postStateToWebview")
 			provider.postStateToWebview()
+			console.log("[webviewMessageHandler] postStateToWebview called")
 			provider.workspaceTracker?.initializeFilePaths() // Don't await.
 
 			getTheme().then((theme) => provider.postMessageToWebview({ type: "theme", text: JSON.stringify(theme) }))
@@ -1082,14 +1085,16 @@ export const webviewMessageHandler = async (
 			break
 		}
 		case "requestOpenAiModels":
-			if (message?.values?.baseUrl && message?.values?.apiKey) {
+			if (message?.values?.baseUrl) {
 				const openAiModels = await getOpenAiModels(
 					message?.values?.baseUrl,
-					message?.values?.apiKey,
+					message?.values?.apiKey, // API key is optional
 					message?.values?.openAiHeaders,
 				)
 
 				provider.postMessageToWebview({ type: "openAiModels", openAiModels })
+			} else {
+				console.warn("[requestOpenAiModels] Missing baseUrl in message values")
 			}
 
 			break

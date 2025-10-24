@@ -24,4 +24,5 @@ export interface ServerConfig {
 	httpPort: number
 	enableWebSocket: boolean
 	autoStart: boolean
+	bindHost: string
 }

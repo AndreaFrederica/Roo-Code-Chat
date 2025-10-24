@@ -1,38 +1,45 @@
-import { useQuery } from "@tanstack/react-query"
+import { useState, useCallback } from "react"
 
 import { RouterModels } from "@roo/api"
-import { ExtensionMessage } from "@roo/ExtensionMessage"
 
 import { vscode } from "@src/utils/vscode"
+import { useExtensionState } from "@src/context/ExtensionStateContext"
+import { useUniversalMessageListener } from "@/hooks/useMessageListener"
 
-const getRouterModels = async () =>
-	new Promise<RouterModels>((resolve, reject) => {
-		const cleanup = () => {
-			window.removeEventListener("message", handler)
-		}
+export const useRouterModels = () => {
+	const { routerModels } = useExtensionState()
+	const [isRequesting, setIsRequesting] = useState(false)
+	const [requestError, setRequestError] = useState<string | null>(null)
 
-		const timeout = setTimeout(() => {
-			cleanup()
-			reject(new Error("Router models request timed out"))
-		}, 10000)
-
-		const handler = (event: MessageEvent) => {
-			const message: ExtensionMessage = event.data
-
+	// 使用统一监听器来处理routerModels消息
+	useUniversalMessageListener(
+		useCallback((message: any) => {
 			if (message.type === "routerModels") {
-				clearTimeout(timeout)
-				cleanup()
-
-				if (message.routerModels) {
-					resolve(message.routerModels)
-				} else {
-					reject(new Error("No router models in response"))
-				}
+				console.log("[useRouterModels] Received routerModels message:", message.routerModels)
+				setIsRequesting(false)
+				setRequestError(null)
 			}
+		}, []),
+		{
+			filterInvalid: true,
+			messageFilter: (message) => message.type === "routerModels"
 		}
+	)
 
-		window.addEventListener("message", handler)
+	const refetch = useCallback(() => {
+		if (isRequesting) return
+
+		setIsRequesting(true)
+		setRequestError(null)
 		vscode.postMessage({ type: "requestRouterModels" })
-	})
+	}, [isRequesting])
 
-export const useRouterModels = () => useQuery({ queryKey: ["routerModels"], queryFn: getRouterModels })
+	// 在VSCode环境中，使用ExtensionStateContext中的routerModels
+	// 在浏览器环境中，也使用ExtensionStateContext中的routerModels（通过统一监听器更新）
+	return {
+		data: routerModels,
+		isLoading: !routerModels && isRequesting,
+		isError: !!requestError,
+		refetch
+	}
+}

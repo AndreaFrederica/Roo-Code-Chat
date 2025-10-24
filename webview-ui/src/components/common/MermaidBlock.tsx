@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import mermaid from "mermaid"
 import styled from "styled-components"
 import { useDebounceEffect } from "@src/utils/useDebounceEffect"
@@ -7,12 +7,51 @@ import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { useCopyToClipboard } from "@src/utils/clipboard"
 import CodeBlock from "./CodeBlock"
 import { MermaidButton } from "@/components/common/MermaidButton"
+import { useTheme } from "@src/hooks/useTheme"
+import { getCssVariableValue } from "@src/utils/theme-manager"
 
 // Removed previous attempts at static imports for individual diagram types
 // as the paths were incorrect for Mermaid v11.4.1 and caused errors.
 // The primary strategy will now rely on Vite's bundling configuration.
 
-const MERMAID_THEME = {
+interface MermaidThemeConfig {
+	background: string
+	textColor: string
+	mainBkg: string
+	nodeBorder: string
+	lineColor: string
+	primaryColor: string
+	primaryTextColor: string
+	primaryBorderColor: string
+	secondaryColor: string
+	tertiaryColor: string
+	classText: string
+	labelColor: string
+	actorLineColor: string
+	actorBkg: string
+	actorBorder: string
+	actorTextColor: string
+	fillType0: string
+	fillType1: string
+	fillType2: string
+	noteTextColor: string
+	noteBkgColor: string
+	noteBorderColor: string
+	critBorderColor: string
+	critBkgColor: string
+	taskTextColor: string
+	taskTextOutsideColor: string
+	taskTextLightColor: string
+	sectionBkgColor: string
+	sectionBkgColor2: string
+	altBackground: string
+	linkColor: string
+	compositeBackground: string
+	compositeBorder: string
+	titleColor: string
+}
+
+const DEFAULT_MERMAID_THEME: MermaidThemeConfig = {
 	background: "#1e1e1e", // VS Code dark theme background
 	textColor: "#ffffff", // Main text color
 	mainBkg: "#2d2d2d", // Background for nodes
@@ -40,48 +79,91 @@ const MERMAID_THEME = {
 	fillType0: "#2d2d2d",
 	fillType1: "#3c3c3c",
 	fillType2: "#454545",
+	// Additional styling
+	noteTextColor: "#ffffff",
+	noteBkgColor: "#454545",
+	noteBorderColor: "#888888",
+
+	// Improve contrast for special elements
+	critBorderColor: "#ff9580",
+	critBkgColor: "#803d36",
+
+	// Task diagram specific
+	taskTextColor: "#ffffff",
+	taskTextOutsideColor: "#ffffff",
+	taskTextLightColor: "#ffffff",
+
+	// Numbers/sections
+	sectionBkgColor: "#2d2d2d",
+	sectionBkgColor2: "#3c3c3c",
+
+	// Alt sections in sequence diagrams
+	altBackground: "#2d2d2d",
+
+	// Links
+	linkColor: "#6cb6ff",
+
+	// Borders and lines
+	compositeBackground: "#2d2d2d",
+	compositeBorder: "#888888",
+	titleColor: "#ffffff",
 }
 
-mermaid.initialize({
-	startOnLoad: false,
-	securityLevel: "loose",
-	theme: "dark",
-	suppressErrorRendering: true,
-	themeVariables: {
-		...MERMAID_THEME,
-		fontSize: "16px",
-		fontFamily: "var(--vscode-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif)",
+const resolveCssVariable = (variableName: string, fallback: string) => {
+	const value = getCssVariableValue(variableName)
+	return value || fallback
+}
 
-		// Additional styling
-		noteTextColor: "#ffffff",
-		noteBkgColor: "#454545",
-		noteBorderColor: "#888888",
+const buildMermaidTheme = (): MermaidThemeConfig => {
+	const background = resolveCssVariable("--vscode-editor-background", DEFAULT_MERMAID_THEME.background)
+	const foreground = resolveCssVariable("--vscode-editor-foreground", DEFAULT_MERMAID_THEME.textColor)
+	const border = resolveCssVariable("--border", DEFAULT_MERMAID_THEME.nodeBorder)
+	const muted = resolveCssVariable("--muted", DEFAULT_MERMAID_THEME.secondaryColor)
+	const card = resolveCssVariable("--card", DEFAULT_MERMAID_THEME.mainBkg)
+	const accent = resolveCssVariable("--primary", DEFAULT_MERMAID_THEME.primaryColor)
+	const link = resolveCssVariable("--vscode-textLink-foreground", DEFAULT_MERMAID_THEME.linkColor)
+	const errorForeground = resolveCssVariable("--vscode-errorForeground", DEFAULT_MERMAID_THEME.critBorderColor)
+	const errorBackground = resolveCssVariable("--vscode-errorBackground", DEFAULT_MERMAID_THEME.critBkgColor)
+	const codeBackground = resolveCssVariable("--vscode-textCodeBlock-background", DEFAULT_MERMAID_THEME.noteBkgColor)
 
-		// Improve contrast for special elements
-		critBorderColor: "#ff9580",
-		critBkgColor: "#803d36",
-
-		// Task diagram specific
-		taskTextColor: "#ffffff",
-		taskTextOutsideColor: "#ffffff",
-		taskTextLightColor: "#ffffff",
-
-		// Numbers/sections
-		sectionBkgColor: "#2d2d2d",
-		sectionBkgColor2: "#3c3c3c",
-
-		// Alt sections in sequence diagrams
-		altBackground: "#2d2d2d",
-
-		// Links
-		linkColor: "#6cb6ff",
-
-		// Borders and lines
-		compositeBackground: "#2d2d2d",
-		compositeBorder: "#888888",
-		titleColor: "#ffffff",
-	},
-})
+	return {
+		...DEFAULT_MERMAID_THEME,
+		background,
+		textColor: foreground,
+		mainBkg: card,
+		nodeBorder: border,
+		lineColor: border,
+		primaryColor: accent,
+		primaryTextColor: resolveCssVariable("--primary-foreground", DEFAULT_MERMAID_THEME.primaryTextColor),
+		primaryBorderColor: border,
+		secondaryColor: muted,
+		tertiaryColor: muted,
+		classText: foreground,
+		labelColor: foreground,
+		actorLineColor: border,
+		actorBkg: muted,
+		actorBorder: border,
+		actorTextColor: foreground,
+		fillType0: muted,
+		fillType1: card,
+		fillType2: muted,
+		noteTextColor: foreground,
+		noteBkgColor: codeBackground,
+		noteBorderColor: border,
+		critBorderColor: errorForeground,
+		critBkgColor: errorBackground,
+		taskTextColor: foreground,
+		taskTextOutsideColor: foreground,
+		taskTextLightColor: foreground,
+		sectionBkgColor: muted,
+		sectionBkgColor2: card,
+		altBackground: muted,
+		linkColor: link,
+		compositeBackground: card,
+		compositeBorder: border,
+		titleColor: foreground,
+	}
+}
 
 interface MermaidBlockProps {
 	code: string
@@ -94,12 +176,29 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 	const [isErrorExpanded, setIsErrorExpanded] = useState(false)
 	const { showCopyFeedback, copyWithFeedback } = useCopyToClipboard()
 	const { t } = useAppTranslation()
+	const { theme } = useTheme()
+	const mermaidTheme = useMemo(() => buildMermaidTheme(), [theme])
+
+	useEffect(() => {
+		const themeName = theme === "dark" ? "dark" : "neutral"
+		mermaid.initialize({
+			startOnLoad: false,
+			securityLevel: "loose",
+			theme: themeName,
+			suppressErrorRendering: true,
+			themeVariables: {
+				...mermaidTheme,
+				fontSize: "16px",
+				fontFamily: "var(--vscode-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif)",
+			},
+		})
+	}, [theme, mermaidTheme])
 
 	// 1) Whenever `code` changes, mark that we need to re-render a new chart
 	useEffect(() => {
 		setIsLoading(true)
 		setError(null)
-	}, [code])
+	}, [code, theme])
 
 	// 2) Debounce the actual parse/render
 	useDebounceEffect(
@@ -128,7 +227,12 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 				})
 		},
 		500, // Delay 500ms
-		[code], // Dependencies for scheduling
+		[code, theme], // Dependencies for scheduling
+	)
+
+	const convertSvgToPng = useCallback(
+		(svgEl: SVGElement) => svgToPng(svgEl, mermaidTheme),
+		[mermaidTheme],
 	)
 
 	/**
@@ -141,7 +245,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 		if (!svgEl) return
 
 		try {
-			const pngDataUrl = await svgToPng(svgEl)
+			const pngDataUrl = await convertSvgToPng(svgEl)
 			vscode.postMessage({
 				type: "openImage",
 				text: pngDataUrl,
@@ -215,7 +319,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 					)}
 				</div>
 			) : (
-				<MermaidButton containerRef={containerRef} code={code} isLoading={isLoading} svgToPng={svgToPng}>
+				<MermaidButton containerRef={containerRef} code={code} isLoading={isLoading} svgToPng={convertSvgToPng}>
 					<SvgContainer onClick={handleClick} ref={containerRef} $isLoading={isLoading}></SvgContainer>
 				</MermaidButton>
 			)}
@@ -223,7 +327,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 	)
 }
 
-async function svgToPng(svgEl: SVGElement): Promise<string> {
+async function svgToPng(svgEl: SVGElement, theme: MermaidThemeConfig): Promise<string> {
 	// Clone the SVG to avoid modifying the original
 	const svgClone = svgEl.cloneNode(true) as SVGElement
 
@@ -265,8 +369,8 @@ async function svgToPng(svgEl: SVGElement): Promise<string> {
 			const ctx = canvas.getContext("2d")
 			if (!ctx) return reject("Canvas context not available")
 
-			// Fill background with Mermaid's dark theme background color
-			ctx.fillStyle = MERMAID_THEME.background
+			// Fill background with the current Mermaid theme background color
+			ctx.fillStyle = theme.background || DEFAULT_MERMAID_THEME.background
 			ctx.fillRect(0, 0, canvas.width, canvas.height)
 
 			ctx.imageSmoothingEnabled = true

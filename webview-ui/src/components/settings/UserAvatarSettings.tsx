@@ -11,6 +11,7 @@ import {
 } from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
+import { useMessageListener } from "@/hooks/useMessageListener"
 import { cn } from "@src/lib/utils"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { ExtensionStateContextType } from "@src/context/ExtensionStateContext"
@@ -62,42 +63,38 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 		return () => clearTimeout(timeout)
 	}, [hasLoaded])
 
-	// Handle messages from extension
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
-
-			switch (message.type) {
-				case "anhRolesLoaded":
-					console.log("=== UserAvatar: ANH Roles Loaded ===")
-					console.log("Received roles:", message.roles)
-					setHasLoaded(true)
-					setRoles((prev) => {
-						const workspaceRoles = (message.roles || []).map((role: RoleSummary) => ({
+	// 使用统一的消息监听 Hook 来处理角色加载消息
+	useMessageListener([
+		"anhRolesLoaded",
+		"anhGlobalRolesLoaded"
+	], (message: any) => {
+		switch (message.type) {
+			case "anhRolesLoaded":
+				console.log("=== UserAvatar: ANH Roles Loaded ===")
+				console.log("Received roles:", message.roles)
+				setHasLoaded(true)
+				setRoles((prev) => {
+					const workspaceRoles = (message.roles || []).map((role: RoleSummary) => ({
 							...role,
 							scope: "workspace" as const
 						}))
-						const existingGlobalRoles = prev.filter((role) => role.scope === "global")
-						return [...existingGlobalRoles, ...workspaceRoles]
-					})
-					break
-				case "anhGlobalRolesLoaded":
-					console.log("=== UserAvatar: ANH Global Roles Loaded ===")
-					console.log("Received global roles:", message.globalRoles)
-					setRoles((prev) => {
-						const globalRoles = (message.globalRoles || []).map((role: RoleSummary) => ({
+					const existingGlobalRoles = prev.filter((role) => role.scope === "global")
+					return [...existingGlobalRoles, ...workspaceRoles]
+				})
+				break
+			case "anhGlobalRolesLoaded":
+				console.log("=== UserAvatar: ANH Global Roles Loaded ===")
+				console.log("Received global roles:", message.globalRoles)
+				setRoles((prev) => {
+					const globalRoles = (message.globalRoles || []).map((role: RoleSummary) => ({
 							...role,
 							scope: "global" as const
 						}))
-						const existingWorkspaceRoles = prev.filter((role) => role.scope === "workspace")
-						return [...globalRoles, ...existingWorkspaceRoles]
-					})
-					break
-			}
+					const existingWorkspaceRoles = prev.filter((role) => role.scope === "workspace")
+					return [...globalRoles, ...existingWorkspaceRoles]
+				})
+				break
 		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
 	}, [])
 
 	// Localized copy of the built-in default assistant role for settings view
@@ -226,22 +223,15 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 		[setCachedStateField],
 	)
 
-	// Handle role loaded message to update with complete role data
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
-
-			if (message.type === "userAvatarRoleLoaded" && message.role) {
-				// Check if this is the role we're waiting for
-				if ((message.role.uuid === userAvatarRole?.uuid && message.role.scope === userAvatarRole?.scope) || !userAvatarRole?.uuid) {
-					setCachedStateField("userAvatarRole", message.role)
-				}
+	// 使用统一的消息监听 Hook 来处理角色加载完成消息
+	useMessageListener(["userAvatarRoleLoaded"], (message: any) => {
+		if (message.type === "userAvatarRoleLoaded" && message.role) {
+			// Check if this is the role we're waiting for
+			if ((message.role.uuid === userAvatarRole?.uuid && message.role.scope === userAvatarRole?.scope) || !userAvatarRole?.uuid) {
+				setCachedStateField("userAvatarRole", message.role)
 			}
 		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [userAvatarRole?.uuid, setCachedStateField])
+	}, [userAvatarRole?.uuid, userAvatarRole?.scope, setCachedStateField])
 
 	const onOpenChange = useCallback(
 		(isOpen: boolean) => {
@@ -358,7 +348,7 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 											</span>
 										) : selectedRole.scope === "global" ? (
 											<span title="全局角色">
-												<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+												<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 											</span>
 										) : (
 											<span title="工作区角色">
@@ -448,7 +438,7 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 																			</span>
 																		) : role.scope === "global" ? (
 																			<span title="全局角色">
-																				<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+																				<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 																			</span>
 																		) : (
 																			<span title="工作区角色">
@@ -492,7 +482,7 @@ export const UserAvatarSettings: React.FC<UserAvatarSettingsProps> = ({
 										</span>
 									) : selectedRole.scope === "global" ? (
 										<span title="全局角色">
-											<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+											<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 										</span>
 									) : (
 										<span title="工作区角色">

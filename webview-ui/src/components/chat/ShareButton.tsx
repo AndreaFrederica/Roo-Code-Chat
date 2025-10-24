@@ -9,6 +9,7 @@ import { telemetryClient } from "@/utils/TelemetryClient"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { useCloudUpsell } from "@/hooks/useCloudUpsell"
 import { CloudUpsellDialog } from "@/components/cloud/CloudUpsellDialog"
+import { useMessageListener } from "@/hooks/useMessageListener"
 import {
 	Button,
 	Popover,
@@ -64,25 +65,21 @@ export const ShareButton = ({ item, disabled = false, showLabel = false }: Share
 	}, [wasConnectInitiatedFromShare, cloudIsAuthenticated])
 
 	// Listen for share success messages from the extension
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
-			if (message.type === "shareTaskSuccess") {
-				setShareSuccess({
-					visibility: message.visibility,
-					url: message.text,
-				})
-				// Auto-hide success message and close popover after 5 seconds
-				setTimeout(() => {
-					setShareSuccess(null)
-					setShareDropdownOpen(false)
-				}, 5000)
-			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [])
+	useMessageListener(
+		["shareTaskSuccess"],
+		(message) => {
+			setShareSuccess({
+				visibility: message.visibility,
+				url: message.text,
+			})
+			// Auto-hide success message and close popover after 5 seconds
+			setTimeout(() => {
+				setShareSuccess(null)
+				setShareDropdownOpen(false)
+			}, 5000)
+		},
+		[]
+	)
 
 	const handleShare = (visibility: ShareVisibility) => {
 		// Clear any previous success state

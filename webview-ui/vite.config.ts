@@ -64,6 +64,7 @@ export default defineConfig(({ mode }) => {
 		"process.env.PKG_NAME": JSON.stringify(pkg.name),
 		"process.env.PKG_VERSION": JSON.stringify(pkg.version),
 		"process.env.PKG_OUTPUT_CHANNEL": JSON.stringify("Roo-Code"),
+		"process.env.NODE_ENV": JSON.stringify(mode === "production" ? "production" : "development"),
 		...(gitSha ? { "process.env.PKG_SHA": JSON.stringify(gitSha) } : {}),
 	}
 
@@ -83,7 +84,14 @@ export default defineConfig(({ mode }) => {
 
 	const plugins: PluginOption[] = [react(), tailwindcss(), persistPortPlugin(), wasmPlugin(), sourcemapPlugin()]
 
-	return {
+	// Webdev mode for standalone web client
+	if (mode === "webdev") {
+		outDir = "dist/webdev"
+		define["process.env.VSCODE_WEBVIEW"] = JSON.stringify("false")
+		define["process.env.WEB_CLIENT_MODE"] = JSON.stringify("true")
+	}
+
+	const config: any = {
 		plugins,
 		resolve: {
 			alias: {
@@ -100,17 +108,25 @@ export default defineConfig(({ mode }) => {
 			sourcemap: true,
 			// Ensure source maps are properly included in the build
 			minify: mode === "production" ? "esbuild" : false,
+			// 确保 CSS 被内联到 JS 中，而不是生成单独的 CSS 文件
+			cssCodeSplit: false,
 			rollupOptions: {
+				input: {
+					// 主入口点用于 VS Code webview
+					main: resolve(__dirname, "src/index.tsx"),
+					// 独立浏览器入口点
+					"web-client-entry": resolve(__dirname, "src/web-client-entry.tsx"),
+				},
 				output: {
 					entryFileNames: `assets/[name].js`,
-					chunkFileNames: (chunkInfo) => {
+					chunkFileNames: (chunkInfo: any) => {
 						if (chunkInfo.name === "mermaid-bundle") {
 							return `assets/mermaid-bundle.js`
 						}
 						// Default naming for other chunks, ensuring uniqueness from entry
 						return `assets/chunk-[hash].js`
 					},
-					assetFileNames: (assetInfo) => {
+					assetFileNames: (assetInfo: any) => {
 						if (
 							assetInfo.name &&
 							(assetInfo.name.endsWith(".woff2") ||
@@ -125,7 +141,7 @@ export default defineConfig(({ mode }) => {
 						}
 						return "assets/[name][extname]"
 					},
-					manualChunks: (id, { getModuleInfo }) => {
+					manualChunks: (id: any, { getModuleInfo }: any) => {
 						// Consolidate all mermaid code and its direct large dependencies (like dagre)
 						// into a single chunk. The 'channel.js' error often points to dagre.
 						if (
@@ -140,11 +156,11 @@ export default defineConfig(({ mode }) => {
 						// Check if the module is part of any explicitly defined mermaid-related dynamic import
 						// This is a more advanced check if simple path matching isn't enough.
 						const moduleInfo = getModuleInfo(id)
-						if (moduleInfo?.importers.some((importer) => importer.includes("node_modules/mermaid"))) {
+						if (moduleInfo?.importers.some((importer: any) => importer.includes("node_modules/mermaid"))) {
 							return "mermaid-bundle"
 						}
 						if (
-							moduleInfo?.dynamicImporters.some((importer) => importer.includes("node_modules/mermaid"))
+							moduleInfo?.dynamicImporters.some((importer: any) => importer.includes("node_modules/mermaid"))
 						) {
 							return "mermaid-bundle"
 						}
@@ -174,4 +190,15 @@ export default defineConfig(({ mode }) => {
 		},
 		assetsInclude: ["**/*.wasm", "**/*.wav"],
 	}
+
+	// Webdev mode specific configuration
+	if (mode === "webdev") {
+		config.build.rollupOptions.input = {
+			"web-client": resolve(__dirname, "web-client.html"),
+		}
+		config.server.open = true
+		config.server.port = 5173
+	}
+
+	return config
 })

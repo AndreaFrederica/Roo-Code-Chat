@@ -67,31 +67,93 @@ import { useLmStudioModels } from "./useLmStudioModels"
 import { useOllamaModels } from "./useOllamaModels"
 
 export const useSelectedModel = (apiConfiguration?: ProviderSettings) => {
-	const provider = apiConfiguration?.apiProvider || "anthropic"
-	const openRouterModelId = provider === "openrouter" ? apiConfiguration?.openRouterModelId : undefined
-	const lmStudioModelId = provider === "lmstudio" ? apiConfiguration?.lmStudioModelId : undefined
-	const ollamaModelId = provider === "ollama" ? apiConfiguration?.ollamaModelId : undefined
+	// 检查apiConfiguration是否为字符串
+	let parsedConfig: ProviderSettings | undefined
+	if (typeof apiConfiguration === 'string') {
+		console.log('[useSelectedModel] apiConfiguration is string, parsing...')
+		try {
+			parsedConfig = JSON.parse(apiConfiguration)
+		} catch (error) {
+			console.error('[useSelectedModel] Failed to parse apiConfiguration:', error)
+			parsedConfig = undefined
+		}
+	} else if (apiConfiguration && typeof apiConfiguration === 'object' && !Array.isArray(apiConfiguration)) {
+		// 检查是否真的是对象，而不是看起来像对象的字符串
+		// 如果apiConfiguration有apiProvider属性，那么它是对象
+		if (apiConfiguration.hasOwnProperty('apiProvider')) {
+			parsedConfig = apiConfiguration
+		} else {
+			// 如果没有apiProvider属性，可能它是被错误地当作对象的字符串
+			console.log('[useSelectedModel] apiConfiguration is object but missing apiProvider, trying to parse as string...')
+			try {
+				const stringVersion = JSON.stringify(apiConfiguration)
+				parsedConfig = JSON.parse(stringVersion)
+			} catch (error) {
+				console.error('[useSelectedModel] Failed to parse object as JSON string:', error)
+				parsedConfig = apiConfiguration
+			}
+		}
+	} else {
+		parsedConfig = apiConfiguration
+	}
+
+	const provider = parsedConfig?.apiProvider || "anthropic"
+	const openRouterModelId = provider === "openrouter" ? parsedConfig?.openRouterModelId : undefined
+	const lmStudioModelId = provider === "lmstudio" ? parsedConfig?.lmStudioModelId : undefined
+	const ollamaModelId = provider === "ollama" ? parsedConfig?.ollamaModelId : undefined
+
+	console.log('[useSelectedModel] Debug:', {
+		originalType: typeof apiConfiguration,
+		parsedType: typeof parsedConfig,
+		provider,
+		apiConfiguration: JSON.stringify(parsedConfig),
+		hasOpenAiModelId: 'openAiModelId' in (parsedConfig || {}),
+		openAiModelId: parsedConfig?.openAiModelId,
+		openRouterModelId,
+		lmStudioModelId,
+		ollamaModelId,
+		keys: parsedConfig ? Object.keys(parsedConfig) : []
+	})
 
 	const routerModels = useRouterModels()
 	const openRouterModelProviders = useOpenRouterModelProviders(openRouterModelId)
 	const lmStudioModels = useLmStudioModels(lmStudioModelId)
 	const ollamaModels = useOllamaModels(ollamaModelId)
 
-	const { id, info } =
-		apiConfiguration &&
+	// 检查条件 - 对于OpenAI兼容模式，不需要routerModels
+	const shouldUseGetSelectedModel = parsedConfig &&
 		(typeof lmStudioModelId === "undefined" || typeof lmStudioModels.data !== "undefined") &&
 		(typeof ollamaModelId === "undefined" || typeof ollamaModels.data !== "undefined") &&
-		typeof routerModels.data !== "undefined" &&
-		typeof openRouterModelProviders.data !== "undefined"
-			? getSelectedModel({
-					provider,
-					apiConfiguration,
-					routerModels: routerModels.data,
-					openRouterModelProviders: openRouterModelProviders.data,
-					lmStudioModels: lmStudioModels.data,
-					ollamaModels: ollamaModels.data,
-				})
-			: { id: anthropicDefaultModelId, info: undefined }
+		// 对于以下provider，需要routerModels数据
+		(provider === "openrouter" || provider === "requesty" || provider === "glama" ||
+		 provider === "unbound" || provider === "litellm" || provider === "deepinfra" ||
+		 provider === "io-intelligence" || provider === "vercel-ai-gateway"
+		 ? typeof routerModels.data !== "undefined" : true) &&
+		// 对于以下provider，需要openRouterModelProviders数据
+		(provider === "openrouter" ? typeof openRouterModelProviders.data !== "undefined" : true)
+
+	console.log('[useSelectedModel] Conditions check:', {
+		provider,
+		hasParsedConfig: !!parsedConfig,
+		lmStudioCondition: (typeof lmStudioModelId === "undefined" || typeof lmStudioModels.data !== "undefined"),
+		ollamaCondition: (typeof ollamaModelId === "undefined" || typeof ollamaModels.data !== "undefined"),
+		routerModelsCondition: (provider === "openrouter" || provider === "requesty" || provider === "glama" || provider === "unbound" || provider === "litellm" || provider === "deepinfra" || provider === "io-intelligence" || provider === "vercel-ai-gateway") ? typeof routerModels.data !== "undefined" : true,
+		openRouterProvidersCondition: provider === "openrouter" ? typeof openRouterModelProviders.data !== "undefined" : true,
+		shouldUseGetSelectedModel,
+		routerModelsData: !!routerModels.data,
+		openRouterProvidersData: !!openRouterModelProviders.data
+	})
+
+	const { id, info } = shouldUseGetSelectedModel
+		? getSelectedModel({
+				provider,
+				apiConfiguration: parsedConfig!,
+				routerModels: routerModels.data!,
+				openRouterModelProviders: openRouterModelProviders.data!,
+				lmStudioModels: lmStudioModels.data,
+				ollamaModels: ollamaModels.data,
+			})
+		: { id: anthropicDefaultModelId, info: undefined }
 
 	return {
 		provider,
@@ -156,6 +218,13 @@ function getSelectedModel({
 		case "unbound": {
 			const id = apiConfiguration.unboundModelId ?? unboundDefaultModelId
 			const info = routerModels.unbound[id]
+			console.log('[useSelectedModel] Unbound case:', {
+				id,
+				unboundModelId: apiConfiguration.unboundModelId,
+				defaultId: unboundDefaultModelId,
+				hasInfo: !!info,
+				routerModelsKeys: Object.keys(routerModels.unbound || {})
+			})
 			return { id, info }
 		}
 		case "litellm": {
@@ -361,7 +430,29 @@ function getSelectedModel({
 		// case "fake-ai":
 		default: {
 			provider satisfies "anthropic" | "gemini-cli" | "qwen-code" | "human-relay" | "fake-ai" | "siliconflow" | "volcengine" | "dashscope"
-			const id = apiConfiguration.apiModelId ?? anthropicDefaultModelId
+
+			// 为不同供应商使用正确的模型ID字段
+			let id: string
+			switch (provider) {
+				case "siliconflow":
+					id = (apiConfiguration as any).siliconFlowModelId ?? anthropicDefaultModelId
+					console.log('[useSelectedModel] SiliconFlow case:', {
+						siliconFlowModelId: (apiConfiguration as any).siliconFlowModelId,
+						selectedId: id,
+						defaultId: anthropicDefaultModelId
+					})
+					break
+				case "volcengine":
+					id = (apiConfiguration as any).volcEngineModelId ?? anthropicDefaultModelId
+					break
+				case "dashscope":
+					id = (apiConfiguration as any).dashScopeModelId ?? anthropicDefaultModelId
+					break
+				default:
+					id = apiConfiguration.apiModelId ?? anthropicDefaultModelId
+					break
+			}
+
 			const baseInfo = anthropicModels[id as keyof typeof anthropicModels]
 
 			// Apply 1M context beta tier pricing for Claude Sonnet 4

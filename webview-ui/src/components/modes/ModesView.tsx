@@ -49,6 +49,7 @@ import {
 } from "@src/components/ui"
 import { DeleteModeDialog } from "@src/components/modes/DeleteModeDialog"
 import { useEscapeKey } from "@src/hooks/useEscapeKey"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 // Get all available groups that should show in prompts view
 const availableGroups = (Object.keys(TOOL_GROUPS) as ToolGroup[]).filter((group) => !TOOL_GROUPS[group].alwaysAvailable)
@@ -440,9 +441,9 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 		modeToDeleteRef.current = modeToDelete
 	}, [modeToDelete])
 
-	useEffect(() => {
-		const handler = (event: MessageEvent) => {
-			const message = event.data
+	useMessageListener(
+		["systemPrompt", "exportModeResult", "importModeResult", "checkRulesDirectoryResult", "deleteCustomModeCheck"],
+		(message) => {
 			if (message.type === "systemPrompt") {
 				if (message.text) {
 					setSelectedPromptContent(message.text)
@@ -483,11 +484,9 @@ const ModesView = ({ onDone }: ModesViewProps) => {
 					setShowDeleteConfirm(true)
 				}
 			}
-		}
-
-		window.addEventListener("message", handler)
-		return () => window.removeEventListener("message", handler)
-	}, []) // Empty dependency array - only register once
+		},
+		[]
+	) // Empty dependency array - only register once
 
 	const handleAgentReset = (
 		modeSlug: string,

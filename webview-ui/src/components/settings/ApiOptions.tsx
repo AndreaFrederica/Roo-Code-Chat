@@ -7,6 +7,8 @@ import { ExternalLinkIcon } from "@radix-ui/react-icons"
 import {
 	type ProviderName,
 	type ProviderSettings,
+	isTypicalProvider,
+	modelIdKeysByProvider,
 	DEFAULT_CONSECUTIVE_MISTAKE_LIMIT,
 	openRouterDefaultModelId,
 	requestyDefaultModelId,
@@ -199,14 +201,27 @@ const ApiOptions = ({
 			apiConfiguration.openRouterModelId in routerModels.openrouter,
 	})
 
-	// Update `apiModelId` whenever `selectedModelId` changes.
+	// Update `apiModelId` whenever `selectedModelId` changes for providers that rely on this field.
 	useEffect(() => {
-		if (selectedModelId && apiConfiguration.apiModelId !== selectedModelId) {
+		if (!selectedModelId) {
+			return
+		}
+
+		if (!selectedProvider || !isTypicalProvider(selectedProvider)) {
+			return
+		}
+
+		const modelIdKey = modelIdKeysByProvider[selectedProvider]
+		if (modelIdKey !== "apiModelId") {
+			return
+		}
+
+		if (apiConfiguration.apiModelId !== selectedModelId) {
 			// Pass false as third parameter to indicate this is not a user action
 			// This is an internal sync, not a user-initiated change
 			setApiConfigurationField("apiModelId", selectedModelId, false)
 		}
-	}, [selectedModelId, setApiConfigurationField, apiConfiguration.apiModelId])
+	}, [selectedModelId, selectedProvider, apiConfiguration.apiModelId, setApiConfigurationField])
 
 	// Debounced refresh model updates, only executed 250ms after the user
 	// stops typing.

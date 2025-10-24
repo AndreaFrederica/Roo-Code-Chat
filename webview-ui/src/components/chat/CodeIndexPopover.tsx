@@ -44,6 +44,7 @@ import {
 } from "@src/components/ui"
 import { useRooPortal } from "@src/components/ui/hooks/useRooPortal"
 import { useEscapeKey } from "@src/hooks/useEscapeKey"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 // Default URLs for providers
 const DEFAULT_QDRANT_URL = "http://localhost:6333"
@@ -244,39 +245,41 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 			vscode.postMessage({ type: "requestIndexingStatus" })
 			vscode.postMessage({ type: "requestCodeIndexSecretStatus" })
 		}
-		const handleMessage = (event: MessageEvent) => {
-			if (event.data.type === "workspaceUpdated") {
-				// When workspace changes, request updated indexing status
-				if (open) {
-					vscode.postMessage({ type: "requestIndexingStatus" })
-					vscode.postMessage({ type: "requestCodeIndexSecretStatus" })
-				}
-			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
 	}, [open])
+
+	// Listen for workspace changes
+	useMessageListener(
+		["workspaceUpdated"],
+		() => {
+			// When workspace changes, request updated indexing status
+			if (open) {
+				vscode.postMessage({ type: "requestIndexingStatus" })
+				vscode.postMessage({ type: "requestCodeIndexSecretStatus" })
+			}
+		},
+		[open]
+	)
 
 	// Use a ref to capture current settings for the save handler
 	const currentSettingsRef = useRef(currentSettings)
 	currentSettingsRef.current = currentSettings
 
 	// Listen for indexing status updates and save responses
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent<any>) => {
-			if (event.data.type === "indexingStatusUpdate") {
-				if (!event.data.values.workspacePath || event.data.values.workspacePath === cwd) {
+	useMessageListener(
+		["indexingStatusUpdate", "codeIndexSettingsSaved"],
+		(event) => {
+			if (event.type === "indexingStatusUpdate") {
+				if (!event.values.workspacePath || event.values.workspacePath === cwd) {
 					setIndexingStatus({
-						systemStatus: event.data.values.systemStatus,
-						message: event.data.values.message || "",
-						processedItems: event.data.values.processedItems,
-						totalItems: event.data.values.totalItems,
-						currentItemUnit: event.data.values.currentItemUnit || "items",
+						systemStatus: event.values.systemStatus,
+						message: event.values.message || "",
+						processedItems: event.values.processedItems,
+						totalItems: event.values.totalItems,
+						currentItemUnit: event.values.currentItemUnit || "items",
 					})
 				}
-			} else if (event.data.type === "codeIndexSettingsSaved") {
-				if (event.data.success) {
+			} else if (event.type === "codeIndexSettingsSaved") {
+				if (event.success) {
 					setSaveStatus("saved")
 					// Update initial settings to match current settings after successful save
 					// This ensures hasUnsavedChanges becomes false
@@ -292,75 +295,70 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 					setSaveStatus("idle")
 				} else {
 					setSaveStatus("error")
-					setSaveError(event.data.error || t("settings:codeIndex.saveError"))
+					setSaveError(event.error || t("settings:codeIndex.saveError"))
 					// Clear error message after 5 seconds
 					setSaveStatus("idle")
 					setSaveError(null)
 				}
 			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [t, cwd])
+		},
+		[t, cwd]
+	)
 
 	// Listen for secret status
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			if (event.data.type === "codeIndexSecretStatus") {
-				// Update settings to show placeholders for existing secrets
-				const secretStatus = event.data.values
+	useMessageListener(
+		["codeIndexSecretStatus"],
+		(event) => {
+			// Update settings to show placeholders for existing secrets
+			const secretStatus = event.values
 
-				// Update both current and initial settings based on what secrets exist
-				const updateWithSecrets = (prev: LocalCodeIndexSettings): LocalCodeIndexSettings => {
-					const updated = { ...prev }
+			// Update both current and initial settings based on what secrets exist
+			const updateWithSecrets = (prev: LocalCodeIndexSettings): LocalCodeIndexSettings => {
+				const updated = { ...prev }
 
-					// Only update to placeholder if the field is currently empty or already a placeholder
-					// This preserves user input when they're actively editing
-					if (!prev.codeIndexOpenAiKey || prev.codeIndexOpenAiKey === SECRET_PLACEHOLDER) {
-						updated.codeIndexOpenAiKey = secretStatus.hasOpenAiKey ? SECRET_PLACEHOLDER : ""
-					}
-					if (!prev.codeIndexQdrantApiKey || prev.codeIndexQdrantApiKey === SECRET_PLACEHOLDER) {
-						updated.codeIndexQdrantApiKey = secretStatus.hasQdrantApiKey ? SECRET_PLACEHOLDER : ""
-					}
-					if (
-						!prev.codebaseIndexOpenAiCompatibleApiKey ||
-						prev.codebaseIndexOpenAiCompatibleApiKey === SECRET_PLACEHOLDER
-					) {
-						updated.codebaseIndexOpenAiCompatibleApiKey = secretStatus.hasOpenAiCompatibleApiKey
-							? SECRET_PLACEHOLDER
-							: ""
-					}
-					if (!prev.codebaseIndexGeminiApiKey || prev.codebaseIndexGeminiApiKey === SECRET_PLACEHOLDER) {
-						updated.codebaseIndexGeminiApiKey = secretStatus.hasGeminiApiKey ? SECRET_PLACEHOLDER : ""
-					}
-					if (!prev.codebaseIndexMistralApiKey || prev.codebaseIndexMistralApiKey === SECRET_PLACEHOLDER) {
-						updated.codebaseIndexMistralApiKey = secretStatus.hasMistralApiKey ? SECRET_PLACEHOLDER : ""
-					}
-					if (
-						!prev.codebaseIndexVercelAiGatewayApiKey ||
-						prev.codebaseIndexVercelAiGatewayApiKey === SECRET_PLACEHOLDER
-					) {
-						updated.codebaseIndexVercelAiGatewayApiKey = secretStatus.hasVercelAiGatewayApiKey
-							? SECRET_PLACEHOLDER
-							: ""
-					}
-
-					return updated
+				// Only update to placeholder if the field is currently empty or already a placeholder
+				// This preserves user input when they're actively editing
+				if (!prev.codeIndexOpenAiKey || prev.codeIndexOpenAiKey === SECRET_PLACEHOLDER) {
+					updated.codeIndexOpenAiKey = secretStatus.hasOpenAiKey ? SECRET_PLACEHOLDER : ""
+				}
+				if (!prev.codeIndexQdrantApiKey || prev.codeIndexQdrantApiKey === SECRET_PLACEHOLDER) {
+					updated.codeIndexQdrantApiKey = secretStatus.hasQdrantApiKey ? SECRET_PLACEHOLDER : ""
+				}
+				if (
+					!prev.codebaseIndexOpenAiCompatibleApiKey ||
+					prev.codebaseIndexOpenAiCompatibleApiKey === SECRET_PLACEHOLDER
+				) {
+					updated.codebaseIndexOpenAiCompatibleApiKey = secretStatus.hasOpenAiCompatibleApiKey
+						? SECRET_PLACEHOLDER
+						: ""
+				}
+				if (!prev.codebaseIndexGeminiApiKey || prev.codebaseIndexGeminiApiKey === SECRET_PLACEHOLDER) {
+					updated.codebaseIndexGeminiApiKey = secretStatus.hasGeminiApiKey ? SECRET_PLACEHOLDER : ""
+				}
+				if (!prev.codebaseIndexMistralApiKey || prev.codebaseIndexMistralApiKey === SECRET_PLACEHOLDER) {
+					updated.codebaseIndexMistralApiKey = secretStatus.hasMistralApiKey ? SECRET_PLACEHOLDER : ""
+				}
+				if (
+					!prev.codebaseIndexVercelAiGatewayApiKey ||
+					prev.codebaseIndexVercelAiGatewayApiKey === SECRET_PLACEHOLDER
+				) {
+					updated.codebaseIndexVercelAiGatewayApiKey = secretStatus.hasVercelAiGatewayApiKey
+						? SECRET_PLACEHOLDER
+						: ""
 				}
 
-				// Only update settings if we're not in the middle of saving
-				// After save is complete (saved status), we still want to update to maintain consistency
-				if (saveStatus === "idle" || saveStatus === "saved") {
-					setCurrentSettings(updateWithSecrets)
-					setInitialSettings(updateWithSecrets)
-				}
+				return updated
 			}
-		}
 
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [saveStatus])
+			// Only update settings if we're not in the middle of saving
+			// After save is complete (saved status), we still want to update to maintain consistency
+			if (saveStatus === "idle" || saveStatus === "saved") {
+				setCurrentSettings(updateWithSecrets)
+				setInitialSettings(updateWithSecrets)
+			}
+		},
+		[saveStatus]
+	)
 
 	// Generic comparison function that detects changes between initial and current settings
 	const hasUnsavedChanges = useMemo(() => {

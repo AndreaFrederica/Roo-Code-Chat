@@ -35,7 +35,7 @@ export const ContextCondenseRow = ({ cost, prevContextTokens, newContextTokens, 
 					/>
 				</div>
 				<div className="flex items-center gap-2 flex-grow">
-					<span className="codicon codicon-compress text-blue-400" />
+					<span className="codicon codicon-compress ui-accent-text" />
 					<span className="font-bold text-vscode-foreground">{t("chat:contextCondense.title")}</span>
 					<span className="text-vscode-descriptionForeground text-sm">
 						{prevTokens.toLocaleString()} → {newTokens.toLocaleString()} {t("tokens")}
@@ -61,7 +61,7 @@ export const CondensingContextRow = () => {
 	return (
 		<div className="flex items-center gap-2">
 			<ProgressIndicator />
-			<span className="codicon codicon-compress text-blue-400" />
+			<span className="codicon codicon-compress ui-accent-text" />
 			<span className="font-bold text-vscode-foreground">{t("chat:contextCondense.condensing")}</span>
 		</div>
 	)

@@ -3,6 +3,7 @@ import { useAppTranslation } from "@/i18n/TranslationContext"
 import { BookOpen, FileText, FolderOpen, RefreshCw, Play, Square, Globe, Folder } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { vscode } from "@/utils/vscode"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 import { SectionHeader } from "./SectionHeader"
 import { Section } from "./Section"
@@ -76,39 +77,37 @@ export const WorldviewSettings = forwardRef<
 		initializeWorldsets()
 	}, [])
 
-	// 监听来自后端的消息
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
-			switch (message.type) {
-				case "worldsetList":
-					// worldsetFiles 现在已经是 WorldsetFile[] 类型
-					setWorldsetFiles(message.worldsetFiles || [])
-					break
-				case "worldsetContent":
-					setWorldsetContent(message.worldsetContent || "")
-					setLoading(false)
-					break
-				case "worldsetStatusUpdate": {
-					const serverStatus = {
-						enabled: message.worldsetStatus?.enabled || false,
-						enabledWorldsets: message.worldsetStatus?.enabledWorldsets || []
-					}
-					setWorldsetStatus(serverStatus)
-					
-					// 只在初始化时同步状态（当原始状态为空时）
-					if (originalWorldsetStatus.enabledWorldsets.length === 0) {
-						const enabledWorldsets = [...serverStatus.enabledWorldsets]
-						setCachedWorldsetStatus({ enabledWorldsets })
-						setOriginalWorldsetStatus({ enabledWorldsets })
-					}
-					break
+	// 使用统一的消息监听 Hook 来处理世界观相关消息
+	useMessageListener([
+		"worldsetList",
+		"worldsetContent",
+		"worldsetStatusUpdate"
+	], (message: any) => {
+		switch (message.type) {
+			case "worldsetList":
+				// worldsetFiles 现在已经是 WorldsetFile[] 类型
+				setWorldsetFiles(message.worldsetFiles || [])
+				break
+			case "worldsetContent":
+				setWorldsetContent(message.worldsetContent || "")
+				setLoading(false)
+				break
+			case "worldsetStatusUpdate": {
+				const serverStatus = {
+					enabled: message.worldsetStatus?.enabled || false,
+					enabledWorldsets: message.worldsetStatus?.enabledWorldsets || []
 				}
+				setWorldsetStatus(serverStatus)
+
+				// 只在初始化时同步状态（当原始状态为空时）
+				if (originalWorldsetStatus.enabledWorldsets.length === 0) {
+					const enabledWorldsets = [...serverStatus.enabledWorldsets]
+					setCachedWorldsetStatus({ enabledWorldsets })
+					setOriginalWorldsetStatus({ enabledWorldsets })
+				}
+				break
 			}
 		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
 	}, [])
 
 	// 通知父组件变更状态
@@ -297,7 +296,7 @@ export const WorldviewSettings = forwardRef<
 									return (
 										<span
 											key={worldsetKey}
-											className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 flex items-center gap-1"
+											className="text-xs px-2 py-1 rounded flex items-center gap-1 ui-accent-chip"
 										>
 											{worldsetName}
 											{/* Scope indicator for both global and workspace */}
@@ -387,7 +386,7 @@ export const WorldviewSettings = forwardRef<
 												{/* Global/Workspace indicator */}
 												{file.scope === "global" ? (
 													<span title="全局文件">
-														<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+														<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 													</span>
 												) : (
 													<span title="工作区文件">
@@ -415,7 +414,7 @@ export const WorldviewSettings = forwardRef<
 													</>
 												) : (
 													<button
-														className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
+														className="text-xs px-2 py-1 rounded ui-accent-chip"
 														onClick={(e) => {
 															e.stopPropagation()
 															handleEnableWorldset(file.name, file.scope || "workspace")

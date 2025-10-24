@@ -1,20 +1,29 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useState } from "react"
 
 import { vscode } from "@src/utils/vscode"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { WebviewMessage } from "@roo/WebviewMessage"
+import { useUniversalMessageListener } from "@src/hooks/useMessageListener"
 
 const containerStyle: React.CSSProperties = {
 	display: "flex",
 	flexDirection: "column",
 	alignItems: "center",
 	justifyContent: "center",
+	position: "fixed",
+	top: 0,
+	left: 0,
+	right: 0,
+	bottom: 0,
+	width: "100vw",
 	height: "100vh",
 	padding: "2.5rem 1.5rem",
-	background: "linear-gradient(160deg, #0f111a 0%, #141824 60%, #10131e 100%)",
-	color: "#e5f0ff",
+	background:
+		"linear-gradient(160deg, var(--background) 0%, color-mix(in srgb, var(--background) 85%, transparent) 60%, var(--background) 100%)",
+	color: "var(--foreground)",
 	textAlign: "center",
 	gap: "1.5rem",
+	zIndex: 9999,
 }
 
 const panelStyle: React.CSSProperties = {
@@ -22,23 +31,15 @@ const panelStyle: React.CSSProperties = {
 	flexDirection: "column",
 	alignItems: "center",
 	gap: "0.75rem",
-	backgroundColor: "rgba(18, 22, 35, 0.85)",
-	border: "1px solid rgba(71, 133, 255, 0.35)",
+	backgroundColor: "color-mix(in srgb, var(--popover) 88%, transparent)",
+	border: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)",
 	borderRadius: "16px",
 	padding: "1.75rem 1.5rem",
 	maxWidth: "480px",
 	backdropFilter: "blur(16px)",
-	boxShadow: "0 18px 45px rgba(0, 0, 0, 0.35)",
+	boxShadow: "0 18px 45px color-mix(in srgb, var(--background) 60%, transparent)",
 }
 
-const statusDotStyle = (connected: boolean): React.CSSProperties => ({
-	width: "10px",
-	height: "10px",
-	borderRadius: "50%",
-	backgroundColor: connected ? "#4ade80" : "#f87171",
-	boxShadow: connected ? "0 0 10px rgba(74, 222, 128, 0.6)" : "0 0 10px rgba(248, 113, 113, 0.6)",
-	marginRight: "8px",
-})
 
 const actionRowStyle: React.CSSProperties = {
 	display: "flex",
@@ -50,9 +51,10 @@ const actionRowStyle: React.CSSProperties = {
 const buttonStyle: React.CSSProperties = {
 	padding: "0.6rem 1.4rem",
 	borderRadius: "999px",
-	border: "1px solid rgba(99, 179, 255, 0.35)",
-	background: "linear-gradient(120deg, rgba(56, 96, 255, 0.25), rgba(56, 160, 255, 0.2))",
-	color: "#f6fbff",
+	border: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)",
+	background:
+		"linear-gradient(120deg, color-mix(in srgb, var(--primary) 28%, transparent), color-mix(in srgb, var(--primary) 22%, transparent))",
+	color: "var(--primary-foreground)",
 	cursor: "pointer",
 	fontWeight: 600,
 	letterSpacing: "0.02em",
@@ -61,25 +63,26 @@ const buttonStyle: React.CSSProperties = {
 
 const secondaryButtonStyle: React.CSSProperties = {
 	...buttonStyle,
-	background: "rgba(18, 24, 36, 0.6)",
+	background: "color-mix(in srgb, var(--background) 82%, transparent)",
+	color: "var(--foreground)",
 }
 
 const hintStyle: React.CSSProperties = {
 	fontSize: "0.95rem",
 	lineHeight: 1.55,
-	color: "rgba(197, 216, 255, 0.78)",
+	color: "color-mix(in srgb, var(--muted-foreground) 85%, var(--foreground) 15%)",
 }
 
 const logStyle: React.CSSProperties = {
 	fontFamily: "'DM Mono', ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
 	fontSize: "0.85rem",
 	lineHeight: 1.5,
-	color: "rgba(143, 176, 255, 0.75)",
-	backgroundColor: "rgba(12, 16, 28, 0.7)",
+	color: "color-mix(in srgb, var(--muted-foreground) 80%, var(--foreground) 20%)",
+	backgroundColor: "color-mix(in srgb, var(--background) 92%, transparent)",
 	borderRadius: "12px",
 	padding: "1rem 1.2rem",
 	textAlign: "left",
-	border: "1px solid rgba(56, 112, 255, 0.18)",
+	border: "1px solid color-mix(in srgb, var(--primary) 22%, transparent)",
 	width: "100%",
 	boxSizing: "border-box",
 }
@@ -87,7 +90,8 @@ const logStyle: React.CSSProperties = {
 const dividerStyle: React.CSSProperties = {
 	width: "100%",
 	height: "1px",
-	background: "linear-gradient(90deg, rgba(71,133,255,0) 0%, rgba(71,133,255,0.4) 50%, rgba(71,133,255,0) 100%)",
+	background:
+		"linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--primary) 40%, transparent) 50%, transparent 100%)",
 }
 
 const StandaloneHydrationGate: React.FC = () => {
@@ -121,27 +125,20 @@ const StandaloneHydrationGate: React.FC = () => {
 		return
 	}, [connected])
 
-	useEffect(() => {
-		const watcher = vscode.onMessage("state", () => {
-			setHandshakeCount((prev) => prev + 1)
-		})
-		return () => {
-			if (typeof watcher === "function") {
-				watcher()
+	// Universal message listener for state messages
+	useUniversalMessageListener(
+		useCallback((message: any) => {
+			if (message.type === "state") {
+				setHandshakeCount((prev) => prev + 1)
 			}
+		}, []),
+		{
+			filterInvalid: true,
+			messageFilter: (message) => message.type === "state"
 		}
-	}, [])
+	)
 
-	const connectionStatusLabel = useMemo(() => {
-		if (!isStandalone) {
-			return "正在等待扩展同步初始状态…"
-		}
-		if (!connected) {
-			return elapsedSeconds > 5 ? "未连接到扩展服务 · 请确认 VS Code 已启动并启用 WebSocket 桥" : "正在尝试连接扩展服务…"
-		}
-		return elapsedSeconds > 0 ? "已连接，等待扩展提供初始状态…" : "已连接至扩展服务"
-	}, [connected, elapsedSeconds, isStandalone])
-
+	
 	const handleResendHandshake = useCallback(() => {
 		const message: WebviewMessage = { type: "webviewDidLaunch" }
 		vscode.postMessage(message)
@@ -169,12 +166,7 @@ const StandaloneHydrationGate: React.FC = () => {
 	return (
 		<div style={containerStyle}>
 			<div style={panelStyle}>
-				<div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1rem" }}>
-					<span style={statusDotStyle(connected)} />
-					<span>{connectionStatusLabel}</span>
-				</div>
-
-				<div style={{ fontSize: "1.8rem", fontWeight: 600, letterSpacing: "0.01em" }}>
+				<div style={{ fontSize: "1.8rem", fontWeight: 600, letterSpacing: "0.01em", marginBottom: "1rem" }}>
 					{isStandalone ? "浏览器模式需要扩展端的支持" : "正在启动聊天界面"}
 				</div>
 
@@ -213,15 +205,18 @@ const StandaloneHydrationGate: React.FC = () => {
 
 				<div style={logStyle}>
 					<div>运行模式：{isStandalone ? "Standalone Web Browser" : "VS Code Webview"}</div>
-					<div>连接状态：{connected ? "已连接" : "未连接"}</div>
 					<div>等待时长：{elapsedSeconds}s</div>
 					<div>收到 state 消息：{handshakeCount} 次</div>
-					{connectionError && <div style={{ color: "#fca5a5", marginTop: "0.5rem" }}>最近错误：{connectionError}</div>}
+					{connectionError && (
+						<div style={{ color: "var(--vscode-errorForeground, var(--foreground))", marginTop: "0.5rem" }}>
+							最近错误：{connectionError}
+						</div>
+					)}
 				</div>
 			</div>
 
 			<p style={{ ...hintStyle, maxWidth: "520px" }}>
-				提示：可在浏览器地址栏中访问 <code style={{ color: "#9ccaff" }}>/api/websocket-info</code> 检查代理服务配置，或查阅
+				提示：可在浏览器地址栏中访问 <code style={{ color: "var(--primary)" }}>/api/websocket-info</code> 检查代理服务配置，或查阅
 				`websocket-bridge-implementation.md` 了解搭建步骤。
 			</p>
 		</div>

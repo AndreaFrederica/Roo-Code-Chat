@@ -17,6 +17,7 @@ import { findMatchingResourceOrTemplate } from "@src/utils/mcp"
 import { vscode } from "@src/utils/vscode"
 import { removeLeadingNonAlphanumeric } from "@src/utils/removeLeadingNonAlphanumeric"
 import { getLanguageFromPath } from "@src/utils/getLanguageFromPath"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 import { ToolUseBlock, ToolUseBlockHeader } from "../common/ToolUseBlock"
 import UpdateTodoListToolBlock from "./UpdateTodoListToolBlock"
@@ -139,17 +140,15 @@ export const ChatRowContent = ({
 	const [editImages, setEditImages] = useState<string[]>([])
 
 	// Handle message events for image selection during edit mode
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const msg = event.data
-			if (msg.type === "selectedImages" && msg.context === "edit" && msg.messageTs === message.ts && isEditing) {
+	useMessageListener(
+		["selectedImages"],
+		(msg) => {
+			if (msg.context === "edit" && msg.messageTs === message.ts && isEditing) {
 				setEditImages((prevImages) => appendImages(prevImages, msg.images, MAX_IMAGES_PER_MESSAGE))
 			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [isEditing, message.ts])
+		},
+		[isEditing, message.ts]
+	)
 
 	// Memoized callback to prevent re-renders caused by inline arrow functions.
 	const handleToggleExpand = useCallback(() => {

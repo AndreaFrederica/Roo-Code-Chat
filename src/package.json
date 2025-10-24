@@ -565,9 +565,37 @@
 					"type": "boolean",
 					"default": true,
 					"description": "VS Code启动时自动启动WebSocket服务器"
+				},
+				"anh-cline.serverBindHost": {
+					"type": "string",
+					"default": "localhost",
+					"pattern": "^(localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|([0-9]{1,3}\\.){3}[0-9]{1,3}(/([0-9]|[1-2][0-9]|3[0-2]))?)$",
+					"markdownDescription": "服务器绑定地址。支持以下格式：\n- `localhost` 或 `127.0.0.1` - 仅本地访问\n- `0.0.0.0` - 绑定所有网络接口\n- `192.168.1.100` - 绑定特定IP地址\n- `192.168.1.0/24` - 绑定网段（需要绑定到网段内的具体IP）\n\n**注意**：使用非本地地址时，请确保该IP地址存在于本机网络接口中。"
 				}
 			}
-		}
+		},
+		"chatParticipants": [
+			{
+				"id": "anh-chat",
+				"name": "anh-chat",
+				"description": "AI programming assistant",
+				"isSticky": true,
+				"commands": [
+					{
+						"name": "explain",
+						"description": "Explain the selected code"
+					},
+					{
+						"name": "fix",
+						"description": "Fix the selected code"
+					},
+					{
+						"name": "improve",
+						"description": "Improve the selected code"
+					}
+				]
+			}
+		]
 	},
 	"scripts": {
 		"lint": "eslint . --ext=ts --max-warnings=0",

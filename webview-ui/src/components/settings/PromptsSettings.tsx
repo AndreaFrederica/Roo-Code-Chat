@@ -6,6 +6,7 @@ import { supportPrompt, SupportPromptType } from "@roo/support-prompt"
 import { vscode } from "@src/utils/vscode"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
+import { useMessageListener } from "@/hooks/useMessageListener"
 import {
 	Button,
 	Select,
@@ -53,20 +54,16 @@ const PromptsSettings = ({
 	const [isEnhancing, setIsEnhancing] = useState(false)
 	const [activeSupportOption, setActiveSupportOption] = useState<SupportPromptType>("ENHANCE")
 
-	useEffect(() => {
-		const handler = (event: MessageEvent) => {
-			const message = event.data
-			if (message.type === "enhancedPrompt") {
-				if (message.text) {
-					setTestPrompt(message.text)
-				}
-				setIsEnhancing(false)
+	useMessageListener(
+		["enhancedPrompt"],
+		(message) => {
+			if (message.text) {
+				setTestPrompt(message.text)
 			}
-		}
-
-		window.addEventListener("message", handler)
-		return () => window.removeEventListener("message", handler)
-	}, [])
+			setIsEnhancing(false)
+		},
+		[]
+	)
 
 	const updateSupportPrompt = (type: SupportPromptType, value: string | undefined) => {
 		// Don't trim during editing to preserve intentional whitespace

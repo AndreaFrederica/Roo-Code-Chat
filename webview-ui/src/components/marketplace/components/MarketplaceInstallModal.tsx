@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 interface MarketplaceInstallModalProps {
 	item: MarketplaceItem | null
@@ -128,10 +129,10 @@ export const MarketplaceInstallModal: React.FC<MarketplaceInstallModalProps> = (
 	}, [item, selectedMethodIndex])
 
 	// Listen for installation result messages
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
-			if (message.type === "marketplaceInstallResult" && message.slug === item?.id) {
+	useMessageListener(
+		["marketplaceInstallResult"],
+		(message) => {
+			if (message.slug === item?.id) {
 				if (message.success) {
 					// Installation succeeded - show success state
 					setInstallationComplete(true)
@@ -147,11 +148,9 @@ export const MarketplaceInstallModal: React.FC<MarketplaceInstallModalProps> = (
 					setInstallationComplete(false)
 				}
 			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [item?.id])
+		},
+		[item?.id]
+	)
 
 	const handleInstall = () => {
 		if (!item) return

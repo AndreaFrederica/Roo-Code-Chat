@@ -9,6 +9,7 @@ import type { IndexingStatus, IndexingStatusUpdateMessage } from "@roo/Extension
 
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { PopoverTrigger, StandardTooltip, Button } from "@src/components/ui"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 import { CodeIndexPopover } from "./CodeIndexPopover"
 
@@ -30,23 +31,19 @@ export const IndexingStatusBadge: React.FC<IndexingStatusBadgeProps> = ({ classN
 	useEffect(() => {
 		// Request initial indexing status.
 		vscode.postMessage({ type: "requestIndexingStatus" })
+	}, [])
 
-		// Set up message listener for status updates.
-		const handleMessage = (event: MessageEvent<IndexingStatusUpdateMessage>) => {
-			if (event.data.type === "indexingStatusUpdate") {
-				const status = event.data.values
-				if (!status.workspacePath || status.workspacePath === cwd) {
-					setIndexingStatus(status)
-				}
+	// Set up message listener for status updates.
+	useMessageListener(
+		["indexingStatusUpdate"],
+		(message) => {
+			const status = message.values
+			if (!status.workspacePath || status.workspacePath === cwd) {
+				setIndexingStatus(status)
 			}
-		}
-
-		window.addEventListener("message", handleMessage)
-
-		return () => {
-			window.removeEventListener("message", handleMessage)
-		}
-	}, [cwd])
+		},
+		[cwd]
+	)
 
 	const progressPercentage = useMemo(
 		() =>

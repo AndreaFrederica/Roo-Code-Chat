@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { useAppTranslation } from "@/i18n/TranslationContext"
 import { vscode } from "@/utils/vscode"
 import { buildDocLink } from "@src/utils/docLinks"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 import { Section } from "./Section"
 import { SectionHeader } from "./SectionHeader"
@@ -47,23 +48,15 @@ export const BrowserSettings = ({
 	// reflects the current global state.
 
 	// Set up message listener for browser connection results.
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
-
-			if (message.type === "browserConnectionResult") {
-				setTestResult({ success: message.success, text: message.text })
-				setTestingConnection(false)
-				setDiscovering(false)
-			}
-		}
-
-		window.addEventListener("message", handleMessage)
-
-		return () => {
-			window.removeEventListener("message", handleMessage)
-		}
-	}, [])
+	useMessageListener(
+		["browserConnectionResult"],
+		(message) => {
+			setTestResult({ success: message.success, text: message.text })
+			setTestingConnection(false)
+			setDiscovering(false)
+		},
+		[]
+	)
 
 	const testConnection = async () => {
 		setTestingConnection(true)

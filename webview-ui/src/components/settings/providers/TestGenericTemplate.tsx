@@ -93,7 +93,15 @@ export const TestGenericTemplate = () => {
 			</div>
 
 			{/* 配置信息显示 */}
-			<div style={{ marginBottom: "20px", padding: "10px", backgroundColor: "#f5f5f5", borderRadius: "5px" }}>
+			<div
+				style={{
+					marginBottom: "20px",
+					padding: "10px",
+					backgroundColor: "var(--vscode-input-background)",
+					color: "var(--foreground)",
+					borderRadius: "5px",
+					border: "1px solid var(--vscode-input-border, color-mix(in srgb, var(--foreground) 12%, transparent))",
+				}}>
 				<h3>当前配置信息：</h3>
 				<p><strong>Provider:</strong> {currentProvider}</p>
 				<p><strong>默认 Base URL:</strong> {getProviderDefaultBaseUrl(currentProvider) || "无"}</p>
@@ -104,7 +112,16 @@ export const TestGenericTemplate = () => {
 			</div>
 
 			{/* 当前表单值显示 */}
-			<div style={{ marginBottom: "20px", padding: "10px", backgroundColor: "#e8f4fd", borderRadius: "5px" }}>
+			<div
+				style={{
+					marginBottom: "20px",
+					padding: "10px",
+					backgroundColor:
+						"var(--vscode-inputValidation-infoBackground, color-mix(in srgb, var(--primary) 12%, transparent))",
+					color: "var(--foreground)",
+					borderRadius: "5px",
+					border: "1px solid var(--vscode-inputValidation-infoBorder, color-mix(in srgb, var(--primary) 25%, transparent))",
+				}}>
 				<h3>当前表单值：</h3>
 				<pre style={{ fontSize: "12px", overflow: "auto" }}>
 					{JSON.stringify(apiConfiguration, null, 2)}
@@ -113,7 +130,14 @@ export const TestGenericTemplate = () => {
 
 			{/* 通用组件模板 */}
 			{currentConfig ? (
-				<div style={{ border: "1px solid #ddd", borderRadius: "5px", padding: "15px" }}>
+				<div
+					style={{
+						border: "1px solid var(--border)",
+						borderRadius: "5px",
+						padding: "15px",
+						backgroundColor: "var(--card)",
+						color: "var(--card-foreground)",
+					}}>
 					<h3>通用组件模板渲染：</h3>
 					<GenericProviderTemplate
 						config={currentConfig}
@@ -124,13 +148,32 @@ export const TestGenericTemplate = () => {
 					/>
 				</div>
 			) : (
-				<div style={{ padding: "20px", backgroundColor: "#fff3cd", borderRadius: "5px" }}>
+				<div
+					style={{
+						padding: "20px",
+					backgroundColor:
+						"var(--vscode-inputValidation-warningBackground, color-mix(in srgb, var(--vscode-warning-foreground, var(--foreground)) 16%, transparent))",
+						borderRadius: "5px",
+						border:
+						"1px solid var(--vscode-inputValidation-warningBorder, color-mix(in srgb, var(--vscode-warning-foreground, var(--foreground)) 32%, transparent))",
+						color: "var(--foreground)",
+					}}>
 					<p>当前 Provider ({currentProvider}) 没有预设配置</p>
 				</div>
 			)}
 
 			{/* 测试结果 */}
-			<div style={{ marginTop: "20px", padding: "10px", backgroundColor: "#d4edda", borderRadius: "5px" }}>
+			<div
+				style={{
+					marginTop: "20px",
+					padding: "10px",
+					backgroundColor:
+						"var(--vscode-testing-background, color-mix(in srgb, var(--vscode-charts-green, var(--vscode-button-background, var(--foreground))) 14%, transparent))",
+					borderRadius: "5px",
+					border:
+						"1px solid color-mix(in srgb, var(--vscode-charts-green, var(--vscode-button-background, var(--foreground))) 34%, transparent)",
+					color: "var(--foreground)",
+				}}>
 				<h3>测试结果：</h3>
 				<ul>
 					<li>✅ 配置加载正常</li>

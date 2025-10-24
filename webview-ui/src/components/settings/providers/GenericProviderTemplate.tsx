@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect } from "react"
+import { useEvent } from "react-use"
 import { Checkbox } from "vscrui"
 import { VSCodeTextField, VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 
@@ -7,6 +8,8 @@ import type { ProviderSettings, ModelInfo, OrganizationAllowList } from "@roo-co
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { VSCodeButtonLink } from "@src/components/common/VSCodeButtonLink"
 import { Button as _Button, StandardTooltip } from "@src/components/ui"
+import { openAiModelInfoSaneDefaults } from "@roo-code/types"
+import { vscode } from "@src/utils/vscode"
 
 import { convertHeadersToObject } from "../utils/headers"
 import { inputEventTransform, noTransform } from "../transforms"
@@ -85,6 +88,124 @@ export const GenericProviderTemplate = ({
 		return Object.entries(headers)
 	})
 
+	// 模型数据管理
+	const [internalModels, setInternalModels] = useState<Record<string, ModelInfo> | null>(null)
+	const [isRefreshingModels, setIsRefreshingModels] = useState(false)
+
+	// 手动刷新模型列表
+	const handleRefreshModels = useCallback(() => {
+		setIsRefreshingModels(true)
+
+		const apiKey = config.apiKeyField ? apiConfiguration?.[config.apiKeyField] : null
+		const baseUrl = config.baseUrlField ? apiConfiguration?.[config.baseUrlField] : null
+		const openAiHeaders = apiConfiguration?.openAiHeaders || {}
+
+		console.log(`[GenericProviderTemplate] Manual refresh models for ${config.providerName}`, {
+			providerName: config.providerName,
+			apiKey: apiKey ? `${String(apiKey).substring(0, 10)}...` : null,
+			baseUrl,
+			apiKeyField: config.apiKeyField,
+			baseUrlField: config.baseUrlField,
+			hasOpenAiHeaders: Object.keys(openAiHeaders).length > 0,
+			messageType: "requestOpenAiModels"
+		})
+
+		// 发送正确的消息格式，包含 values 字段
+		vscode.postMessage({
+			type: "requestOpenAiModels",
+			values: {
+				baseUrl,
+				apiKey,
+				openAiHeaders
+			}
+		})
+		console.log('[GenericProviderTemplate] ✅ Sent requestOpenAiModels message with values:', {
+			hasBaseUrl: !!baseUrl,
+			hasApiKey: !!apiKey,
+			hasHeaders: Object.keys(openAiHeaders).length > 0
+		})
+
+		// 3秒后重置刷新状态
+		setTimeout(() => {
+			console.log('[GenericProviderTemplate] ⏰ Timeout reached, resetting refresh state')
+			setIsRefreshingModels(false)
+		}, 3000)
+	}, [config.providerName, apiConfiguration, config.apiKeyField, config.baseUrlField])
+
+	// 监听模型数据更新
+	const onMessage = useCallback((event: MessageEvent) => {
+		const message = event.data as any
+
+		console.log(`[GenericProviderTemplate] Received message: ${message.type}`, {
+			messageType: message.type,
+			hasData: !!message.openAiModels,
+			dataLength: message.openAiModels?.length || 0,
+			dataPreview: message.openAiModels ? message.openAiModels.slice(0, 3) : null
+		})
+
+		switch (message.type) {
+			case "openAiModels": {
+				const updatedModels = message.openAiModels ?? []
+				console.log(`[GenericProviderTemplate] 📋 Processing openAiModels:`, {
+					modelCount: updatedModels.length,
+					models: updatedModels.slice(0, 5) // 显示前5个模型
+				})
+
+				const modelObject = Object.fromEntries(updatedModels.map((item: string) => [item, openAiModelInfoSaneDefaults]))
+				setInternalModels(modelObject)
+				console.log(`[GenericProviderTemplate] ✅ Updated internal models:`, {
+					modelKeys: Object.keys(modelObject).slice(0, 5),
+					totalModels: Object.keys(modelObject).length
+				})
+
+				setIsRefreshingModels(false) // 重置刷新状态
+				console.log('[GenericProviderTemplate] ✅ Reset refresh state')
+				break
+			}
+			default:
+				console.log(`[GenericProviderTemplate] 📋 Ignoring message type: ${message.type}`)
+		}
+	}, [])
+
+	useEvent("message", onMessage)
+
+	// 自动获取模型列表
+	const apiKey = config.apiKeyField ? apiConfiguration?.[config.apiKeyField] : null
+	const baseUrl = config.baseUrlField ? apiConfiguration?.[config.baseUrlField] : null
+
+	useEffect(() => {
+		console.log(`[GenericProviderTemplate] Auto-check for models: ${config.providerName}`, {
+			providerName: config.providerName,
+			hasApiKey: !!apiKey,
+			hasBaseUrl: !!baseUrl,
+			needsBaseUrl: !!config.baseUrlField
+		})
+
+		// 如果有API Key，或者有API Key和Base URL，则请求模型列表
+		if ((apiKey && !config.baseUrlField) || (apiKey && baseUrl)) {
+			console.log(`[GenericProviderTemplate] Auto-requesting models for ${config.providerName}`)
+			const openAiHeaders = apiConfiguration?.openAiHeaders || {}
+			vscode.postMessage({
+				type: "requestOpenAiModels",
+				values: {
+					baseUrl,
+					apiKey,
+					openAiHeaders
+				}
+			})
+		}
+	}, [
+		apiConfiguration,
+		apiKey,
+		baseUrl,
+		config.apiKeyField,
+		config.baseUrlField,
+		config.providerName
+	])
+
+	// 使用传入的models或内部获取的models
+	const effectiveModels = models || internalModels
+
 	// 通用输入处理函数
 	const handleInputChange = useCallback(
 		<K extends keyof ProviderSettings, E>(
@@ -92,9 +213,36 @@ export const GenericProviderTemplate = ({
 			transform: (event: E) => ProviderSettings[K] = inputEventTransform,
 		) =>
 			(event: E | Event) => {
-				setApiConfigurationField(field, transform(event as E))
+				const newValue = transform(event as E)
+				setApiConfigurationField(field, newValue)
+
+				// 如果是API Key或Base URL变化，触发模型获取
+				if (field === config.apiKeyField || field === config.baseUrlField) {
+					// 使用setTimeout确保状态更新完成后再请求
+					setTimeout(() => {
+						const apiKey = config.apiKeyField ? apiConfiguration?.[config.apiKeyField] : null
+						const baseUrl = config.baseUrlField ? apiConfiguration?.[config.baseUrlField] : null
+
+						// 如果变化后仍然有必要的配置，则请求模型列表
+						const updatedApiKey = field === config.apiKeyField ? newValue : apiKey
+						const updatedBaseUrl = field === config.baseUrlField ? newValue : baseUrl
+
+						if ((updatedApiKey && !config.baseUrlField) || (updatedApiKey && updatedBaseUrl)) {
+							console.log(`[GenericProviderTemplate] Requesting models after input change for ${config.providerName}`)
+							const currentHeaders = apiConfiguration?.openAiHeaders || {}
+							vscode.postMessage({
+								type: "requestOpenAiModels",
+								values: {
+									baseUrl: updatedBaseUrl,
+									apiKey: updatedApiKey,
+									openAiHeaders: currentHeaders
+								}
+							})
+						}
+					}, 100)
+				}
 			},
-		[setApiConfigurationField],
+		[setApiConfigurationField, config.apiKeyField, config.baseUrlField, config.providerName],
 	)
 
 	// 自定义请求头处理
@@ -208,18 +356,35 @@ export const GenericProviderTemplate = ({
 			)}
 
 			{/* 模型选择器 */}
-			{config.features?.modelPicker && config.modelIdField && models && (
-				<ModelPicker
-					apiConfiguration={apiConfiguration}
-					setApiConfigurationField={setApiConfigurationField}
-					defaultModelId={config.defaultModelId || ""}
-					models={models}
-					modelIdKey={config.modelIdField as any}
-					serviceName={config.providerLabel}
-					serviceUrl={config.documentationUrl || ""}
-					organizationAllowList={organizationAllowList || { allowAll: true, providers: {} }}
-					errorMessage={modelValidationError}
-				/>
+			{config.features?.modelPicker && config.modelIdField && (
+				<div>
+					<div className="flex justify-between items-center mb-1">
+						<label className="block font-medium">{t("settings:modelPicker.label")}</label>
+						<VSCodeButton
+							appearance="icon"
+							onClick={handleRefreshModels}
+							disabled={isRefreshingModels}
+							title={t("settings:modelPicker.refreshModels") || "刷新模型列表"}
+							className="text-vscode-foreground hover:bg-vscode-button-background">
+							{isRefreshingModels ? (
+								<span className="codicon codicon-loading animate-spin"></span>
+							) : (
+								<span className="codicon codicon-refresh"></span>
+							)}
+						</VSCodeButton>
+					</div>
+					<ModelPicker
+						apiConfiguration={apiConfiguration}
+						setApiConfigurationField={setApiConfigurationField}
+						defaultModelId={config.defaultModelId || ""}
+						models={effectiveModels}
+						modelIdKey={config.modelIdField as any}
+						serviceName={config.providerLabel}
+						serviceUrl={config.documentationUrl || ""}
+						organizationAllowList={organizationAllowList || { allowAll: true, providers: {} }}
+						errorMessage={modelValidationError}
+					/>
+				</div>
 			)}
 
 			{/* 流式传输 */}

@@ -261,7 +261,7 @@ export const ExperimentalSettings = memo(({
 					<div className="text-vscode-descriptionForeground text-sm ml-5 mt-1">
 						启用后，将使用重构后的系统提示词生成器，提供更好的模块化和可扩展性
 					</div>
-					<div className="text-blue-400 text-sm mt-1 p-2 bg-blue-900/20 rounded border border-blue-400/30">
+					<div className="text-sm mt-1 p-2 rounded border ui-accent-chip ui-accent-border">
 						💡 新功能：重构后的生成器支持更好的变量注入、角色覆盖和世界书集成
 					</div>
 				</div>

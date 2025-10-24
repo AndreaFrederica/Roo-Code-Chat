@@ -10,6 +10,7 @@ import {
 } from "@roo-code/types"
 
 import { vscode } from "@/utils/vscode"
+import { useMessageListener } from "@/hooks/useMessageListener"
 import { telemetryClient } from "@/utils/TelemetryClient"
 import { cn } from "@/lib/utils"
 import { useAppTranslation } from "@/i18n/TranslationContext"
@@ -81,10 +82,9 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 	}, [hasLoaded])
 
 	// Handle messages from extension
-	React.useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
-
+	useMessageListener(
+		["anhRolesLoaded", "anhGlobalRolesLoaded", "userAvatarRoleLoaded"],
+		(message) => {
 			switch (message.type) {
 				case "anhRolesLoaded":
 					console.log("=== UserAvatar: ANH Roles Loaded ===")
@@ -103,7 +103,7 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 						console.log("=== UserAvatar: Role Loaded ===")
 						console.log("Received role:", message.role)
 						console.log("Current userAvatarRole:", userAvatarRole)
-						
+
 						// Always update with the loaded role data
 						// The backend should only send the role we requested
 						setUserAvatarRole(message.role)
@@ -111,7 +111,7 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 						if (anhShowRoleCardOnSwitch) {
 							showRoleDebugInfo(message.role)
 						}
-						
+
 						// 设置完整角色数据到后端状态
 						vscode.postMessage({
 							type: "userAvatarRole",
@@ -126,11 +126,9 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 				// 	}
 				// 	break
 			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [showRoleDebugInfo, userAvatarRole, setUserAvatarRole, anhShowRoleCardOnSwitch])
+		},
+		[showRoleDebugInfo, userAvatarRole, setUserAvatarRole, anhShowRoleCardOnSwitch]
+	)
 
 	const trackUserAvatarRoleSelectorOpened = React.useCallback(() => {
 		// Track telemetry every time the user avatar role selector is opened.
@@ -518,7 +516,7 @@ export const UserAvatarRoleSelector: React.FC<UserAvatarRoleSelectorProps> = ({
 																</span>
 															) : role.scope === "global" ? (
 																<span title="全局角色">
-																	<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+																	<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 																</span>
 															) : (
 																<span title="工作区角色">

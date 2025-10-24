@@ -17,6 +17,7 @@ import { useRooPortal } from "@/components/ui/hooks/useRooPortal"
 import { Popover, PopoverContent, PopoverTrigger, StandardTooltip } from "@/components/ui"
 import { useNotification } from "@/components/ui/Notification"
 import { useExtensionState } from "@/context/ExtensionStateContext"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 // Re-export types for backward compatibility
 export type { Role, RoleSummary } from "@roo-code/types"
@@ -106,10 +107,9 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 	}, [hasLoaded])
 
 	// Handle messages from extension
-	React.useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
-
+	useMessageListener(
+		["anhRolesLoaded", "anhGlobalRolesLoaded", "anhRoleLoaded", "invoke"],
+		(message) => {
 			switch (message.type) {
 				case "anhRolesLoaded":
 					console.log("=== ANH Roles Loaded ===")
@@ -142,11 +142,9 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 					}
 					break
 			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [onChange, showRoleDebugInfo, anhShowRoleCardOnSwitch])
+		},
+		[onChange, showRoleDebugInfo, anhShowRoleCardOnSwitch]
+	)
 
 	const trackRoleSelectorOpened = React.useCallback(() => {
 		// Track telemetry every time the role selector is opened.
@@ -474,7 +472,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 														</span>
 													) : isGlobal ? (
 														<span title="全局角色">
-															<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+															<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 														</span>
 													) : (
 														<span title="工作区角色">

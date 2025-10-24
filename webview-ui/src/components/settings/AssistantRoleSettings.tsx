@@ -10,6 +10,7 @@ import {
 } from "@roo-code/types"
 
 import { vscode } from "@/utils/vscode"
+import { useMessageListener } from "@/hooks/useMessageListener"
 import { cn } from "@/lib/utils"
 import { useAppTranslation } from "@/i18n/TranslationContext"
 import { useExtensionState } from "@/context/ExtensionStateContext"
@@ -76,38 +77,36 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 		return () => clearTimeout(timeout)
 	}, [hasLoaded])
 
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
+	// 使用统一的消息监听 Hook 来处理角色相关消息
+	useMessageListener([
+		"anhRolesLoaded",
+		"anhGlobalRolesLoaded",
+		"anhRoleLoaded"
+	], (message: any) => {
+		if (message.type === "anhRolesLoaded") {
+			setHasLoaded(true)
+			setLoadError(false)
+			setRoles(message.roles || [])
+		} else if (message.type === "anhGlobalRolesLoaded") {
+			setHasLoaded(true)
+			setLoadError(false)
+			setGlobalRoles(message.globalRoles || [])
+		} else if (message.type === "anhRoleLoaded") {
+			const role = message.role as Role | undefined
+			const uuid = role?.uuid ?? DEFAULT_ASSISTANT_ROLE_UUID
 
-			if (message.type === "anhRolesLoaded") {
-				setHasLoaded(true)
-				setLoadError(false)
-				setRoles(message.roles || [])
-			} else if (message.type === "anhGlobalRolesLoaded") {
-				setHasLoaded(true)
-				setLoadError(false)
-				setGlobalRoles(message.globalRoles || [])
-			} else if (message.type === "anhRoleLoaded") {
-				const role = message.role as Role | undefined
-				const uuid = role?.uuid ?? DEFAULT_ASSISTANT_ROLE_UUID
+			if (role) {
+				setRoleDetails((prev) => ({
+					...prev,
+					[uuid]: role,
+				}))
 
-				if (role) {
-					setRoleDetails((prev) => ({
-						...prev,
-						[uuid]: role,
-					}))
-
-					if (uuid === currentRoleUuidRef.current) {
-						setDetailedRole(role)
-					}
+				if (uuid === currentRoleUuidRef.current) {
+					setDetailedRole(role)
 				}
 			}
 		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
-	}, [])
+	}, [currentRoleUuidRef.current])
 
 	useEffect(() => {
 		if (open && searchInputRef.current) {
@@ -360,7 +359,7 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 										</span>
 									) : selectedRole.scope === "global" ? (
 										<span title="全局角色">
-											<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+											<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 										</span>
 									) : (
 										<span title="工作区角色">
@@ -455,7 +454,7 @@ export const AssistantRoleSettings: React.FC<AssistantRoleSettingsProps> = ({
 																		</span>
 																	) : role.scope === "global" ? (
 																		<span title="全局角色">
-																			<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+																			<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 																		</span>
 																	) : (
 																		<span title="工作区角色">

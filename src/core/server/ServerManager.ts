@@ -2,6 +2,7 @@ import * as vscode from "vscode"
 import { ServerWebSocket } from "./WebSocketServer"
 import { ServerHttp } from "./HttpServer"
 import { WebSocketMessageHandler, ServerConfig } from "./interfaces"
+import { NetworkUtils } from "./network-utils"
 
 // Re-export for convenience
 export type { WebSocketMessageHandler } from "./interfaces"
@@ -23,72 +24,76 @@ export class ExtensionServerManager {
     async start(config: ServerConfig, messageHandler: WebSocketMessageHandler): Promise<void> {
         try {
             if (config.enableWebSocket) {
-                // 启动WebSocket服务器
-                this.webSocketServer = new ServerWebSocket(
-                    messageHandler,
-                    this.outputChannel,
-                    config.webSocketPort
-                )
-                await this.webSocketServer.start()
+                // 解析绑定主机
+                const resolvedHost = NetworkUtils.parseBindHost(config.bindHost)
 
-                // 启动HTTP静态文件服务器
+                // 创建一个集成HTTP和WebSocket的服务器
                 this.httpServer = new ServerHttp(
                     this.extensionUri,
                     this.outputChannel,
                     config.httpPort,
-                    config.webSocketPort
+                    config.webSocketPort,
+                    resolvedHost
                 )
-                await this.httpServer.start()
 
-                this.outputChannel.appendLine(`[ServerManager] Both WebSocket (port ${config.webSocketPort}) and HTTP (port ${config.httpPort}) servers started`)
+                // 启动集成了WebSocket功能的HTTP服务器
+                await this.httpServer.startWithWebSocket(messageHandler)
+
+                // 显示服务器访问信息
+                NetworkUtils.showServerAccessInfo(resolvedHost, config.httpPort, config.httpPort, this.outputChannel)
+
+                const accessMode = resolvedHost === '0.0.0.0' ? '网络访问模式' : '本地访问模式'
+                this.outputChannel.appendLine(`[ServerManager] Integrated HTTP/WebSocket server started on port ${config.httpPort} in ${accessMode}`)
             }
         } catch (error) {
-            this.outputChannel.appendLine(`[ServerManager] Failed to initialize servers: ${error}`)
+            this.outputChannel.appendLine(`[ServerManager] Failed to initialize server: ${error}`)
             throw error
         }
     }
 
     stop(): void {
-        if (this.webSocketServer) {
-            this.webSocketServer.stop()
-            this.webSocketServer = null
-        }
         if (this.httpServer) {
             this.httpServer.stop()
             this.httpServer = null
         }
-        this.outputChannel.appendLine('[ServerManager] All servers stopped')
+        this.outputChannel.appendLine('[ServerManager] Integrated HTTP/WebSocket server stopped')
     }
 
     broadcast(message: any): void {
-        if (this.webSocketServer) {
-            this.webSocketServer.broadcast(message)
+        if (this.httpServer) {
+            this.httpServer.broadcast(message)
         }
     }
 
     getConnectedClientsCount(): number {
-        return this.webSocketServer ? this.webSocketServer.getConnectedClientsCount() : 0
+        return this.httpServer ? this.httpServer.getConnectedClientsCount() : 0
     }
 
     getServerInfo(): {
         webSocket: { running: boolean; port: number; clients: number } | null
         http: { running: boolean; url: string } | null
     } {
+        if (this.httpServer) {
+            return {
+                webSocket: {
+                    running: true,
+                    port: this.httpServer.getPort(),
+                    clients: this.httpServer.getConnectedClientsCount()
+                },
+                http: {
+                    running: this.httpServer.isRunning(),
+                    url: this.httpServer.getServerUrl()
+                }
+            }
+        }
         return {
-            webSocket: this.webSocketServer ? {
-                running: true,
-                port: this.webSocketServer.getPort(),
-                clients: this.webSocketServer.getConnectedClientsCount()
-            } : null,
-            http: this.httpServer ? {
-                running: this.httpServer.isRunning(),
-                url: this.httpServer.getServerUrl()
-            } : null
+            webSocket: null,
+            http: null
         }
     }
 
     getClientInfo(): Array<{ id: string; connected: boolean; lastActivity: number }> {
-        return this.webSocketServer ? this.webSocketServer.getClientInfo() : []
+        return this.httpServer ? this.httpServer.getWebSocketClientInfo() : []
     }
 
     isWebSocketRunning(): boolean {

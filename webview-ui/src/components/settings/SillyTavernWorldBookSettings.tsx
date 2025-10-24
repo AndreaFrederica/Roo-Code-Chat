@@ -5,6 +5,7 @@ import {
   VSCodeDivider,
 } from '@vscode/webview-ui-toolkit/react';
 import type { WorldBookInfo, WorldEntry, WorldBookEntryMixin } from '@roo-code/types';
+import { useMessageListener, createTemporaryListener } from "@/hooks/useMessageListener";
 import { WorldBookConfigForm } from './WorldBookConfigForm';
 import { WorldBookList } from './WorldBookList';
 import { WorldBookMixinModal } from './WorldBookMixinModal';
@@ -103,43 +104,32 @@ const SillyTavernWorldBookSettings = forwardRef<
     onHasChangesChange?.(hasChanges);
   }, [hasChanges]);
 
-  // 监听来自后端的消息
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
+  // 使用统一的消息监听 Hook 来处理全局世界书响应
+  useMessageListener(['STWordBookGetGlobalResponse'], (message: any) => {
+    console.log('Received STWordBookGetGlobalResponse:', message);
+    if (message.globalWorldBooks) {
+      console.log('Setting global world books:', message.globalWorldBooks);
+      setGlobalWorldBooks(message.globalWorldBooks);
+    } else {
+      console.log('No global world books in response');
+    }
 
-      switch (message.type) {
-        case 'STWordBookGetGlobalResponse':
-          console.log('Received STWordBookGetGlobalResponse:', message);
-          if (message.globalWorldBooks) {
-            console.log('Setting global world books:', message.globalWorldBooks);
-            setGlobalWorldBooks(message.globalWorldBooks);
-          } else {
-            console.log('No global world books in response');
-          }
-          
-          // 处理 globalWorldBooksPath
-          if (message.globalWorldBooksPath) {
-            console.log('Setting global world books path:', message.globalWorldBooksPath);
-            setGlobalWorldBooksPath(message.globalWorldBooksPath);
-          } else {
-            console.log('No global world books path in response');
-          }
+    // 处理 globalWorldBooksPath
+    if (message.globalWorldBooksPath) {
+      console.log('Setting global world books path:', message.globalWorldBooksPath);
+      setGlobalWorldBooksPath(message.globalWorldBooksPath);
+    } else {
+      console.log('No global world books path in response');
+    }
 
-          // 处理 globalWorldBooksWithInfo - 包含词条数的详细信息
-          if (message.globalWorldBooksWithInfo) {
-            console.log('Setting global world books with info:', message.globalWorldBooksWithInfo);
-            console.log('globalWorldBooksWithInfo structure:', JSON.stringify(message.globalWorldBooksWithInfo, null, 2));
-            setGlobalWorldBooksWithInfo(message.globalWorldBooksWithInfo);
-          } else {
-            console.log('No global world books with info in response');
-          }
-          break;
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    // 处理 globalWorldBooksWithInfo - 包含词条数的详细信息
+    if (message.globalWorldBooksWithInfo) {
+      console.log('Setting global world books with info:', message.globalWorldBooksWithInfo);
+      console.log('globalWorldBooksWithInfo structure:', JSON.stringify(message.globalWorldBooksWithInfo, null, 2));
+      setGlobalWorldBooksWithInfo(message.globalWorldBooksWithInfo);
+    } else {
+      console.log('No global world books with info in response');
+    }
   }, []);
 
   // 加载全局世界书列表
@@ -355,54 +345,48 @@ const SillyTavernWorldBookSettings = forwardRef<
     entries: WorldEntry[];
     mixinEntries: WorldBookEntryMixin[];
   } | null> => {
-    return new Promise((resolve, reject) => {
-      console.log('Sending getWorldBookMixin message:', { worldBookPath: worldBook.path, isGlobal });
+    console.log('Sending getWorldBookMixin message:', { worldBookPath: worldBook.path, isGlobal });
 
-      // Create a unique message ID
-      const messageId = `getWorldBookMixin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Create a unique message ID
+    const messageId = `getWorldBookMixin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // Set up a one-time message listener
-      const handleMessage = (event: MessageEvent) => {
-        const message = event.data;
-        if (message.type === 'worldBookMixinLoaded') {
-          window.removeEventListener('message', handleMessage);
-
-          console.log('Received response:', message);
-          if (message?.worldBookMixin) {
-            const result = {
-              entries: message.worldBookMixin.originalEntries || [],
-              mixinEntries: message.worldBookMixin.entries || []
-            };
-            console.log('Returning result:', result);
-            resolve(result);
-          } else if (message.error) {
-            console.error('Error in response:', message.error);
-            reject(new Error(message.error));
-          } else {
-            console.log('No worldBookMixin in response, returning null');
-            resolve(null);
-          }
-        }
-      };
-
-      // Add the listener
-      window.addEventListener('message', handleMessage);
-
-      // Send the message
-      vscode.postMessage({
-        type: 'getWorldBookMixin',
-        worldBookPath: worldBook.path,
-        isGlobal,
-        worldBookScope: isGlobal ? 'global' : 'workspace',
-        messageId
-      });
-
-      // Set a timeout
-      setTimeout(() => {
-        window.removeEventListener('message', handleMessage);
-        reject(new Error('Timeout waiting for world book mixin response'));
-      }, 10000); // 10 seconds timeout
+    // 使用统一的临时监听器，不设置超时
+    const mixinListener = createTemporaryListener(['worldBookMixinLoaded'], {
+      debug: true
     });
+
+    // Send the message
+    vscode.postMessage({
+      type: 'getWorldBookMixin',
+      worldBookPath: worldBook.path,
+      isGlobal,
+      worldBookScope: isGlobal ? 'global' : 'workspace',
+      messageId
+    });
+
+    // 处理响应
+    return mixinListener.promise
+      .then((message: any) => {
+        console.log('Received response:', message);
+        if (message?.worldBookMixin) {
+          const result = {
+            entries: message.worldBookMixin.originalEntries || [],
+            mixinEntries: message.worldBookMixin.entries || []
+          };
+          console.log('Returning result:', result);
+          return result;
+        } else if (message.error) {
+          console.error('Error in response:', message.error);
+          throw new Error(message.error);
+        } else {
+          console.log('No worldBookMixin in response, returning null');
+          return null;
+        }
+      })
+      .finally(() => {
+        // 确保监听器被清理
+        mixinListener.cleanup();
+      });
   };
 
   const handleUpdateEntryMixin = async (entryUid: number | string, updates: Partial<WorldBookEntryMixin>) => {

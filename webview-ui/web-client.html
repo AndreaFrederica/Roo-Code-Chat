@@ -1,65 +1,143 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
-    <title>Roo Code Chat - Web Client</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roo Code - 独立网页客户端</title>
     <style>
-        body {
+        :root {
+            --vscode-font-family: 'Segoe WPC', 'Segoe UI', sans-serif;
+            --vscode-font-weight: normal;
+            --vscode-font-size: 13px;
+            --vscode-editor-font-family: 'Consolas', 'Courier New', monospace;
+            --vscode-editor-font-weight: normal;
+            --vscode-editor-font-size: 14px;
+
+            /* VS Code Dark Theme Colors */
+            --vscode-background-color: #1e1e1e;
+            --vscode-foreground-color: #d4d4d4;
+            --vscode-widget-background: #252526;
+            --vscode-border-color: #3e3e42;
+            --vscode-scrollbarSlider-background: #79797966;
+            --vscode-scrollbarSlider-hoverBackground: #646464b3;
+            --vscode-scrollbarSlider-activeBackground: #bfbfbf66;
+            --vscode-progressBar-background: #0e70c0;
+            --vscode-button-background: #0e639c;
+            --vscode-button-hoverBackground: #1177bb;
+            --vscode-button-foreground: #ffffff;
+            --vscode-input-background: #3c3c3c;
+            --vscode-input-foreground: #cccccc;
+            --vscode-input-border: #3c3c3c;
+            --vscode-focusBorder: #007fd4;
+            --vscode-errorForeground: #f14c4c;
+            --vscode-warningForeground: #ffcc02;
+            --vscode-icon-foreground: #cccccc;
+            --vscode-titleBar-activeBackground: #1e1e1e;
+            --vscode-titleBar-activeForeground: #cccccc;
+            --vscode-sideBar-background: #252526;
+            --vscode-sideBar-foreground: #cccccc;
+            --vscode-sideBarSectionHeader-background: #2d2d30;
+            --vscode-sideBarSectionHeader-foreground: #cccccc;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            width: 100%;
+            height: 100%;
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            font-weight: var(--vscode-font-weight);
+            color: var(--vscode-foreground-color);
+            background-color: var(--vscode-background-color);
+            overflow: hidden;
         }
+
         #root {
-            height: 100vh;
-            width: 100vw;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
-        .connection-status {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            padding: 8px 12px;
-            border-radius: 4px;
+
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--vscode-foreground-color);
+        }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--vscode-scrollbarSlider-background);
+            border-top: 3px solid var(--vscode-progressBar-background);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .loading-subtitle {
             font-size: 12px;
-            font-weight: bold;
-            z-index: 1000;
+            opacity: 0.7;
         }
-        .connected {
-            background-color: #4CAF50;
-            color: white;
-        }
-        .disconnected {
-            background-color: #f44336;
-            color: white;
-        }
-    </style>
+
+      </style>
 </head>
 <body>
-    <div id="connection-status" class="connection-status disconnected">未连接</div>
-    <div id="root"></div>
+    <div id="root">
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">正在启动 Roo Code...</div>
+            <div class="loading-subtitle">Initializing web client...</div>
+        </div>
+    </div>
+
+  
     <script type="module">
-        const sources = [
-            "/web-client-entry.js",
-            "/assets/index.js",
-            "/src/web-client-entry.tsx",
-        ]
+        // 导入并启动 web client
+        import('./src/web-client-entry.tsx').then(module => {
+            console.log('[WebClient] Web client entry loaded successfully');
+        }).catch(error => {
+            console.error('[WebClient] Failed to load web client entry:', error);
 
-        let lastError: unknown
-        for (const src of sources) {
-            try {
-                console.log(`[WebClient] Bootstrapping with ${src}`)
-                await import(src)
-                lastError = undefined
-                break
-            } catch (error) {
-                console.warn(`[WebClient] Failed to load ${src}`, error)
-                lastError = error
-            }
-        }
+            // 即使加载失败也显示错误信息
+            document.getElementById('root').innerHTML = `
+                <div class="loading-container">
+                    <div style="color: var(--vscode-errorForeground); text-align: center;">
+                        <div style="font-size: 18px; margin-bottom: 16px;">❌ 启动失败</div>
+                        <div style="font-size: 14px; margin-bottom: 8px;">无法加载 Roo Code 客户端</div>
+                        <div style="font-size: 12px; opacity: 0.7;">${error.message}</div>
+                        <div style="font-size: 11px; opacity: 0.5; margin-top: 16px;">请确保服务器已启动并检查网络连接</div>
+                    </div>
+                </div>
+            `;
+        });
 
-        if (lastError) {
-            console.error("[WebClient] Unable to bootstrap web client", lastError)
-        }
+        // 全局错误处理
+        window.addEventListener('error', (event) => {
+            console.error('[WebClient] Global error:', event.error);
+        });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('[WebClient] Unhandled promise rejection:', event.reason);
+        });
     </script>
 </body>
 </html>

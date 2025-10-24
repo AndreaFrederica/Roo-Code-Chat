@@ -10,6 +10,7 @@ import { vscode } from "@src/utils/vscode"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { Button } from "@src/components/ui"
+import { useMessageListener } from "@/hooks/useMessageListener"
 
 import { inputEventTransform } from "../transforms"
 import { ModelPicker } from "../ModelPicker"
@@ -33,9 +34,9 @@ export const LiteLLM = ({
 	const [refreshError, setRefreshError] = useState<string | undefined>()
 	const litellmErrorJustReceived = useRef(false)
 
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
-			const message = event.data
+	useMessageListener(
+		["singleRouterModelFetchResponse", "routerModels"],
+		(message) => {
 			if (message.type === "singleRouterModelFetchResponse" && !message.success) {
 				const providerName = message.values?.provider as RouterName
 				if (providerName === "litellm") {
@@ -53,13 +54,9 @@ export const LiteLLM = ({
 					// If litellmErrorJustReceived.current is true, status is already (or will be) "error".
 				}
 			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		return () => {
-			window.removeEventListener("message", handleMessage)
-		}
-	}, [refreshStatus, refreshError, setRefreshStatus, setRefreshError])
+		},
+		[refreshStatus, refreshError, setRefreshStatus, setRefreshError]
+	)
 
 	const handleInputChange = useCallback(
 		<K extends keyof ProviderSettings, E>(

@@ -181,24 +181,38 @@ const WeChatHistoryView = ({ onDone, headerActions, layout = "standalone" }: WeC
 		const avatar = role.isAll ? "📋" : role.name.charAt(0).toUpperCase()
 		const unreadCount = role.tasks.length
 
+		const roleItemStyle: React.CSSProperties = {
+			borderLeftColor: isSelected ? "var(--vscode-focusBorder)" : "transparent",
+			borderLeftWidth: "4px",
+			borderLeftStyle: "solid",
+		}
+
 		return (
 			<div
 				key={role.id}
 				className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
-					isSelected ? "bg-vscode-list-activeSelectionBackground border-l-4 border-blue-500" : "hover:bg-vscode-list-hoverBackground"
+					isSelected ? "bg-vscode-list-activeSelectionBackground" : "hover:bg-vscode-list-hoverBackground"
 				}`}
+				style={roleItemStyle}
 				onClick={() => setSelectedRoleId(role.id)}>
 				<div className="relative flex-shrink-0">
 					<div
-						className={`w-12 h-12 rounded-full flex items-center justify-center font-medium ${
-							role.isAll
-								? "bg-gradient-to-br from-green-500 to-blue-600 text-white"
-								: "bg-gradient-to-br from-blue-500 to-purple-600 text-white"
-						}`}>
+						className="w-12 h-12 rounded-full flex items-center justify-center font-medium"
+						style={{
+							background: role.isAll
+								? "var(--vscode-charts-green, var(--vscode-button-background))"
+								: "var(--vscode-button-background)",
+							color: "var(--vscode-button-foreground)",
+						}}>
 						{avatar}
 					</div>
 					{unreadCount > 1 && (
-						<div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+						<div
+							className="absolute -top-1 -right-1 text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold"
+							style={{
+								background: "var(--vscode-errorForeground)",
+								color: "var(--vscode-button-foreground)",
+							}}>
 							{unreadCount > 99 ? "99+" : unreadCount}
 						</div>
 					)}
@@ -281,15 +295,17 @@ const WeChatHistoryView = ({ onDone, headerActions, layout = "standalone" }: WeC
 				</div>
 			</div>
 
-			<div className="flex-1 flex flex-col bg-vscode-editor-background">
+			<div className="flex-1 flex flex-col bg-[var(--card)]">
 				<div className="flex items-center justify-between p-4 border-b border-vscode-panel-border">
 					<div className="flex items-center gap-3">
 						<div
-							className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-								selectedRole.isAll
-									? "bg-gradient-to-br from-green-500 to-blue-600 text-white"
-									: "bg-gradient-to-br from-blue-500 to-purple-600 text-white"
-							}`}>
+							className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
+							style={{
+								background: selectedRole.isAll
+									? "var(--vscode-charts-green, var(--vscode-button-background))"
+									: "var(--vscode-button-background)",
+								color: "var(--vscode-button-foreground)",
+							}}>
 							{selectedRole.isAll ? "📋" : selectedRole.name.charAt(0).toUpperCase()}
 						</div>
 						<div>

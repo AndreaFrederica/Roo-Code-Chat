@@ -22,10 +22,13 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { vscode } from "@/utils/vscode"
+import { isWebClient } from "@/utils/web-client-compat"
+import { useMessageListener } from "@/hooks/useMessageListener"
 import { StandardTooltip } from "@/components/ui"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { RegexEditor } from "./RegexEditor"
 import { RegexSettings } from "./RegexSettings"
+import MessageTracerPanel from "@/components/debug/MessageTracerPanel"
 
 import { SectionHeader } from "./SectionHeader"
 import { Section } from "./Section"
@@ -226,127 +229,135 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 		const initializeTSProfiles = async () => {
 			try {
 				console.log("[TSProfile] Initializing TSProfiles...")
+				setLoading(true) // 开始加载
 				// 获取TSProfile文件列表
 				vscode.postMessage({ type: "loadTsProfiles" })
 			} catch (error) {
 				console.error("Failed to initialize TSProfiles:", error)
+				setLoading(false) // 出错时也要停止loading
 			}
 		}
 		initializeTSProfiles()
 	}, [])
 
-	// 监听来自后端的消息
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data
+	// 监听来自后端的消息 - 使用统一的消息监听 Hook
+	useMessageListener([
+		"tsProfilesLoaded",
+		"tsProfileValidated",
+		"tsProfileSelected",
+		"tsProfileContentLoaded",
+		"tsProfileMixinLoaded",
+		"tsProfileMixinSaved",
+		"tsProfileSourceSaved"
+	], (message: any) => {
+		switch (message.type) {
+			case "tsProfilesLoaded":
+				console.log("[TSProfile] Received profiles:", message.tsProfiles)
+				setProfiles(message.tsProfiles || [])
+				break
+			case "tsProfileValidated":
+				if (message.tsProfileSuccess) {
+					setValidationSuccess(
+						t("settings:tsProfile.validation.success", {
+							name: message.tsProfileName,
+							promptsCount: message.tsProfilePromptsCount,
+						}),
+					)
+				} else {
+					setValidationError(t("settings:tsProfile.validation.error", { error: message.tsProfileError }))
+				}
+				break
+			case "tsProfileSelected": {
+				// 当用户通过浏览器选择文件时
+				const fileName = message.tsProfilePath ? message.tsProfilePath.split(/[/\\]/).pop() : ""
+				if (fileName) {
+					handleProfileSelect(fileName)
+				}
+				break
+			}
+			case "tsProfileContentLoaded": {
+				// 处理加载的profile内容
+				if (message.profileData) {
+					console.log('TSProfileContentLoaded received profileData:', message.profileData)
+					console.log('profileData.regexBindings:', message.profileData.regexBindings, 'Is Array:', Array.isArray(message.profileData.regexBindings))
+					console.log('profileData.extensions?.SPreset?.RegexBinding:', message.profileData.extensions?.SPreset?.RegexBinding, 'Is Array:', Array.isArray(message.profileData.extensions?.SPreset?.RegexBinding))
+					setProfileData(message.profileData)
 
-			switch (message.type) {
-				case "tsProfilesLoaded":
-					console.log("[TSProfile] Received profiles:", message.tsProfiles)
-					setProfiles(message.tsProfiles || [])
-					break
-				case "tsProfileValidated":
-					if (message.tsProfileSuccess) {
-						setValidationSuccess(
-							t("settings:tsProfile.validation.success", {
-								name: message.tsProfileName,
-								promptsCount: message.tsProfilePromptsCount,
-							}),
-						)
-					} else {
-						setValidationError(t("settings:tsProfile.validation.error", { error: message.tsProfileError }))
+					// 初始化编辑状态 - 只有在没有现有编辑状态或者不在mixin模式时才重置
+					if (Object.keys(editingPrompts).length === 0 || editMode !== "mixin") {
+						const initialEditingState: Record<string, PromptConfig> = {}
+						message.profileData.prompts?.forEach((prompt: PromptConfig) => {
+							initialEditingState[prompt.identifier] = { ...prompt }
+						})
+						setEditingPrompts(initialEditingState)
 					}
-					break
-				case "tsProfileSelected":
-					// 当用户通过浏览器选择文件时
-					const fileName = message.tsProfilePath ? message.tsProfilePath.split(/[/\\]/).pop() : ""
-					if (fileName) {
-						handleProfileSelect(fileName)
+
+					// 初始化正则绑定编辑状态
+					if (Object.keys(editingRegexBindings).length === 0 || editMode !== "mixin") {
+						const initialRegexEditingState: Record<string, RegexBinding> = {}
+						const regexBindings = getRegexBindingsForProfile(message.profileData)
+						regexBindings.forEach((regex: RegexBinding) => {
+							initialRegexEditingState[regex.id] = { ...regex }
+						})
+						setEditingRegexBindings(initialRegexEditingState)
 					}
-					break
-				case "tsProfileContentLoaded":
-					// 处理加载的profile内容
-					if (message.profileData) {
-						console.log('TSProfileContentLoaded received profileData:', message.profileData)
-						console.log('profileData.regexBindings:', message.profileData.regexBindings, 'Is Array:', Array.isArray(message.profileData.regexBindings))
-						console.log('profileData.extensions?.SPreset?.RegexBinding:', message.profileData.extensions?.SPreset?.RegexBinding, 'Is Array:', Array.isArray(message.profileData.extensions?.SPreset?.RegexBinding))
-						setProfileData(message.profileData)
 
-						// 初始化编辑状态 - 只有在没有现有编辑状态或者不在mixin模式时才重置
-						if (Object.keys(editingPrompts).length === 0 || editMode !== "mixin") {
-							const initialEditingState: Record<string, PromptConfig> = {}
-							message.profileData.prompts?.forEach((prompt: PromptConfig) => {
-								initialEditingState[prompt.identifier] = { ...prompt }
-							})
-							setEditingPrompts(initialEditingState)
-						}
-
-						// 初始化正则绑定编辑状态
-						if (Object.keys(editingRegexBindings).length === 0 || editMode !== "mixin") {
-							const initialRegexEditingState: Record<string, RegexBinding> = {}
-							const regexBindings = getRegexBindingsForProfile(message.profileData)
-							regexBindings.forEach((regex: RegexBinding) => {
-								initialRegexEditingState[regex.id] = { ...regex }
-							})
-							setEditingRegexBindings(initialRegexEditingState)
-						}
-
-						// 如果已经有mixin数据且在mixin模式下，需要重新应用mixin
-						if (message.mixinData && editMode === "mixin") {
-							setMixinData(message.mixinData)
-							applyMixinToEditingState(message.profileData, message.mixinData)
-							applyRegexMixinToEditingState(message.profileData, message.mixinData)
-						} else {
-							setMixinData(message.mixinData)
-						}
-					} else if (message.error) {
-						setValidationError(message.error)
-					}
-					break
-				case "tsProfileMixinLoaded":
-					// 处理加载的mixin内容
-					if (message.mixinData) {
+					// 如果已经有mixin数据且在mixin模式下，需要重新应用mixin
+					if (message.mixinData && editMode === "mixin") {
 						setMixinData(message.mixinData)
-						setMixinExists(true)
-						// 如果有profile数据，应用mixin到编辑状态
-						if (profileData) {
-							applyMixinToEditingState(profileData, message.mixinData)
-							applyRegexMixinToEditingState(profileData, message.mixinData)
-						}
+						applyMixinToEditingState(message.profileData, message.mixinData)
+						applyRegexMixinToEditingState(message.profileData, message.mixinData)
 					} else {
-						setMixinExists(false)
+						setMixinData(message.mixinData)
 					}
-					if (message.error) {
-						setValidationError(message.error)
+				} else if (message.error) {
+					setValidationError(message.error)
+				}
+				break
+			}
+			case "tsProfileMixinLoaded": {
+				// 处理加载的mixin内容
+				if (message.mixinData) {
+					setMixinData(message.mixinData)
+					setMixinExists(true)
+					// 如果有profile数据，应用mixin到编辑状态
+					if (profileData) {
+						applyMixinToEditingState(profileData, message.mixinData)
+						applyRegexMixinToEditingState(profileData, message.mixinData)
 					}
-					break
-				case "tsProfileMixinSaved":
-					// 处理mixin保存结果
-					if (message.success) {
-						setValidationSuccess("Mixin文件保存成功")
-						setHasUnsavedChanges(false)
-					} else {
-						setValidationError(message.error || "Mixin文件保存失败")
+				} else {
+					setMixinExists(false)
+				}
+				if (message.error) {
+					setValidationError(message.error)
+				}
+				break
+			}
+			case "tsProfileMixinSaved": {
+				// 处理mixin保存结果
+				if (message.success) {
+					setValidationSuccess("Mixin文件保存成功")
+					setHasUnsavedChanges(false)
+				} else {
+					setValidationError(message.error || "Mixin文件保存失败")
+				}
+				break
+			}
+			case "tsProfileSourceSaved": {
+				// 处理源文件保存结果
+				if (message.success) {
+					setValidationSuccess("源文件保存成功")
+					setHasUnsavedChanges(false)
+					// 重新加载profile数据
+					if (selectedProfile) {
+						loadProfileContent(selectedProfile)
 					}
-					break
-				case "tsProfileSourceSaved":
-					// 处理源文件保存结果
-					if (message.success) {
-						setValidationSuccess("源文件保存成功")
-						setHasUnsavedChanges(false)
-						// 重新加载profile数据
-						if (selectedProfile) {
-							loadProfileContent(selectedProfile)
-						}
-					} else {
-						setValidationError(message.error || "源文件保存失败")
-					}
-					break
+				} else {
+					setValidationError(message.error || "源文件保存失败")
+				}
+				break
 			}
 		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
 	}, [t, editingPrompts, profileData])
 
 	// 验证profile数据
@@ -1267,6 +1278,9 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 
 	return (
 		<div className={cn("flex flex-col gap-4", className)} {...props}>
+			{/* 网页端调试面板 */}
+			{isWebClient() && <MessageTracerPanel />}
+
 			<SectionHeader description={t("settings:tsProfile.description")}>
 				<div className="flex items-center gap-2">
 					<FileText className="w-4 h-4" />
@@ -1282,7 +1296,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 								重置
 							</button>
 							<button
-								className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30"
+								className="px-2 py-1 text-xs rounded ui-accent-chip"
 								onClick={saveTSProfileChanges}>
 								保存更改
 							</button>
@@ -1312,7 +1326,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 									return (
 										<span
 											key={profileKey}
-											className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 flex items-center gap-1">
+											className="text-xs px-2 py-1 rounded flex items-center gap-1 ui-accent-chip">
 											{profileName}
 											{scope === "global" && (
 												<span title="全局">
@@ -1473,7 +1487,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 													</>
 												) : (
 													<button
-														className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
+														className="text-xs px-2 py-1 rounded ui-accent-chip"
 														onClick={(e) => {
 															e.stopPropagation()
 															handleEnableTSProfile(profile.name, profile.scope || "workspace")
@@ -1512,7 +1526,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 												{/* 全局/工作区标识 */}
 												{profile.scope === "global" ? (
 													<span title="全局文件">
-														<Globe className="w-3 h-3 text-blue-400 flex-shrink-0" />
+														<Globe className="w-3 h-3 ui-accent-text flex-shrink-0" />
 													</span>
 												) : (
 													<span title="工作区文件">
@@ -1703,7 +1717,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 								{/* 保存按钮 */}
 								{hasUnsavedChanges && (
 									<button
-										className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 flex items-center gap-1"
+										className="px-2 py-1 text-xs rounded flex items-center gap-1 ui-accent-chip"
 										onClick={editMode === "mixin" ? handleSaveMixin : handleSaveSource}>
 										<Save className="w-3 h-3" />
 										保存{editMode === "mixin" ? "Mixin" : "源文件"}
@@ -1755,7 +1769,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 									<span className="ml-2 text-xs text-purple-400">🟣 Mixin</span>
 									<span className="ml-2 text-xs text-red-400">🟥 已禁用</span>
 									<span className="ml-2 text-xs text-green-400">🟩 已启用</span>
-									<span className="ml-2 text-xs text-blue-400">🟦 内容已改</span>
+									<span className="ml-2 text-xs ui-accent-text">🟦 内容已改</span>
 									<span className="ml-2 text-xs text-yellow-400">🟨 未保存</span>
 								</div>
 							)}
@@ -1824,7 +1838,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 														)}
 														{contentChangedCount > 0 && (
 															<span
-																className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400"
+																className="text-xs px-1.5 py-0.5 rounded ui-accent-chip"
 																title={`在Mixin中修改了 ${contentChangedCount} 个提示词内容`}>
 																📝{contentChangedCount}
 															</span>
@@ -2003,7 +2017,7 @@ export const TSProfileSettings: React.FC<TSProfileSettingsPropsExtended> = ({
 																			m.content !== prompt.content,
 																	) && (
 																		<span
-																			className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30"
+																			className="text-xs px-1.5 py-0.5 rounded border ui-accent-chip ui-accent-border"
 																			title="内容被Mixin修改">
 																			内容已改
 																		</span>

@@ -46,6 +46,7 @@ import {
 } from "@roo-code/types"
 
 import { vscode } from "@src/utils/vscode"
+import { useMessageListener } from "@/hooks/useMessageListener"
 import { cn } from "@src/lib/utils"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { SetCachedStateField } from "./types"
@@ -177,18 +178,13 @@ export const MemoryManagementSettings: React.FC<MemoryManagementSettingsProps> =
 		})
 	}
 
-	// 处理后端响应
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const { type, payload } = event.data
+	// 使用统一的消息监听 Hook 来处理记忆管理响应
+	useMessageListener(["memoryManagementResponse"], (message: any) => {
+		const { type, payload } = message
 
-			if (type === "memoryManagementResponse") {
-				handleResponse(payload as MemoryManagementResponse)
-			}
+		if (type === "memoryManagementResponse") {
+			handleResponse(payload as MemoryManagementResponse)
 		}
-
-		window.addEventListener("message", handleMessage)
-		return () => window.removeEventListener("message", handleMessage)
 	}, [state.selectedRoleUuid])
 
 	const handleResponse = (response: MemoryManagementResponse) => {
@@ -725,7 +721,7 @@ export const MemoryManagementSettings: React.FC<MemoryManagementSettingsProps> =
 							<CardContent>
 								<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 									<div className="text-center">
-										<div className="text-2xl font-bold text-blue-600">
+										<div className="text-2xl font-bold ui-accent-text">
 											{state.stats.totalMemories}
 										</div>
 										<div className="text-sm text-gray-500">总记忆数</div>

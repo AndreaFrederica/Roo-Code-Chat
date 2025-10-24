@@ -1,4 +1,5 @@
 import { WebviewMessage } from "@roo/WebviewMessage"
+import { messageTracer } from "./message-tracer"
 
 export class WebSocketAdapter {
     private ws: WebSocket | null = null
@@ -44,6 +45,7 @@ export class WebSocketAdapter {
                 this.ws!.onmessage = (event) => {
                     try {
                         const message: WebviewMessage = JSON.parse(event.data)
+                        messageTracer.logIncoming(message, 'WebSocketAdapter')
                         this.handleMessage(message)
                     } catch (error) {
                         console.error('[WebSocketAdapter] Error parsing message:', error)
@@ -72,17 +74,16 @@ export class WebSocketAdapter {
 
     private async fetchWebSocketUrl(): Promise<void> {
         try {
-            const response = await fetch('/api/websocket-info')
-            if (!response.ok) {
-                throw new Error(`Failed to fetch WebSocket info: ${response.status}`)
-            }
-            const wsInfo = await response.json()
-            this.url = wsInfo.url
-            console.log('[WebSocketAdapter] Fetched WebSocket URL:', this.url)
+            // 获取当前页面的协议和主机，构建WebSocket URL
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+            const host = window.location.host
+            this.url = `${protocol}//${host}/ws`
+            console.log('[WebSocketAdapter] Using WebSocket URL:', this.url)
         } catch (error) {
-            console.error('[WebSocketAdapter] Failed to fetch WebSocket URL:', error)
-            // 回退到默认端口
-            this.url = 'ws://localhost:3001'
+            console.error('[WebSocketAdapter] Failed to construct WebSocket URL:', error)
+            // 回退到默认URL
+            this.url = 'ws://localhost:3002/ws'
+            console.log('[WebSocketAdapter] Using fallback WebSocket URL:', this.url)
         }
     }
 
@@ -119,6 +120,7 @@ export class WebSocketAdapter {
     }
 
     postMessage(message: WebviewMessage): void {
+        messageTracer.logOutgoing(message, 'WebSocketAdapter')
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(message))
         } else {
@@ -159,11 +161,8 @@ export class WebSocketAdapter {
     }
 
     private updateConnectionStatus(connected: boolean): void {
-        const statusElement = document.getElementById('connection-status')
-        if (statusElement) {
-            statusElement.textContent = connected ? '已连接' : '未连接'
-            statusElement.className = `connection-status ${connected ? 'connected' : 'disconnected'}`
-        }
+        // 只通知监听器，不再尝试更新已删除的DOM元素
+        console.log(`[WebSocketAdapter] Connection status changed: ${connected ? 'connected' : 'disconnected'}`)
 
         this.connectionListeners.forEach(listener => {
             try {
@@ -182,7 +181,7 @@ export class WebSocketAdapter {
     }
 
     isConnected(): boolean {
-        return this.ws?.readyState === WebSocket.OPEN
+        return this.ws !== null && this.ws.readyState === WebSocket.OPEN
     }
 
     onConnectionStatusChange(listener: (connected: boolean) => void): void {

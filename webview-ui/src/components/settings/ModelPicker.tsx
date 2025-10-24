@@ -102,14 +102,29 @@ export const ModelPicker = ({
 
 	const [searchValue, setSearchValue] = useState("")
 
+console.log('[ModelPicker] UI render:', {
+	selectedModelId,
+	modelIds: modelIds.slice(0, 5), // 只显示前5个
+	isSelected: modelIds.includes(selectedModelId || ''),
+})
+
 	const onSelect = useCallback(
 		(modelId: string) => {
 			if (!modelId) {
 				return
 			}
 
+			console.log('[ModelPicker] onSelect called:', {
+				modelId,
+				modelIdKey,
+				currentValue: apiConfiguration[modelIdKey],
+				apiConfiguration: JSON.stringify(apiConfiguration)
+			})
+
 			setOpen(false)
 			setApiConfigurationField(modelIdKey, modelId)
+
+			console.log('[ModelPicker] After setApiConfigurationField called')
 
 			// Clear any existing timeout
 			if (selectTimeoutRef.current) {
@@ -119,7 +134,7 @@ export const ModelPicker = ({
 			// Delay to ensure the popover is closed before setting the search value.
 			selectTimeoutRef.current = setTimeout(() => setSearchValue(""), 100)
 		},
-		[modelIdKey, setApiConfigurationField],
+		[modelIdKey, setApiConfigurationField, apiConfiguration],
 	)
 
 	const onOpenChange = useCallback((open: boolean) => {
@@ -144,7 +159,7 @@ export const ModelPicker = ({
 
 	useEffect(() => {
 		if (!selectedModelId && !isInitialized.current) {
-			const initialValue = modelIds.includes(selectedModelId) ? selectedModelId : defaultModelId
+			const initialValue = modelIds.includes(defaultModelId) ? defaultModelId : (modelIds.length > 0 ? modelIds[0] : "")
 			setApiConfigurationField(modelIdKey, initialValue, false) // false = automatic initialization
 		}
 
@@ -169,7 +184,6 @@ export const ModelPicker = ({
 	return (
 		<>
 			<div>
-				<label className="block font-medium mb-1">{t("settings:modelPicker.label")}</label>
 				<Popover open={open} onOpenChange={onOpenChange}>
 					<PopoverTrigger asChild>
 						<Button
