@@ -15,6 +15,7 @@ type VercelAiGatewayProps = {
 	apiConfiguration: ProviderSettings
 	setApiConfigurationField: (field: keyof ProviderSettings, value: ProviderSettings[keyof ProviderSettings]) => void
 	routerModels?: RouterModels
+	refetchRouterModels?: () => void
 	organizationAllowList: OrganizationAllowList
 	modelValidationError?: string
 }
@@ -23,6 +24,7 @@ export const VercelAiGateway = ({
 	apiConfiguration,
 	setApiConfigurationField,
 	routerModels,
+	refetchRouterModels,
 	organizationAllowList,
 	modelValidationError,
 }: VercelAiGatewayProps) => {

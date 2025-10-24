@@ -1085,16 +1085,37 @@ export const webviewMessageHandler = async (
 			break
 		}
 		case "requestOpenAiModels":
-			if (message?.values?.baseUrl) {
-				const openAiModels = await getOpenAiModels(
-					message?.values?.baseUrl,
-					message?.values?.apiKey, // API key is optional
-					message?.values?.openAiHeaders,
-				)
+			console.log("[webviewMessageHandler] Processing requestOpenAiModels:", {
+				hasBaseUrl: !!message?.values?.baseUrl,
+				hasApiKey: !!message?.values?.apiKey,
+				hasHeaders: !!message?.values?.openAiHeaders,
+				baseUrl: message?.values?.baseUrl,
+				apiKey: message?.values?.apiKey ? `${message?.values?.apiKey.substring(0, 10)}...` : null
+			})
 
-				provider.postMessageToWebview({ type: "openAiModels", openAiModels })
+			if (message?.values?.baseUrl) {
+				try {
+					const openAiModels = await getOpenAiModels(
+						message?.values?.baseUrl,
+						message?.values?.apiKey, // API key is optional
+						message?.values?.openAiHeaders,
+					)
+
+					console.log("[webviewMessageHandler] Got models from API:", {
+						modelCount: openAiModels.length,
+						models: openAiModels.slice(0, 3)
+					})
+
+					provider.postMessageToWebview({ type: "openAiModels", openAiModels })
+
+					console.log("[webviewMessageHandler] Sent openAiModels response to webview")
+				} catch (error) {
+					console.error("[webviewMessageHandler] Error getting OpenAI models:", error)
+					provider.postMessageToWebview({ type: "openAiModels", openAiModels: [] })
+				}
 			} else {
 				console.warn("[requestOpenAiModels] Missing baseUrl in message values")
+				provider.postMessageToWebview({ type: "openAiModels", openAiModels: [] })
 			}
 
 			break

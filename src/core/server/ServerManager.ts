@@ -7,11 +7,37 @@ import { NetworkUtils } from "./network-utils"
 // Re-export for convenience
 export type { WebSocketMessageHandler } from "./interfaces"
 
+export class WebSocketServerOutputChannel {
+    private channel: vscode.OutputChannel
+
+    constructor() {
+        this.channel = vscode.window.createOutputChannel('Anh Chat WebSocket Server')
+    }
+
+    appendLine(message: string): void {
+        const timestamp = new Date().toLocaleTimeString()
+        this.channel.appendLine(`[${timestamp}] ${message}`)
+    }
+
+    append(message: string): void {
+        this.channel.append(message)
+    }
+
+    show(): void {
+        this.channel.show()
+    }
+
+    dispose(): void {
+        this.channel.dispose()
+    }
+}
+
 export class ExtensionServerManager {
     private webSocketServer: ServerWebSocket | null = null
     private httpServer: ServerHttp | null = null
     private extensionUri: vscode.Uri
     private outputChannel: vscode.OutputChannel
+    private wsOutputChannel: WebSocketServerOutputChannel | null = null
 
     constructor(
         extensionUri: vscode.Uri,
@@ -19,6 +45,7 @@ export class ExtensionServerManager {
     ) {
         this.extensionUri = extensionUri
         this.outputChannel = outputChannel
+        this.wsOutputChannel = new WebSocketServerOutputChannel()
     }
 
     async start(config: ServerConfig, messageHandler: WebSocketMessageHandler): Promise<void> {
@@ -35,6 +62,11 @@ export class ExtensionServerManager {
                     config.webSocketPort,
                     resolvedHost
                 )
+
+                // 设置WebSocket专用输出通道
+                if (this.wsOutputChannel) {
+                    this.httpServer.setWebSocketOutputChannel(this.wsOutputChannel)
+                }
 
                 // 启动集成了WebSocket功能的HTTP服务器
                 await this.httpServer.startWithWebSocket(messageHandler)
@@ -55,6 +87,11 @@ export class ExtensionServerManager {
         if (this.httpServer) {
             this.httpServer.stop()
             this.httpServer = null
+        }
+        if (this.wsOutputChannel) {
+            this.wsOutputChannel.appendLine('[ServerManager] WebSocket server stopped')
+            this.wsOutputChannel.dispose()
+            this.wsOutputChannel = null
         }
         this.outputChannel.appendLine('[ServerManager] Integrated HTTP/WebSocket server stopped')
     }
@@ -97,10 +134,22 @@ export class ExtensionServerManager {
     }
 
     isWebSocketRunning(): boolean {
-        return this.webSocketServer !== null
+        return this.httpServer?.isRunning() ?? false
     }
 
     isHttpRunning(): boolean {
         return this.httpServer?.isRunning() ?? false
+    }
+
+    showWebSocketLogs(): void {
+        if (this.wsOutputChannel) {
+            this.wsOutputChannel.show()
+        } else {
+            vscode.window.showInformationMessage('WebSocket服务器未运行')
+        }
+    }
+
+    getWebSocketOutputChannel(): WebSocketServerOutputChannel | null {
+        return this.wsOutputChannel
     }
 }

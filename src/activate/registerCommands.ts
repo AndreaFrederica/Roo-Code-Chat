@@ -109,10 +109,18 @@ export const registerCommands = (options: RegisterCommandOptions) => {
 		}
 	)
 
+	const showWebSocketLogsCommand = vscode.commands.registerCommand(
+		"anh-cline.showWebSocketLogs",
+		() => {
+			provider.showWebSocketLogs()
+		}
+	)
+
 	context.subscriptions.push(
 		startWebSocketServerCommand,
 		stopWebSocketServerCommand,
-		showWebSocketServerInfoCommand
+		showWebSocketServerInfoCommand,
+		showWebSocketLogsCommand
 	)
 }
 

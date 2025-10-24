@@ -243,6 +243,11 @@
 				"category": "Roo Code Chat"
 			},
 			{
+				"command": "anh-cline.showWebSocketLogs",
+				"title": "显示WebSocket服务器日志",
+				"category": "Roo Code Chat"
+			},
+			{
 				"command": "anh-cline.openSystemPromptPreview",
 				"title": "Open System Prompt Preview",
 				"category": "%configuration.title%"

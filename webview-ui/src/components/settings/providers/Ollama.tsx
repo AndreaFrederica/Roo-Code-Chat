@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo, useEffect } from "react"
-import { useEvent } from "react-use"
 import { VSCodeTextField, VSCodeRadioGroup, VSCodeRadio } from "@vscode/webview-ui-toolkit/react"
 
 import type { ProviderSettings } from "@roo-code/types"
@@ -9,6 +8,7 @@ import { ExtensionMessage } from "@roo/ExtensionMessage"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { useRouterModels } from "@src/components/ui/hooks/useRouterModels"
 import { vscode } from "@src/utils/vscode"
+import { useUniversalMessageListener } from "@src/hooks/useMessageListener"
 
 import { inputEventTransform } from "../transforms"
 import { ModelRecord } from "@roo/api"
@@ -35,10 +35,8 @@ export const Ollama = ({ apiConfiguration, setApiConfigurationField }: OllamaPro
 		[setApiConfigurationField],
 	)
 
-	const onMessage = useCallback((event: MessageEvent) => {
-		const message: ExtensionMessage = event.data
-
-		switch (message.type) {
+	const onMessage = useCallback((message: ExtensionMessage) => {
+		switch (message?.type) {
 			case "ollamaModels":
 				{
 					const newModels = message.ollamaModels ?? {}
@@ -48,7 +46,7 @@ export const Ollama = ({ apiConfiguration, setApiConfigurationField }: OllamaPro
 		}
 	}, [])
 
-	useEvent("message", onMessage)
+	useUniversalMessageListener(onMessage)
 
 	// Refresh models on mount
 	useEffect(() => {

@@ -1,5 +1,4 @@
 import { useCallback, useState, useEffect } from "react"
-import { useEvent } from "react-use"
 import { Checkbox } from "vscrui"
 import { VSCodeTextField, VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 
@@ -14,6 +13,7 @@ import { vscode } from "@src/utils/vscode"
 import { convertHeadersToObject } from "../utils/headers"
 import { inputEventTransform, noTransform } from "../transforms"
 import { ModelPicker } from "../ModelPicker"
+import { useUniversalMessageListener } from "@src/hooks/useMessageListener"
 
 /**
  * 通用 Provider 组件配置接口
@@ -133,19 +133,18 @@ export const GenericProviderTemplate = ({
 	}, [config.providerName, apiConfiguration, config.apiKeyField, config.baseUrlField])
 
 	// 监听模型数据更新
-	const onMessage = useCallback((event: MessageEvent) => {
-		const message = event.data as any
-
-		console.log(`[GenericProviderTemplate] Received message: ${message.type}`, {
-			messageType: message.type,
-			hasData: !!message.openAiModels,
-			dataLength: message.openAiModels?.length || 0,
-			dataPreview: message.openAiModels ? message.openAiModels.slice(0, 3) : null
+	const onMessage = useCallback((message: any) => {
+		console.log(`[GenericProviderTemplate] Received message: ${message?.type || 'unknown'}`, {
+			messageType: message?.type,
+			hasData: !!message?.openAiModels,
+			dataLength: message?.openAiModels?.length || 0,
+			dataPreview: message?.openAiModels ? message.openAiModels.slice(0, 3) : null,
+			fullMessage: message
 		})
 
-		switch (message.type) {
+		switch (message?.type) {
 			case "openAiModels": {
-				const updatedModels = message.openAiModels ?? []
+				const updatedModels = message?.openAiModels ?? []
 				console.log(`[GenericProviderTemplate] 📋 Processing openAiModels:`, {
 					modelCount: updatedModels.length,
 					models: updatedModels.slice(0, 5) // 显示前5个模型
@@ -163,11 +162,11 @@ export const GenericProviderTemplate = ({
 				break
 			}
 			default:
-				console.log(`[GenericProviderTemplate] 📋 Ignoring message type: ${message.type}`)
+				console.log(`[GenericProviderTemplate] 📋 Ignoring message type: ${message?.type || 'unknown'}`)
 		}
 	}, [])
 
-	useEvent("message", onMessage)
+	useUniversalMessageListener(onMessage, { debug: true })
 
 	// 自动获取模型列表
 	const apiKey = config.apiKeyField ? apiConfiguration?.[config.apiKeyField] : null

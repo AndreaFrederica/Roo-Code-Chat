@@ -23,6 +23,7 @@ type UnboundProps = {
 		isUserAction?: boolean,
 	) => void
 	routerModels?: RouterModels
+	refetchRouterModels?: () => void
 	organizationAllowList: OrganizationAllowList
 	modelValidationError?: string
 }
@@ -31,6 +32,7 @@ export const Unbound = ({
 	apiConfiguration,
 	setApiConfigurationField,
 	routerModels,
+	refetchRouterModels,
 	organizationAllowList,
 	modelValidationError,
 }: UnboundProps) => {

@@ -246,7 +246,7 @@ const ApiOptions = ({
 				vscode.postMessage({ type: "requestLmStudioModels" })
 			} else if (selectedProvider === "vscode-lm") {
 				vscode.postMessage({ type: "requestVsCodeLmModels" })
-			} else if (selectedProvider === "litellm" || selectedProvider === "deepinfra") {
+			} else if (selectedProvider === "openrouter" || selectedProvider === "glama" || selectedProvider === "unbound" || selectedProvider === "vercel-ai-gateway" || selectedProvider === "litellm" || selectedProvider === "deepinfra") {
 				vscode.postMessage({ type: "requestRouterModels" })
 			}
 		},
@@ -485,6 +485,7 @@ const ApiOptions = ({
 					apiConfiguration={apiConfiguration}
 					setApiConfigurationField={setApiConfigurationField}
 					routerModels={routerModels}
+					refetchRouterModels={refetchRouterModels}
 					selectedModelId={selectedModelId}
 					uriScheme={uriScheme}
 					fromWelcomeView={fromWelcomeView}
@@ -510,6 +511,7 @@ const ApiOptions = ({
 					apiConfiguration={apiConfiguration}
 					setApiConfigurationField={setApiConfigurationField}
 					routerModels={routerModels}
+					refetchRouterModels={refetchRouterModels}
 					uriScheme={uriScheme}
 					organizationAllowList={organizationAllowList}
 					modelValidationError={modelValidationError}
@@ -521,6 +523,7 @@ const ApiOptions = ({
 					apiConfiguration={apiConfiguration}
 					setApiConfigurationField={setApiConfigurationField}
 					routerModels={routerModels}
+					refetchRouterModels={refetchRouterModels}
 					organizationAllowList={organizationAllowList}
 					modelValidationError={modelValidationError}
 				/>
@@ -659,6 +662,8 @@ const ApiOptions = ({
 				<IOIntelligence
 					apiConfiguration={apiConfiguration}
 					setApiConfigurationField={setApiConfigurationField}
+					routerModels={routerModels}
+					refetchRouterModels={refetchRouterModels}
 					organizationAllowList={organizationAllowList}
 					modelValidationError={modelValidationError}
 				/>
@@ -669,6 +674,7 @@ const ApiOptions = ({
 					apiConfiguration={apiConfiguration}
 					setApiConfigurationField={setApiConfigurationField}
 					routerModels={routerModels}
+					refetchRouterModels={refetchRouterModels}
 					organizationAllowList={organizationAllowList}
 					modelValidationError={modelValidationError}
 				/>

@@ -840,16 +840,27 @@ export class ClineProvider
 	 * 重写postMessageToWebview方法，同时发送给webview和WebSocket客户端
 	 */
 	async postMessageToWebview(message: ExtensionMessage): Promise<void> {
+		console.log(`[ClineProvider] postMessageToWebview: ${message.type}`, {
+			messageType: message.type,
+			hasData: 'openAiModels' in message ? (message as any).openAiModels?.length : 'N/A',
+			connectedClients: this.serverManager?.getConnectedClientsCount() || 0
+		})
+
 		// 发送给webview（原有逻辑）
 		await this.view?.webview.postMessage(message)
 
 		// 发送给WebSocket客户端（仅在有连接时）
 		if (this.serverManager && this.serverManager.getConnectedClientsCount() > 0) {
 			try {
+				console.log(`[ClineProvider] Broadcasting message ${message.type} to ${this.serverManager.getConnectedClientsCount()} WebSocket clients`)
 				this.serverManager.broadcast(message)
+				console.log(`[ClineProvider] Successfully broadcasted message ${message.type}`)
 			} catch (error) {
 				this.outputChannel.appendLine(`[ClineProvider] Error broadcasting to WebSocket clients: ${error}`)
+				console.error(`[ClineProvider] Error broadcasting to WebSocket clients:`, error)
 			}
+		} else {
+			console.log(`[ClineProvider] No WebSocket clients connected, skipping broadcast`)
 		}
 	}
 
@@ -928,6 +939,14 @@ export class ClineProvider
 			running: true,
 			clients: this.serverManager.getConnectedClientsCount(),
 			clientInfo: this.serverManager.getClientInfo()
+		}
+	}
+
+	public showWebSocketLogs(): void {
+		if (this.serverManager) {
+			this.serverManager.showWebSocketLogs()
+		} else {
+			vscode.window.showInformationMessage('WebSocket服务器未运行')
 		}
 	}
 

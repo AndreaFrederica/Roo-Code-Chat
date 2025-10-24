@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from "react"
-import { useEvent } from "react-use"
 import { Checkbox } from "vscrui"
 import { VSCodeButton, VSCodeTextField } from "@vscode/webview-ui-toolkit/react"
 
@@ -22,6 +21,7 @@ import { inputEventTransform, noTransform } from "../transforms"
 import { ModelPicker } from "../ModelPicker"
 import { R1FormatSetting } from "../R1FormatSetting"
 import { ThinkingBudget } from "../ThinkingBudget"
+import { useUniversalMessageListener } from "@src/hooks/useMessageListener"
 
 type OpenAICompatibleProps = {
 	apiConfiguration: ProviderSettings
@@ -105,10 +105,8 @@ export const OpenAICompatible = ({
 		[setApiConfigurationField],
 	)
 
-	const onMessage = useCallback((event: MessageEvent) => {
-		const message: ExtensionMessage = event.data
-
-		switch (message.type) {
+	const onMessage = useCallback((message: ExtensionMessage) => {
+		switch (message?.type) {
 			case "openAiModels": {
 				const updatedModels = message.openAiModels ?? []
 				setOpenAiModels(Object.fromEntries(updatedModels.map((item) => [item, openAiModelInfoSaneDefaults])))
@@ -117,7 +115,7 @@ export const OpenAICompatible = ({
 		}
 	}, [])
 
-	useEvent("message", onMessage)
+	useUniversalMessageListener(onMessage)
 
 	return (
 		<>

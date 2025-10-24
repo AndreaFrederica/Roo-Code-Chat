@@ -1,5 +1,4 @@
 import { useCallback, useState, useMemo, useEffect } from "react"
-import { useEvent } from "react-use"
 import { Trans } from "react-i18next"
 import { Checkbox } from "vscrui"
 import { VSCodeLink, VSCodeRadio, VSCodeRadioGroup, VSCodeTextField } from "@vscode/webview-ui-toolkit/react"
@@ -10,6 +9,7 @@ import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { ExtensionMessage } from "@roo/ExtensionMessage"
 import { useRouterModels } from "@src/components/ui/hooks/useRouterModels"
 import { vscode } from "@src/utils/vscode"
+import { useUniversalMessageListener } from "@src/hooks/useMessageListener"
 
 import { inputEventTransform } from "../transforms"
 import { ModelRecord } from "@roo/api"
@@ -36,10 +36,8 @@ export const LMStudio = ({ apiConfiguration, setApiConfigurationField }: LMStudi
 		[setApiConfigurationField],
 	)
 
-	const onMessage = useCallback((event: MessageEvent) => {
-		const message: ExtensionMessage = event.data
-
-		switch (message.type) {
+	const onMessage = useCallback((message: ExtensionMessage) => {
+		switch (message?.type) {
 			case "lmStudioModels":
 				{
 					const newModels = message.lmStudioModels ?? {}
@@ -49,7 +47,7 @@ export const LMStudio = ({ apiConfiguration, setApiConfigurationField }: LMStudi
 		}
 	}, [])
 
-	useEvent("message", onMessage)
+	useUniversalMessageListener(onMessage)
 
 	// Refresh models on mount
 	useEffect(() => {

@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react"
-import { useEvent } from "react-use"
 import { LanguageModelChatSelector } from "vscode"
 
 import type { ProviderSettings } from "@roo-code/types"
@@ -8,6 +7,7 @@ import { ExtensionMessage } from "@roo/ExtensionMessage"
 
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@src/components/ui"
+import { useUniversalMessageListener } from "@src/hooks/useMessageListener"
 
 import { inputEventTransform } from "../transforms"
 
@@ -32,10 +32,8 @@ export const VSCodeLM = ({ apiConfiguration, setApiConfigurationField }: VSCodeL
 		[setApiConfigurationField],
 	)
 
-	const onMessage = useCallback((event: MessageEvent) => {
-		const message: ExtensionMessage = event.data
-
-		switch (message.type) {
+	const onMessage = useCallback((message: ExtensionMessage) => {
+		switch (message?.type) {
 			case "vsCodeLmModels":
 				{
 					const newModels = message.vsCodeLmModels ?? []
@@ -45,7 +43,7 @@ export const VSCodeLM = ({ apiConfiguration, setApiConfigurationField }: VSCodeL
 		}
 	}, [])
 
-	useEvent("message", onMessage)
+	useUniversalMessageListener(onMessage)
 
 	return (
 		<>

@@ -16,6 +16,7 @@ type GlamaProps = {
 	apiConfiguration: ProviderSettings
 	setApiConfigurationField: (field: keyof ProviderSettings, value: ProviderSettings[keyof ProviderSettings]) => void
 	routerModels?: RouterModels
+	refetchRouterModels?: () => void
 	uriScheme?: string
 	organizationAllowList: OrganizationAllowList
 	modelValidationError?: string
@@ -25,6 +26,7 @@ export const Glama = ({
 	apiConfiguration,
 	setApiConfigurationField,
 	routerModels,
+	refetchRouterModels,
 	uriScheme,
 	organizationAllowList,
 	modelValidationError,

@@ -3,9 +3,11 @@ import * as http from 'http'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as url from 'url'
+import * as os from 'os'
 import { WebSocketServer } from 'ws'
 import { WebSocketMessageHandler } from './interfaces'
 import { WebviewMessage } from '../../shared/WebviewMessage'
+import { NetworkInterfaceInfo } from 'os'
 
 interface WebSocketClient {
     id: string
@@ -24,6 +26,7 @@ export class ServerHttp {
     private host: string
     private extensionUri: vscode.Uri
     private outputChannel: vscode.OutputChannel
+    private wsOutputChannel: any // WebSocketServerOutputChannel
     private wss: WebSocketServer | null = null
     private clients: Map<string, WebSocketClient> = new Map()
     private messageHandler: WebSocketMessageHandler | null = null
@@ -310,6 +313,9 @@ ${bootstrapScript.trim()}
                 case 'websocket-info':
                     await this.handleWebSocketInfoApi(req, res)
                     break
+                case 'network-info':
+                    await this.handleNetworkInfoApi(req, res)
+                    break
                 default:
                     res.writeHead(404, { 'Content-Type': 'application/json' })
                     res.end(JSON.stringify({ error: 'API endpoint not found' }))
@@ -336,12 +342,68 @@ ${bootstrapScript.trim()}
     private async handleWebSocketInfoApi(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         const wsInfo = {
             enabled: true,
-            port: this.webSocketPort,
-            url: `ws://localhost:${this.webSocketPort}`
+            port: this.port,
+            url: `ws://localhost:${this.port}/ws`,
+            clients: this.getConnectedClientsCount(),
+            boundHost: this.host
         }
 
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify(wsInfo))
+    }
+
+    private async handleNetworkInfoApi(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+        const clientIP = this.getClientIP(req)
+        const networkInterfaces = os.networkInterfaces()
+
+        // 获取所有网络接口
+        const interfaces: Array<{ name: string; addresses: Array<{ address: string; family: string; internal: boolean }> }> = []
+
+        for (const [name, nets] of Object.entries(networkInterfaces)) {
+            if (nets) {
+                const addresses = nets.map((net: NetworkInterfaceInfo) => ({
+                    address: net.address,
+                    family: net.family,
+                    internal: net.internal
+                }))
+                interfaces.push({ name, addresses })
+            }
+        }
+
+        const networkInfo = {
+            clientIP,
+            serverBoundHost: this.host,
+            serverPort: this.port,
+            networkInterfaces: interfaces,
+            webSocketUrl: `ws://localhost:${this.port}/ws`,
+            externalWebSocketUrls: this.getExternalWebSocketUrls(),
+            clients: this.getWebSocketClientInfo(),
+            timestamp: new Date().toISOString()
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify(networkInfo, null, 2))
+    }
+
+    private getExternalWebSocketUrls(): string[] {
+        if (this.host !== '0.0.0.0') {
+            return []
+        }
+
+        const networkInterfaces = os.networkInterfaces()
+        const urls: string[] = []
+
+        for (const nets of Object.values(networkInterfaces)) {
+            if (nets) {
+                for (const net of nets) {
+                    if (net.family === 'IPv4' && !net.internal) {
+                        urls.push(`ws://${net.address}:${this.port}/ws`)
+                    }
+                }
+            }
+        }
+
+        return urls
     }
 
   private async serveDevelopmentScript(req: http.IncomingMessage, res: http.ServerResponse, filePath: string): Promise<void> {
@@ -439,6 +501,18 @@ document.body.innerHTML = \`
         return this.server !== null && this.server.listening
     }
 
+    setWebSocketOutputChannel(wsOutputChannel: any): void {
+        this.wsOutputChannel = wsOutputChannel
+    }
+
+    private logWebSocket(message: string): void {
+        if (this.wsOutputChannel) {
+            this.wsOutputChannel.appendLine(message)
+        }
+        // 同时也在主输出通道记录重要信息
+        this.outputChannel.appendLine(`[WebSocket] ${message}`)
+    }
+
     getNetworkUrl(): string | null {
         if (this.host === '0.0.0.0') {
             // 获取本机IP地址
@@ -484,21 +558,33 @@ document.body.innerHTML = \`
      */
     private async handleWebSocketUpgrade(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         try {
-            // 检查是否是WebSocket升级请求
+            const clientIP = this.getClientIP(req)
             const upgrade = req.headers.upgrade
             const connection = req.headers.connection
+            const userAgent = req.headers['user-agent']
+            const origin = req.headers['origin']
 
+            // 详细日志记录
+            this.logWebSocket(`WebSocket upgrade request from ${clientIP}`)
+            this.logWebSocket(`Headers: upgrade=${upgrade}, connection=${connection}`)
+            this.logWebSocket(`User-Agent: ${userAgent}`)
+            this.logWebSocket(`Origin: ${origin}`)
+            this.logWebSocket(`Server bound to: ${this.host}`)
+
+            // 检查是否是WebSocket升级请求
             if (upgrade === 'websocket' && connection && connection.toLowerCase().includes('upgrade')) {
+                this.logWebSocket(`Valid WebSocket upgrade request, proceeding with upgrade`)
                 // 执行WebSocket升级
                 this.upgradeWebSocket(req)
                 return
             }
 
-            // 如果不是WebSocket升级请求，返回400
+            // 如果不是WebSocket升级请求，返回详细信息
+            this.logWebSocket(`Invalid WebSocket upgrade request - upgrade: ${upgrade}, connection: ${connection}`)
             res.writeHead(400, { 'Content-Type': 'text/plain' })
-            res.end('Bad Request: WebSocket upgrade required')
+            res.end(`Bad Request: WebSocket upgrade required\nReceived: upgrade=${upgrade}, connection=${connection}\nClient: ${clientIP}`)
         } catch (error) {
-            this.outputChannel.appendLine(`[ServerHttp] WebSocket upgrade error: ${error}`)
+            this.logWebSocket(`WebSocket upgrade error: ${error}`)
             res.writeHead(500, { 'Content-Type': 'text/plain' })
             res.end('Internal Server Error')
         }
@@ -519,7 +605,7 @@ document.body.innerHTML = \`
 
         // 验证连接
         if (!this.validateWebSocketConnection(req, clientIP)) {
-            this.outputChannel.appendLine(`[ServerHttp] WebSocket connection rejected from ${clientIP}`)
+            this.logWebSocket(`WebSocket connection rejected from ${clientIP}`)
             req.socket.destroy()
             return
         }
@@ -535,6 +621,13 @@ document.body.innerHTML = \`
 
         // 执行升级
         this.wss.handleUpgrade(req, req.socket, Buffer.alloc(0), (ws) => {
+            this.logWebSocket(`WebSocket upgrade completed, readyState: ${ws.readyState}`)
+            // 手动触发open事件，因为ws库可能不会自动触发
+            setImmediate(() => {
+                if (ws.readyState === 1) { // WebSocket.OPEN
+                    ws.emit('open')
+                }
+            })
             this.handleWebSocketConnection(ws, clientIP, userAgent, origin)
         })
     }
@@ -544,24 +637,28 @@ document.body.innerHTML = \`
      */
     private validateWebSocketConnection(req: http.IncomingMessage, clientIP: string): boolean {
         try {
+            this.logWebSocket(`Validating WebSocket connection from ${clientIP}, server bound to ${this.host}`)
+
             // 如果绑定到localhost，只允许本地连接
             if (this.host === 'localhost' || this.host === '127.0.0.1') {
                 const isLocal = clientIP === '127.0.0.1' || clientIP === '::1' || clientIP === '::ffff:127.0.0.1'
+                this.logWebSocket(`Localhost mode: clientIP=${clientIP}, isLocal=${isLocal}`)
                 if (!isLocal) {
-                    this.outputChannel.appendLine(`[ServerHttp] Rejected non-local WebSocket connection ${clientIP} in localhost mode`)
+                    this.logWebSocket(`REJECTED: Non-local WebSocket connection ${clientIP} in localhost mode`)
                     return false
                 }
             }
 
             // 如果绑定到0.0.0.0，允许所有连接
             if (this.host === '0.0.0.0') {
-                this.outputChannel.appendLine(`[ServerHttp] Accepting WebSocket connection from ${clientIP} (network access mode)`)
+                this.logWebSocket(`ACCEPTED: WebSocket connection from ${clientIP} (network access mode)`)
                 return true
             }
 
+            this.logWebSocket(`ACCEPTED: WebSocket connection from ${clientIP} (host=${this.host})`)
             return true
         } catch (error) {
-            this.outputChannel.appendLine(`[ServerHttp] Error validating WebSocket connection: ${error}`)
+            this.logWebSocket(`ERROR: Validating WebSocket connection: ${error}`)
             return false
         }
     }
@@ -573,7 +670,7 @@ document.body.innerHTML = \`
         if (!this.wss) return
 
         this.wss.on('error', (error) => {
-            this.outputChannel.appendLine(`[ServerHttp] WebSocket server error: ${error}`)
+            this.logWebSocket(`WebSocket server error: ${error}`)
         })
 
         // 定期清理断开的连接
@@ -598,7 +695,8 @@ document.body.innerHTML = \`
         }
 
         this.clients.set(clientId, client)
-        this.outputChannel.appendLine(`[ServerHttp] WebSocket client connected: ${clientId} from ${ip}${origin ? ` (${origin})` : ''}`)
+        this.logWebSocket(`WebSocket client connected: ${clientId} from ${ip}${origin ? ` (${origin})` : ''}`)
+        this.logWebSocket(`WebSocket readyState: ${ws.readyState} (CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3)`)
 
         // 设置客户端事件处理器
         this.setupWebSocketClientHandlers(client)
@@ -611,30 +709,43 @@ document.body.innerHTML = \`
      * 设置WebSocket客户端事件处理器
      */
     private setupWebSocketClientHandlers(client: WebSocketClient): void {
+        client.ws.on('open', () => {
+            this.logWebSocket(`WebSocket client OPENED: ${client.id} from ${client.ip}`)
+        })
+
         client.ws.on('message', async (data: any) => {
             try {
                 const message: WebviewMessage = JSON.parse(data.toString())
                 client.lastActivity = Date.now()
 
-                this.outputChannel.appendLine(`[ServerHttp] WebSocket message from ${client.id}: ${message.type}`)
+                this.logWebSocket(`WebSocket message from ${client.id}: ${message.type}`)
 
                 // 处理消息
                 await this.handleWebSocketMessage(client, message)
 
             } catch (error) {
-                this.outputChannel.appendLine(`[ServerHttp] Error handling WebSocket message: ${error}`)
+                this.logWebSocket(`Error handling WebSocket message: ${error}`)
             }
         })
 
         client.ws.on('close', (code: number, reason: Buffer) => {
             client.connected = false
             const closeReason = reason ? reason.toString('utf8') : 'Unknown'
-            this.outputChannel.appendLine(`[ServerHttp] WebSocket client disconnected: ${client.id} from ${client.ip} (code: ${code}, reason: ${closeReason})`)
+            this.logWebSocket(`WebSocket client CLOSED: ${client.id} from ${client.ip} (code: ${code}, reason: ${closeReason})`)
+            this.logWebSocket(`Close code meanings: 1000=normal, 1001=going away, 1002=protocol error, 1003=unsupported data, 1004=reserved, 1005=no status, 1006=abnormal`)
         })
 
         client.ws.on('error', (error: Error) => {
             client.connected = false
-            this.outputChannel.appendLine(`[ServerHttp] WebSocket client error ${client.id}: ${error}`)
+            this.logWebSocket(`WebSocket client ERROR ${client.id}: ${error}`)
+        })
+
+        client.ws.on('ping', (data: Buffer) => {
+            this.logWebSocket(`WebSocket PING from ${client.id}: ${data.toString()}`)
+        })
+
+        client.ws.on('pong', (data: Buffer) => {
+            this.logWebSocket(`WebSocket PONG from ${client.id}: ${data.toString()}`)
         })
     }
 
@@ -645,11 +756,14 @@ document.body.innerHTML = \`
         if (!this.messageHandler) return
 
         try {
+            this.logWebSocket(`Processing WebSocket message: ${message.type} from client ${client.id}`)
+
+            // 消息处理器会通过 postMessageToWebview 自动广播响应，这里不需要再广播原始消息
             await this.messageHandler.handleMessage(message)
-            // 广播响应给所有连接的客户端
-            this.broadcastToWebSocketClients(message)
+
+            this.logWebSocket(`Successfully processed message: ${message.type}`)
         } catch (error) {
-            this.outputChannel.appendLine(`[ServerHttp] Error processing WebSocket message: ${error}`)
+            this.logWebSocket(`Error processing WebSocket message: ${error}`)
             // 发送错误响应
             this.sendWebSocketToClient(client, {
                 type: 'error',
@@ -662,16 +776,22 @@ document.body.innerHTML = \`
      * 发送初始状态给WebSocket客户端
      */
     private async sendInitialState(client: WebSocketClient): Promise<void> {
+        this.logWebSocket(`Sending initial state to ${client.id}, ws.readyState: ${client.ws.readyState}`)
+
         if (this.messageHandler?.getCurrentState) {
             try {
                 const state = await this.messageHandler.getCurrentState()
+                this.logWebSocket(`Got state, sending to ${client.id}`)
                 this.sendWebSocketToClient(client, {
                     type: 'state',
                     state
                 })
+                this.logWebSocket(`Initial state sent to ${client.id}`)
             } catch (error) {
-                this.outputChannel.appendLine(`[ServerHttp] Error sending initial state: ${error}`)
+                this.logWebSocket(`Error sending initial state: ${error}`)
             }
+        } else {
+            this.logWebSocket(`No messageHandler available for ${client.id}`)
         }
     }
 
@@ -697,13 +817,22 @@ document.body.innerHTML = \`
      * 发送消息给特定WebSocket客户端
      */
     private sendWebSocketToClient(client: WebSocketClient, message: any): void {
-        if (client.connected && client.ws.readyState === 1) { // WebSocket.OPEN = 1
+        const readyState = client.ws.readyState
+        const messageType = message.type || 'unknown'
+
+        this.logWebSocket(`Sending ${messageType} to ${client.id}, connected: ${client.connected}, readyState: ${readyState}`)
+
+        if (client.connected && readyState === 1) { // WebSocket.OPEN = 1
             try {
-                client.ws.send(JSON.stringify(message))
+                const messageStr = JSON.stringify(message)
+                client.ws.send(messageStr)
+                this.logWebSocket(`Successfully sent ${messageType} to ${client.id}, size: ${messageStr.length}`)
             } catch (error) {
-                this.outputChannel.appendLine(`[ServerHttp] Error sending to WebSocket client ${client.id}: ${error}`)
+                this.logWebSocket(`ERROR sending to WebSocket client ${client.id}: ${error}`)
                 client.connected = false
             }
+        } else {
+            this.logWebSocket(`Cannot send ${messageType} to ${client.id}: not connected (${client.connected}) or not ready (${readyState})`)
         }
     }
 
@@ -718,7 +847,7 @@ document.body.innerHTML = \`
                     client.ws.close()
                 }
                 this.clients.delete(id)
-                this.outputChannel.appendLine(`[ServerHttp] Cleaned up WebSocket client: ${id}`)
+                this.logWebSocket(`Cleaned up WebSocket client: ${id}`)
             }
         })
     }

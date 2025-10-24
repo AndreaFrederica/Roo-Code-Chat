@@ -8,9 +8,10 @@ import {
 	ioIntelligenceModels,
 } from "@roo-code/types"
 
+import type { RouterModels } from "@roo/api"
+
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { VSCodeButtonLink } from "@src/components/common/VSCodeButtonLink"
-import { useExtensionState } from "@src/context/ExtensionStateContext"
 
 import { ModelPicker } from "../ModelPicker"
 
@@ -19,6 +20,8 @@ import { inputEventTransform } from "../transforms"
 type IOIntelligenceProps = {
 	apiConfiguration: ProviderSettings
 	setApiConfigurationField: (field: keyof ProviderSettings, value: ProviderSettings[keyof ProviderSettings]) => void
+	routerModels?: RouterModels
+	refetchRouterModels?: () => void
 	organizationAllowList: OrganizationAllowList
 	modelValidationError?: string
 }
@@ -26,11 +29,12 @@ type IOIntelligenceProps = {
 export const IOIntelligence = ({
 	apiConfiguration,
 	setApiConfigurationField,
+	routerModels,
+	refetchRouterModels,
 	organizationAllowList,
 	modelValidationError,
 }: IOIntelligenceProps) => {
 	const { t } = useAppTranslation()
-	const { routerModels } = useExtensionState()
 
 	const handleInputChange = useCallback(
 		<K extends keyof ProviderSettings, E>(

@@ -1,5 +1,4 @@
 import { useCallback, useState, useEffect, useMemo } from "react"
-import { useEvent } from "react-use"
 import { VSCodeTextField } from "@vscode/webview-ui-toolkit/react"
 
 import type { ProviderSettings } from "@roo-code/types"
@@ -7,6 +6,7 @@ import type { ProviderSettings } from "@roo-code/types"
 import { ExtensionMessage } from "@roo/ExtensionMessage"
 import { vscode } from "@src/utils/vscode"
 import { useAppTranslation } from "@src/i18n/TranslationContext"
+import { useUniversalMessageListener } from "@src/hooks/useMessageListener"
 import { VSCodeButtonLink } from "@src/components/common/VSCodeButtonLink"
 import { SearchableSelect, type SearchableSelectOption } from "@src/components/ui"
 import { cn } from "@src/lib/utils"
@@ -67,10 +67,8 @@ export const HuggingFace = ({ apiConfiguration, setApiConfigurationField }: Hugg
 	}, [])
 
 	// Handle messages from extension.
-	const onMessage = useCallback((event: MessageEvent) => {
-		const message: ExtensionMessage = event.data
-
-		switch (message.type) {
+	const onMessage = useCallback((message: ExtensionMessage) => {
+		switch (message?.type) {
 			case "huggingFaceModels":
 				setModels(message.huggingFaceModels?.sort((a, b) => a.id.localeCompare(b.id)) || [])
 				setLoading(false)
@@ -78,7 +76,7 @@ export const HuggingFace = ({ apiConfiguration, setApiConfigurationField }: Hugg
 		}
 	}, [])
 
-	useEvent("message", onMessage)
+	useUniversalMessageListener(onMessage)
 
 	// Get current model and its providers
 	const currentModel = models.find((m) => m.id === apiConfiguration?.huggingFaceModelId)

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { Trans } from "react-i18next"
 import { Checkbox } from "vscrui"
 import { VSCodeTextField } from "@vscode/webview-ui-toolkit/react"
@@ -20,6 +20,7 @@ type OpenRouterProps = {
 	apiConfiguration: ProviderSettings
 	setApiConfigurationField: (field: keyof ProviderSettings, value: ProviderSettings[keyof ProviderSettings]) => void
 	routerModels?: RouterModels
+	refetchRouterModels?: () => void
 	selectedModelId: string
 	uriScheme: string | undefined
 	fromWelcomeView?: boolean
@@ -31,6 +32,7 @@ export const OpenRouter = ({
 	apiConfiguration,
 	setApiConfigurationField,
 	routerModels,
+	refetchRouterModels,
 	uriScheme,
 	fromWelcomeView,
 	organizationAllowList,
@@ -39,6 +41,21 @@ export const OpenRouter = ({
 	const { t } = useAppTranslation()
 
 	const [openRouterBaseUrlSelected, setOpenRouterBaseUrlSelected] = useState(!!apiConfiguration?.openRouterBaseUrl)
+
+	// 自动获取 OpenRouter 模型数据
+	useEffect(() => {
+		console.log('[OpenRouter] Component mounted, checking models:', {
+			hasRouterModels: !!routerModels,
+			modelsCount: routerModels?.openrouter ? Object.keys(routerModels.openrouter).length : 0,
+			hasApiKey: !!apiConfiguration?.openRouterApiKey
+		})
+
+		// 如果有 API Key 但没有模型数据，则自动获取
+		if (apiConfiguration?.openRouterApiKey && (!routerModels?.openrouter || Object.keys(routerModels.openrouter).length === 0)) {
+			console.log('[OpenRouter] Auto-fetching models - has API key but no models')
+			refetchRouterModels?.()
+		}
+	}, [apiConfiguration?.openRouterApiKey, routerModels, refetchRouterModels])
 
 	const handleInputChange = useCallback(
 		<K extends keyof ProviderSettings, E>(
