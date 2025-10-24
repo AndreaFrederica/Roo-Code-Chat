@@ -27,6 +27,7 @@ import { useAddNonInteractiveClickListener } from "./components/ui/hooks/useNonI
 import { TooltipProvider } from "./components/ui/tooltip"
 import { STANDARD_TOOLTIP_DELAY } from "./components/ui/standard-tooltip"
 import NotificationProvider from "./components/ui/Notification"
+import StandaloneHydrationGate from "./components/standalone/StandaloneHydrationGate"
 
 type Tab = "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
 
@@ -222,7 +223,23 @@ const App = () => {
 	}, [telemetrySetting, telemetryKey, machineId, didHydrateState])
 
 	// Tell the extension that we are ready to receive messages.
-	useEffect(() => vscode.postMessage({ type: "webviewDidLaunch" }), [])
+	useEffect(() => {
+		if (vscode.isConnected()) {
+			vscode.postMessage({ type: "webviewDidLaunch" })
+			return
+		}
+
+		const unsubscribe = vscode.onConnectionStatusChange((connected) => {
+			if (connected) {
+				vscode.postMessage({ type: "webviewDidLaunch" })
+				unsubscribe?.()
+			}
+		})
+
+		return () => {
+			unsubscribe?.()
+		}
+	}, [])
 
 	// Initialize source map support for better error reporting
 	useEffect(() => {
@@ -255,7 +272,7 @@ const App = () => {
 	}, [tab])
 
 	if (!didHydrateState) {
-		return null
+		return <StandaloneHydrationGate />
 	}
 
 	// Do not conditionally load ChatView, it's expensive and there's state we

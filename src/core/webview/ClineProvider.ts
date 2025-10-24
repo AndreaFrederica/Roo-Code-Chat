@@ -114,6 +114,7 @@ import { Task } from "../task/Task"
 import { getSystemPromptFilePath } from "../prompts/sections/custom-system-prompt"
 
 import { webviewMessageHandler } from "./webviewMessageHandler"
+import { ExtensionServerManager, type WebSocketMessageHandler } from "../server/ServerManager"
 import type {
 	AnhExtensionCapabilityRegistry,
 	AnhExtensionRuntimeState,
@@ -160,7 +161,7 @@ type SystemPromptHookOptions = Omit<AnhExtensionSystemPromptContext, "basePrompt
 
 export class ClineProvider
 	extends EventEmitter<TaskProviderEvents>
-	implements vscode.WebviewViewProvider, TelemetryPropertiesProvider, TaskProviderLike
+	implements vscode.WebviewViewProvider, TelemetryPropertiesProvider, TaskProviderLike, WebSocketMessageHandler
 {
 	// Used in package.json as the view's id. This value cannot be changed due
 	// to how VSCode caches views based on their id, and updating the id would
@@ -183,6 +184,7 @@ export class ClineProvider
 	private readonly regexProcessorManager = getRegexProcessorManager()
 	private taskEventListeners: WeakMap<Task, Array<() => void>> = new WeakMap()
 	private currentWorkspacePath: string | undefined
+	private serverManager: ExtensionServerManager | null = null
 
 	private recentTasksCache?: string[]
 	private activeRoleUuid?: string
@@ -377,6 +379,11 @@ export class ClineProvider
 		} else {
 			this.log("CloudService not ready, deferring cloud profile sync")
 		}
+
+		// Initialize WebSocket bridge and HTTP server
+		this.initializeWebSocketBridge().catch((error) => {
+			this.log(`Failed to initialize WebSocket bridge: ${error}`)
+		})
 	}
 
 	/**
@@ -654,6 +661,138 @@ export class ClineProvider
 		}
 	}
 
+	/**
+	 * Initialize servers for external access
+	 */
+	private async initializeWebSocketBridge(): Promise<void> {
+		try {
+			// 检查配置是否启用WebSocket服务器
+			const config = vscode.workspace.getConfiguration('anh-cline')
+			const enableWebSocketServer = config.get<boolean>('enableWebSocketServer', false)
+
+			if (enableWebSocketServer) {
+				// 获取端口配置
+				const webSocketPort = config.get<number>('webSocketServerPort', 3001)
+				const httpPort = config.get<number>('httpServerPort', 3002)
+
+				// 创建服务器管理器
+				this.serverManager = new ExtensionServerManager(
+					this.context.extensionUri,
+					this.outputChannel
+				)
+
+				// 启动服务器
+				await this.serverManager.start({
+					webSocketPort,
+					httpPort,
+					enableWebSocket: true,
+					autoStart: true
+				}, this)
+
+				this.outputChannel.appendLine(`[ClineProvider] ServerManager started with WebSocket (port ${webSocketPort}) and HTTP (port ${httpPort})`)
+			}
+		} catch (error) {
+			this.outputChannel.appendLine(`[ClineProvider] Failed to initialize servers: ${error}`)
+		}
+	}
+
+	/**
+	 * 重写postMessageToWebview方法，同时发送给webview和WebSocket客户端
+	 */
+	async postMessageToWebview(message: ExtensionMessage): Promise<void> {
+		// 发送给webview（原有逻辑）
+		await this.view?.webview.postMessage(message)
+
+		// 发送给WebSocket客户端（仅在有连接时）
+		if (this.serverManager && this.serverManager.getConnectedClientsCount() > 0) {
+			try {
+				this.serverManager.broadcast(message)
+			} catch (error) {
+				this.outputChannel.appendLine(`[ClineProvider] Error broadcasting to WebSocket clients: ${error}`)
+			}
+		}
+	}
+
+	/**
+	 * 添加公开的消息处理方法
+	 */
+	async handleWebviewMessage(message: WebviewMessage): Promise<void> {
+		// 复用现有的webview消息处理逻辑
+		await webviewMessageHandler(this, message, this.marketplaceManager)
+	}
+
+	/**
+	 * WebSocketMessageHandler接口实现
+	 * 用于处理来自WebSocket客户端的消息
+	 */
+	async handleMessage(message: WebviewMessage): Promise<void> {
+		// 直接调用现有的webview消息处理逻辑
+		await this.handleWebviewMessage(message)
+	}
+
+	/**
+	 * WebSocketMessageHandler接口实现
+	 * 获取当前状态用于发送给新连接的客户端
+	 */
+	async getCurrentState(): Promise<any> {
+		return this.getStateToPostToWebview()
+	}
+
+	/**
+	 * 添加WebSocket服务器控制方法
+	 */
+	public async startWebSocketServer(): Promise<void> {
+		if (!this.serverManager) {
+			const config = vscode.workspace.getConfiguration('anh-cline')
+			const webSocketPort = config.get<number>('webSocketServerPort', 3001)
+			const httpPort = config.get<number>('httpServerPort', 3002)
+
+			this.serverManager = new ExtensionServerManager(
+				this.context.extensionUri,
+				this.outputChannel
+			)
+
+			await this.serverManager.start({
+				webSocketPort,
+				httpPort,
+				enableWebSocket: true,
+				autoStart: true
+			}, this)
+		}
+	}
+
+	public stopWebSocketServer(): void {
+		if (this.serverManager) {
+			this.serverManager.stop()
+			this.serverManager = null
+		}
+	}
+
+	public getWebSocketServerInfo(): { running: boolean; clients: number; clientInfo: any[] } | null {
+		if (!this.serverManager) {
+			return null
+		}
+
+		return {
+			running: true,
+			clients: this.serverManager.getConnectedClientsCount(),
+			clientInfo: this.serverManager.getClientInfo()
+		}
+	}
+
+	/**
+	 * 获取服务器信息
+	 */
+	public getServerInfo(): {
+		webSocket: { running: boolean; port: number; clients: number } | null
+		http: { running: boolean; url: string } | null
+	} {
+		return this.serverManager ? this.serverManager.getServerInfo() : {
+			webSocket: null,
+			http: null
+		}
+	}
+
 	// Adds a new Task instance to clineStack, marking the start of a new task.
 	// The instance is pushed to the top of the stack (LIFO order).
 	// When the task is completed, the top instance is removed, reactivating the
@@ -871,6 +1010,10 @@ export class ClineProvider
 		this.mcpHub = undefined
 		this.marketplaceManager?.cleanup()
 		this.customModesManager?.dispose()
+
+		// 停止服务器
+		this.stopWebSocketServer()
+
 		this.log("Disposed all disposables")
 		ClineProvider.activeInstances.delete(this)
 
@@ -1273,10 +1416,6 @@ export class ClineProvider
 		}
 
 		return task
-	}
-
-	public async postMessageToWebview(message: ExtensionMessage) {
-		await this.view?.webview.postMessage(message)
 	}
 
 	private async getHMRHtmlContent(webview: vscode.Webview): Promise<string> {

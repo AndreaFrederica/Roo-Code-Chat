@@ -70,6 +70,7 @@ interface ExtendedExtensionState extends ExtensionState {
 export interface ExtensionStateContextType extends ExtendedExtensionState {
 	historyPreviewCollapsed?: boolean // Add the new state property
 	didHydrateState: boolean
+	activateStandaloneDemoMode: () => void
 	showWelcome: boolean
 	theme: any
 	mcpServers: McpServer[]
@@ -489,6 +490,15 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	})
 	const [includeTaskHistoryInEnhance, setIncludeTaskHistoryInEnhance] = useState(true)
 
+	const activateStandaloneDemoMode = useCallback(() => {
+		setState((prevState) => ({
+			...prevState,
+			renderContext: prevState.renderContext ?? "sidebar",
+		}))
+		setTheme((prevTheme: any) => prevTheme ?? { kind: "vs-dark" })
+		setDidHydrateState(true)
+	}, [])
+
 	const setListApiConfigMeta = useCallback(
 		(value: ProviderSettingsEntry[]) => setState((prevState) => ({ ...prevState, listApiConfigMeta: value })),
 		[],
@@ -504,9 +514,13 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		}))
 	}, [])
 
-	const handleMessage = useCallback(
-		(event: MessageEvent) => {
-			const message: ExtensionMessage = event.data
+	const processExtensionMessage = useCallback(
+		(messageOrEvent: ExtensionMessage | undefined) => {
+			if (!messageOrEvent || typeof messageOrEvent.type !== "string") {
+				return
+			}
+
+			const message = messageOrEvent
 			switch (message.type) {
 				case "state": {
 					const newState = message.state!
@@ -708,15 +722,52 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		[setListApiConfigMeta],
 	)
 
-	useEffect(() => {
-		window.addEventListener("message", handleMessage)
-		return () => {
-			window.removeEventListener("message", handleMessage)
-		}
-	}, [handleMessage])
+	const handleWindowMessage = useCallback(
+		(event: MessageEvent) => {
+			if (!event?.data || typeof event.data !== "object") {
+				return
+			}
+			processExtensionMessage(event.data as ExtensionMessage)
+		},
+		[processExtensionMessage],
+	)
+
+	const handleSocketMessage = useCallback(
+		(message: ExtensionMessage) => {
+			processExtensionMessage(message)
+		},
+		[processExtensionMessage],
+	)
 
 	useEffect(() => {
-		vscode.postMessage({ type: "webviewDidLaunch" })
+		window.addEventListener("message", handleWindowMessage)
+		const cleanupSocket = vscode.onMessage("*", handleSocketMessage)
+		return () => {
+			window.removeEventListener("message", handleWindowMessage)
+			if (typeof cleanupSocket === "function") {
+				cleanupSocket()
+			} else {
+				vscode.offMessage("*", handleSocketMessage)
+			}
+		}
+	}, [handleWindowMessage, handleSocketMessage])
+
+	useEffect(() => {
+		if (vscode.isConnected()) {
+			vscode.postMessage({ type: "webviewDidLaunch" })
+			return
+		}
+
+		const unsubscribe = vscode.onConnectionStatusChange((connected) => {
+			if (connected) {
+				vscode.postMessage({ type: "webviewDidLaunch" })
+				unsubscribe?.()
+			}
+		})
+
+		return () => {
+			unsubscribe?.()
+		}
 	}, [])
 
 	const normalizedWorkspaceContextSettings = normalizeWorkspaceContextSettings(state.workspaceContextSettings)
@@ -727,6 +778,7 @@ const contextValue: ExtensionStateContextType = {
 	anhExtensionCapabilityRegistry: state.anhExtensionCapabilityRegistry,
 		reasoningBlockCollapsed: state.reasoningBlockCollapsed ?? true,
 		didHydrateState,
+		activateStandaloneDemoMode,
 		showWelcome,
 		theme,
 		mcpServers,

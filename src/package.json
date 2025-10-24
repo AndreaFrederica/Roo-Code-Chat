@@ -228,6 +228,21 @@
 				"icon": "$(eye)"
 			},
 			{
+				"command": "anh-cline.startWebSocketServer",
+				"title": "启动WebSocket服务器",
+				"category": "Roo Code Chat"
+			},
+			{
+				"command": "anh-cline.stopWebSocketServer",
+				"title": "停止WebSocket服务器",
+				"category": "Roo Code Chat"
+			},
+			{
+				"command": "anh-cline.showWebSocketServerInfo",
+				"title": "显示WebSocket服务器信息",
+				"category": "Roo Code Chat"
+			},
+			{
 				"command": "anh-cline.openSystemPromptPreview",
 				"title": "Open System Prompt Preview",
 				"category": "%configuration.title%"
@@ -367,11 +382,11 @@
 					"group": "overflow@4",
 					"when": "activeWebviewPanelId == anh-cline.TabPanelProvider"
 				},
-			{
-				"command": "anh-cline.openSystemPromptPreview",
-				"title": "Open System Prompt Preview",
-				"category": "%configuration.title%"
-			}
+				{
+					"command": "anh-cline.openSystemPromptPreview",
+					"title": "Open System Prompt Preview",
+					"category": "%configuration.title%"
+				}
 			]
 		},
 		"keybindings": [
@@ -526,6 +541,30 @@
 					"type": "boolean",
 					"default": false,
 					"description": "启用调试模式，显示详细的日志信息"
+				},
+				"anh-cline.enableWebSocketServer": {
+					"type": "boolean",
+					"default": false,
+					"description": "启用WebSocket服务器，允许在独立浏览器中访问聊天界面"
+				},
+				"anh-cline.webSocketServerPort": {
+					"type": "number",
+					"default": 3001,
+					"minimum": 1024,
+					"maximum": 65535,
+					"description": "WebSocket服务器端口"
+				},
+				"anh-cline.httpServerPort": {
+					"type": "number",
+					"default": 3002,
+					"minimum": 1024,
+					"maximum": 65535,
+					"description": "HTTP静态文件服务器端口"
+				},
+				"anh-cline.webSocketServerAutoStart": {
+					"type": "boolean",
+					"default": true,
+					"description": "VS Code启动时自动启动WebSocket服务器"
 				}
 			}
 		}
@@ -559,6 +598,7 @@
 		"@roo-code/ipc": "workspace:^",
 		"@roo-code/telemetry": "workspace:^",
 		"@roo-code/types": "workspace:^",
+		"@types/ws": "^8.18.1",
 		"@vscode/codicons": "^0.0.36",
 		"async-mutex": "^0.5.0",
 		"axios": "^1.12.0",
@@ -619,6 +659,7 @@
 		"vscode-material-icons": "^0.1.1",
 		"web-tree-sitter": "^0.25.6",
 		"workerpool": "^9.2.0",
+		"ws": "^8.18.3",
 		"yaml": "^2.8.0",
 		"zod": "^3.25.61"
 	},

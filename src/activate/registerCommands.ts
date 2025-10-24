@@ -68,12 +68,52 @@ export type RegisterCommandOptions = {
 }
 
 export const registerCommands = (options: RegisterCommandOptions) => {
-	const { context } = options
+	const { context, outputChannel, provider } = options
 
 	for (const [id, callback] of Object.entries(getCommandsMap(options))) {
 		const command = getCommand(id as CommandId)
 		context.subscriptions.push(vscode.commands.registerCommand(command, callback))
 	}
+
+	// WebSocket服务器控制命令
+	const startWebSocketServerCommand = vscode.commands.registerCommand(
+		"anh-cline.startWebSocketServer",
+		async () => {
+			try {
+				await provider.startWebSocketServer()
+				vscode.window.showInformationMessage("WebSocket服务器已启动")
+			} catch (error) {
+				vscode.window.showErrorMessage(`启动WebSocket服务器失败: ${error}`)
+			}
+		}
+	)
+
+	const stopWebSocketServerCommand = vscode.commands.registerCommand(
+		"anh-cline.stopWebSocketServer",
+		() => {
+			provider.stopWebSocketServer()
+			vscode.window.showInformationMessage("WebSocket服务器已停止")
+		}
+	)
+
+	const showWebSocketServerInfoCommand = vscode.commands.registerCommand(
+		"anh-cline.showWebSocketServerInfo",
+		() => {
+			const info = provider.getWebSocketServerInfo()
+			if (info) {
+				const message = `WebSocket服务器状态: 运行中\n连接客户端数: ${info.clients}`
+				vscode.window.showInformationMessage(message)
+			} else {
+				vscode.window.showInformationMessage("WebSocket服务器未运行")
+			}
+		}
+	)
+
+	context.subscriptions.push(
+		startWebSocketServerCommand,
+		stopWebSocketServerCommand,
+		showWebSocketServerInfoCommand
+	)
 }
 
 const getCommandsMap = ({
@@ -495,7 +535,7 @@ const getCommandsMap = ({
 			vscode.window.showErrorMessage('Failed to open system prompt preview')
 		}
 	},
-})
+	})
 
 export const openClineInNewTab = async ({
 	context,
