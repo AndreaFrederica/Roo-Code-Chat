@@ -9,6 +9,7 @@ let isStandaloneBrowser: boolean = false
 let wsAdapter: WebSocketAdapter | null = null
 const pendingMessageSubscriptions: Array<{ type: string; handler: Function }> = []
 const pendingConnectionListeners: Array<(connected: boolean) => void> = []
+const pendingReconnectCountdownListeners: Array<(seconds: number) => void> = []
 const ADAPTER_POLL_INTERVAL = 100
 
 // 全局存储VSCode API实例，避免循环引用
@@ -49,6 +50,17 @@ const removePendingConnectionListener = (handler: (connected: boolean) => void) 
 	}
 }
 
+const queuePendingReconnectCountdownListener = (handler: (seconds: number) => void) => {
+	pendingReconnectCountdownListeners.push(handler)
+}
+
+const removePendingReconnectCountdownListener = (handler: (seconds: number) => void) => {
+	const index = pendingReconnectCountdownListeners.findIndex((listener) => listener === handler)
+	if (index !== -1) {
+		pendingReconnectCountdownListeners.splice(index, 1)
+	}
+}
+
 const flushPendingConnectionListeners = () => {
 	if (!wsAdapter || pendingConnectionListeners.length === 0) {
 		return
@@ -58,6 +70,17 @@ const flushPendingConnectionListeners = () => {
 	for (const handler of listeners) {
 		wsAdapter.onConnectionStatusChange(handler)
 		handler(wsAdapter.isConnected())
+	}
+}
+
+const flushPendingReconnectCountdownListeners = () => {
+	if (!wsAdapter || pendingReconnectCountdownListeners.length === 0) {
+		return
+	}
+
+	const listeners = pendingReconnectCountdownListeners.splice(0, pendingReconnectCountdownListeners.length)
+	for (const handler of listeners) {
+		wsAdapter.onReconnectCountdown(handler)
 	}
 }
 
@@ -71,6 +94,7 @@ const ensureAdapter = (): WebSocketAdapter | null => {
 		wsAdapter = globalAdapter
 		flushPendingMessageSubscriptions()
 		flushPendingConnectionListeners()
+		flushPendingReconnectCountdownListeners()
 		return wsAdapter
 	}
 
@@ -78,61 +102,61 @@ const ensureAdapter = (): WebSocketAdapter | null => {
 }
 
 function initializeEnvironment() {
-    // 更准确的环境检测
-    const hasVsCodeApi = typeof (window as any).acquireVsCodeApi === "function"
-    const hasWebSocketAdapter = !!(window as any).__webClientWebSocketAdapter
+	// 更准确的环境检测
+	const hasVsCodeApi = typeof (window as any).acquireVsCodeApi === "function"
+	const hasWebSocketAdapter = !!(window as any).__webClientWebSocketAdapter
 
-    console.log('[VSCode API] Environment detection:', {
-        hasVsCodeApi,
-        hasWebSocketAdapter,
-        documentReadyState: document.readyState
-    })
+	console.log("[VSCode API] Environment detection:", {
+		hasVsCodeApi,
+		hasWebSocketAdapter,
+		documentReadyState: document.readyState,
+	})
 
-    // 优先检测VSCode环境
-    if (hasVsCodeApi) {
-        isStandaloneBrowser = false
-        console.log('[VSCode API] Running in VS Code webview mode')
+	// 优先检测VSCode环境
+	if (hasVsCodeApi) {
+		isStandaloneBrowser = false
+		console.log("[VSCode API] Running in VS Code webview mode")
 
-        // 直接获取并存储VSCode API到全局变量
-        try {
-            const api = (window as any).acquireVsCodeApi()
-            globalVsCodeApi = api
-            console.log('[VSCode API] VSCode API stored for later use')
-        } catch (error) {
-            console.error('[VSCode API] Failed to acquire VSCode API:', error)
-        }
+		// 直接获取并存储VSCode API到全局变量
+		try {
+			const api = (window as any).acquireVsCodeApi()
+			globalVsCodeApi = api
+			console.log("[VSCode API] VSCode API stored for later use")
+		} catch (error) {
+			console.error("[VSCode API] Failed to acquire VSCode API:", error)
+		}
 
-        wsAdapter = null
-        return
-    }
+		wsAdapter = null
+		return
+	}
 
-    // 如果没有VSCode API但有WebSocket adapter，认为是独立浏览器模式
-    if (hasWebSocketAdapter) {
-        isStandaloneBrowser = true
-        console.log('[VSCode API] Running in standalone browser mode')
+	// 如果没有VSCode API但有WebSocket adapter，认为是独立浏览器模式
+	if (hasWebSocketAdapter) {
+		isStandaloneBrowser = true
+		console.log("[VSCode API] Running in standalone browser mode")
 
-        const adapter = ensureAdapter()
-        if (!adapter) {
-            console.log('[VSCode API] WebSocket adapter not ready, waiting...')
-            setTimeout(initializeEnvironment, ADAPTER_POLL_INTERVAL)
-            return
-        }
+		const adapter = ensureAdapter()
+		if (!adapter) {
+			console.log("[VSCode API] WebSocket adapter not ready, waiting...")
+			setTimeout(initializeEnvironment, ADAPTER_POLL_INTERVAL)
+			return
+		}
 
-        wsAdapter = adapter
-        console.log('[VSCode API] Found WebSocket adapter:', !!wsAdapter, wsAdapter?.isConnected?.())
-        return
-    }
+		wsAdapter = adapter
+		console.log("[VSCode API] Found WebSocket adapter:", !!wsAdapter, wsAdapter?.isConnected?.())
+		return
+	}
 
-    // 如果都没有，可能是正在加载，继续等待
-    console.log('[VSCode API] Environment not ready, waiting...')
-    setTimeout(initializeEnvironment, ADAPTER_POLL_INTERVAL)
+	// 如果都没有，可能是正在加载，继续等待
+	console.log("[VSCode API] Environment not ready, waiting...")
+	setTimeout(initializeEnvironment, ADAPTER_POLL_INTERVAL)
 }
 
 // 如果DOM已经加载完成，立即初始化；否则等待DOM加载
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeEnvironment)
+if (document.readyState === "loading") {
+	document.addEventListener("DOMContentLoaded", initializeEnvironment)
 } else {
-    initializeEnvironment()
+	initializeEnvironment()
 }
 
 /**
@@ -150,7 +174,7 @@ class VSCodeAPIWrapper {
 
 	constructor() {
 		// 不在构造函数中立即初始化，等待环境检测完成
-		console.log('[VSCode API] VSCodeAPIWrapper constructed, waiting for environment detection')
+		console.log("[VSCode API] VSCodeAPIWrapper constructed, waiting for environment detection")
 	}
 
 	/**
@@ -165,20 +189,20 @@ class VSCodeAPIWrapper {
 			// 优先使用全局存储的VSCode API实例
 			if (globalVsCodeApi) {
 				this.vsCodeApi = globalVsCodeApi
-				console.log('[VSCode API] Using global VSCode API instance')
+				console.log("[VSCode API] Using global VSCode API instance")
 			}
 			// 如果没有全局实例，但在VSCode环境中，尝试直接获取
 			else if (!isStandaloneBrowser && typeof (window as any).acquireVsCodeApi === "function") {
 				this.vsCodeApi = (window as any).acquireVsCodeApi()
 				if (this.vsCodeApi) {
 					globalVsCodeApi = this.vsCodeApi // 存储到全局变量
-					console.log('[VSCode API] VSCode API initialized successfully')
+					console.log("[VSCode API] VSCode API initialized successfully")
 				}
 			} else {
-				console.log('[VSCode API] Not in VSCode environment or acquireVsCodeApi not available')
+				console.log("[VSCode API] Not in VSCode environment or acquireVsCodeApi not available")
 			}
 		} catch (error) {
-			console.error('[VSCode API] Failed to initialize VSCode API:', error)
+			console.error("[VSCode API] Failed to initialize VSCode API:", error)
 		}
 
 		this.isInitialized = true
@@ -193,36 +217,36 @@ class VSCodeAPIWrapper {
 	 * @param message Arbitrary data (must be JSON serializable) to send to the extension context.
 	 */
 	public postMessage(message: WebviewMessage) {
-		messageTracer.logOutgoing(message, 'VSCodeAPIWrapper')
+		messageTracer.logOutgoing(message, "VSCodeAPIWrapper")
 
 		// 确保API已初始化
 		if (!this.isInitialized) {
 			this.tryInitializeVsCodeApi()
 		}
 
-		console.log('[VSCode API] postMessage called:', {
+		console.log("[VSCode API] postMessage called:", {
 			isStandaloneBrowser,
 			hasVsCodeApi: !!this.vsCodeApi,
 			hasWsAdapter: !!wsAdapter,
-			messageType: message.type
+			messageType: message.type,
 		})
 
 		// 优先使用VSCode API（如果在VSCode环境中）
 		if (this.vsCodeApi) {
-			console.log('[VSCode API] Using native VSCode API to post message')
+			console.log("[VSCode API] Using native VSCode API to post message")
 			this.vsCodeApi.postMessage(message)
 			return
 		}
 
 		// 如果没有VSCode API，但在独立浏览器环境且有WebSocket adapter
 		if (isStandaloneBrowser && wsAdapter) {
-			console.log('[VSCode API] Using WebSocket adapter to post message')
+			console.log("[VSCode API] Using WebSocket adapter to post message")
 			wsAdapter.postMessage(message)
 			return
 		}
 
 		// 最后的fallback
-		console.log('[VSCode API] Fallback: logging message to console', message)
+		console.log("[VSCode API] Fallback: logging message to console", message)
 	}
 
 	/**
@@ -309,7 +333,7 @@ class VSCodeAPIWrapper {
 	 * Check if connected to WebSocket server (in standalone browser mode)
 	 */
 	public isConnected(): boolean {
-		return isStandaloneBrowser ? wsAdapter?.isConnected() ?? false : true
+		return isStandaloneBrowser ? (wsAdapter?.isConnected() ?? false) : true
 	}
 
 	public isStandaloneMode(): boolean {
@@ -344,6 +368,30 @@ class VSCodeAPIWrapper {
 			}
 		}
 	}
+
+	public onReconnectCountdown(handler: (seconds: number) => void): () => void {
+		if (!isStandaloneBrowser) {
+			return () => {}
+		}
+
+		const adapter = ensureAdapter()
+		if (adapter) {
+			adapter.onReconnectCountdown(handler)
+			return () => adapter.offReconnectCountdown(handler)
+		}
+
+		queuePendingReconnectCountdownListener(handler)
+		setTimeout(initializeEnvironment, ADAPTER_POLL_INTERVAL)
+
+		return () => {
+			const activeAdapter = ensureAdapter()
+			if (activeAdapter) {
+				activeAdapter.offReconnectCountdown(handler)
+			} else {
+				removePendingReconnectCountdownListener(handler)
+			}
+		}
+	}
 }
 
 // Exports class singleton to prevent multiple invocations of acquireVsCodeApi.
@@ -351,10 +399,10 @@ class VSCodeAPIWrapper {
 let vscodeInstance: VSCodeAPIWrapper | null = null
 
 function getVscodeInstance(): VSCodeAPIWrapper {
-  if (!vscodeInstance) {
-    vscodeInstance = new VSCodeAPIWrapper()
-  }
-  return vscodeInstance
+	if (!vscodeInstance) {
+		vscodeInstance = new VSCodeAPIWrapper()
+	}
+	return vscodeInstance
 }
 
 export const vscode = getVscodeInstance()
@@ -362,28 +410,33 @@ export const vscode = getVscodeInstance()
 // 为了向后兼容，导出一个包含原有API的对象（仅在需要时）
 export const vscodeAPI = {
 	// 在VS Code环境中，直接使用原有的vscode实例
-	...(isStandaloneBrowser ? {} : {
-		postMessage: (message: WebviewMessage) => {
-			vscode.postMessage(message)
-		},
-		getState: () => vscode.getState(),
-		setState: (state: any) => vscode.setState(state)
-	}),
+	...(isStandaloneBrowser
+		? {}
+		: {
+				postMessage: (message: WebviewMessage) => {
+					vscode.postMessage(message)
+				},
+				getState: () => vscode.getState(),
+				setState: (state: any) => vscode.setState(state),
+			}),
 
 	// 在独立浏览器环境中，重写postMessage
-	...(isStandaloneBrowser ? {
-		postMessage: (message: WebviewMessage) => {
-			if (wsAdapter) {
-				wsAdapter.postMessage(message)
+	...(isStandaloneBrowser
+		? {
+				postMessage: (message: WebviewMessage) => {
+					if (wsAdapter) {
+						wsAdapter.postMessage(message)
+					}
+				},
 			}
-		}
-	} : {}),
+		: {}),
 
 	// 添加额外的方法
 	onMessage: (type: string, handler: Function) => vscode.onMessage(type, handler),
 	isConnected: () => vscode.isConnected(),
 	isStandaloneMode: () => vscode.isStandaloneMode(),
 	onConnectionStatusChange: (handler: (connected: boolean) => void) => vscode.onConnectionStatusChange(handler),
+	onReconnectCountdown: (handler: (seconds: number) => void) => vscode.onReconnectCountdown(handler),
 }
 
 // 初始化环境检测

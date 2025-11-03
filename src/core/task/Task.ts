@@ -190,7 +190,13 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	private static readonly REGEX_BUFFER_MIN_INTERVAL_MS = 1000
 	private regexProcessorNotReadyLogged = false
 	private regexExperimentEnabled: boolean | null = null
-	private lastRegexProcessReason: "sentence_end" | "paragraph_break" | "code_block" | "buffer_limit" | "stream_finalization" | "" = ""
+	private lastRegexProcessReason:
+		| "sentence_end"
+		| "paragraph_break"
+		| "code_block"
+		| "buffer_limit"
+		| "stream_finalization"
+		| "" = ""
 
 	/**
 	 * The mode associated with this task. Persisted across sessions
@@ -389,7 +395,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		this.regexExperimentEnabled =
 			experimentsConfig && typeof experimentsConfig[regexExperimentKey] === "boolean"
 				? experimentsConfig[regexExperimentKey]
-				: experimentsConfig?.stRegexProcessor ?? null
+				: (experimentsConfig?.stRegexProcessor ?? null)
 
 		// Normal use-case is usually retry similar history task with new workspace.
 		this.workspacePath = parentTask
@@ -733,7 +739,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 		// 如果消息刚刚完成（partial: false），重新解析并保存变量状态
 		// 这样前端就能通过 message.tool.variableState 获取到最新的变量状态
-		if (message.partial === false && message.text && (message.say === 'text' || message.say === 'user_feedback')) {
+		if (message.partial === false && message.text && (message.say === "text" || message.say === "user_feedback")) {
 			await this.saveVariableStateToMessage(message)
 			// 保存消息到磁盘以确保变量状态持久化
 			await this.saveClineMessages()
@@ -964,10 +970,14 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		}
 
 		// Wait for askResponse to be set.
-		console.log(`[Task] ask method waiting: askResponse=${this.askResponse !== undefined ? 'set' : 'not set'}, lastMessageTs=${this.lastMessageTs}, askTs=${askTs}`)
+		console.log(
+			`[Task] ask method waiting: askResponse=${this.askResponse !== undefined ? "set" : "not set"}, lastMessageTs=${this.lastMessageTs}, askTs=${askTs}`,
+		)
 		await pWaitFor(() => this.askResponse !== undefined || this.lastMessageTs !== askTs, { interval: 100 })
 
-		console.log(`[Task] ask method wait completed: askResponse=${this.askResponse !== undefined ? 'set' : 'not set'}, lastMessageTs=${this.lastMessageTs}, askTs=${askTs}`)
+		console.log(
+			`[Task] ask method wait completed: askResponse=${this.askResponse !== undefined ? "set" : "not set"}, lastMessageTs=${this.lastMessageTs}, askTs=${askTs}`,
+		)
 		if (this.lastMessageTs !== askTs) {
 			// Could happen if we send multiple asks in a row i.e. with
 			// command_output. It's important that when we know an ask could
@@ -1001,7 +1011,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	}
 
 	handleWebviewAskResponse(askResponse: ClineAskResponse, text?: string, images?: string[]) {
-		console.log(`[Task] handleWebviewAskResponse called: askResponse="${askResponse}", text="${text?.slice(0, 50)}...", images=${images?.length || 0}`)
+		console.log(
+			`[Task] handleWebviewAskResponse called: askResponse="${askResponse}", text="${text?.slice(0, 50)}...", images=${images?.length || 0}`,
+		)
 		this.askResponse = askResponse
 		this.askResponseText = text
 		this.askResponseImages = images
@@ -1064,13 +1076,16 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			// console.log(`[Task] Added user message to userMessageContent: text="${(processedText || '').slice(0, 50)}...", images=${images?.length || 0}, total content blocks=${this.userMessageContent.length}`)
 
 			//RAW
-			console.log(`[Task] Added user message to userMessageContent: text="${text?.slice(0, 50)}...", images=${images?.length || 0}, total content blocks=${this.userMessageContent.length}`)
-
+			console.log(
+				`[Task] Added user message to userMessageContent: text="${text?.slice(0, 50)}...", images=${images?.length || 0}, total content blocks=${this.userMessageContent.length}`,
+			)
 
 			// CRITICAL FIX: Don't immediately display user feedback during resume prompts
 			// This would interfere with the ask method waiting logic by changing lastMessageTs
 			// Instead, let the resumeTaskFromHistory method handle the display
-			console.log(`[Task] Skipping immediate user_feedback display during resume to avoid interfering with ask wait logic`)
+			console.log(
+				`[Task] Skipping immediate user_feedback display during resume to avoid interfering with ask wait logic`,
+			)
 		}
 
 		// Mark the last follow-up question as answered
@@ -1175,7 +1190,12 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 					const customUserAgent = provider?.contextProxy.getGlobalState("customUserAgent")
 					const customUserAgentMode = provider?.contextProxy.getGlobalState("customUserAgentMode")
 					const customUserAgentFull = provider?.contextProxy.getGlobalState("customUserAgentFull")
-					condensingApiHandler = buildApiHandler(profile, customUserAgent, customUserAgentMode, customUserAgentFull)
+					condensingApiHandler = buildApiHandler(
+						profile,
+						customUserAgent,
+						customUserAgentMode,
+						customUserAgentFull,
+					)
 				}
 			}
 		}
@@ -1255,9 +1275,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			enabled: true,
 			role: userAvatarRole.name
 				? {
-					name: userAvatarRole.name,
-					color: userAvatarRole.color,
-				}
+						name: userAvatarRole.name,
+						color: userAvatarRole.color,
+					}
 				: undefined,
 		}
 
@@ -1403,7 +1423,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	async sayAndCreateMissingParamError(toolName: ToolName, paramName: string, relPath?: string) {
 		await this.say(
 			"error",
-			`Roo tried to use ${toolName}${relPath ? ` for '${relPath.toPosix()}'` : ""
+			`Roo tried to use ${toolName}${
+				relPath ? ` for '${relPath.toPosix()}'` : ""
 			} without value for required parameter '${paramName}'. Retrying...`,
 		)
 		return formatResponse.toolError(formatResponse.missingToolParameterError(paramName))
@@ -1549,11 +1570,15 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		let responseImages: string[] | undefined
 
 		if (response === "messageResponse") {
-			console.log(`[Task] Received messageResponse during resume: text="${text?.slice(0, 50)}...", images=${images?.length || 0}`)
+			console.log(
+				`[Task] Received messageResponse during resume: text="${text?.slice(0, 50)}...", images=${images?.length || 0}`,
+			)
 			await this.say("user_feedback", text, images)
 			responseText = text
 			responseImages = images
-			console.log(`[Task] Set responseText="${responseText?.slice(0, 50)}...", responseImages=${responseImages?.length || 0}`)
+			console.log(
+				`[Task] Set responseText="${responseText?.slice(0, 50)}...", responseImages=${responseImages?.length || 0}`,
+			)
 
 			// CRITICAL FIX: Clear userMessageContent since the message was already processed via messageResponse
 			// This prevents duplicate processing and ensures clean state
@@ -1566,10 +1591,14 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			// This should auto-continue the task without adding any resume prompt message
 			console.log(`[Task] AUTO-RESUME: User sent message during resume prompt, continuing immediately`)
 		} else if (response === "yesButtonClicked") {
-			console.log(`[Task] Received yesButtonClicked during resume: text="${text?.slice(0, 50)}...", images=${images?.length || 0}`)
+			console.log(
+				`[Task] Received yesButtonClicked during resume: text="${text?.slice(0, 50)}...", images=${images?.length || 0}`,
+			)
 			responseText = text
 			responseImages = images
-			console.log(`[Task] Set responseText="${responseText?.slice(0, 50)}...", responseImages=${responseImages?.length || 0}`)
+			console.log(
+				`[Task] Set responseText="${responseText?.slice(0, 50)}...", responseImages=${responseImages?.length || 0}`,
+			)
 
 			// If user provided text/images with the resume button click, include them
 			if (responseText || responseImages) {
@@ -1967,9 +1996,11 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				const state = await this.providerRef.deref()?.getState()
 				const allowNoToolsInChatMode = state?.allowNoToolsInChatMode ?? false
 				const currentMode = state?.mode ?? defaultModeSlug
-				this.providerRef.deref()?.log(
-					`[Task] allowNoToolsInChatMode=${allowNoToolsInChatMode} mode=${currentMode} didAlreadyUseTool=${this.didAlreadyUseTool} didRejectTool=${this.didRejectTool} userMessageContent.length=${this.userMessageContent.length}`,
-				)
+				this.providerRef
+					.deref()
+					?.log(
+						`[Task] allowNoToolsInChatMode=${allowNoToolsInChatMode} mode=${currentMode} didAlreadyUseTool=${this.didAlreadyUseTool} didRejectTool=${this.didRejectTool} userMessageContent.length=${this.userMessageContent.length}`,
+					)
 
 				// Skip noToolsUsed validation if in chat mode and setting is enabled
 				if (allowNoToolsInChatMode && currentMode === "chat") {
@@ -2011,7 +2042,10 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 					// Wait for new user messages to be added via handleWebviewAskResponse or message queue
 					console.log("[Task] Chat mode: Waiting for new user messages or queue messages...")
-					await pWaitFor(() => this.userMessageContent.length > 0 || !this.messageQueueService.isEmpty() || this.abort, { interval: 100 })
+					await pWaitFor(
+						() => this.userMessageContent.length > 0 || !this.messageQueueService.isEmpty() || this.abort,
+						{ interval: 100 },
+					)
 
 					if (this.abort) {
 						break
@@ -2309,7 +2343,6 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 							case "text": {
 								assistantMessage += chunk.text
 
-
 								// // 实时累积处理方案：累积文本并在适当时机进行正则处理
 								// await this.processAccumulatedAIOutput(chunk.text)
 
@@ -2320,8 +2353,6 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 								//原有的处理逻辑 RAW
 								this.assistantMessageContent = this.assistantMessageParser.processChunk(chunk.text)
-
-
 
 								if (this.assistantMessageContent.length > prevLength) {
 									// New content we need to present, reset to
@@ -2645,15 +2676,15 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						})
 					}
 
-			await this.addToApiConversationHistory({
-				role: "assistant",
-				content: [{ type: "text", text: assistantMessage }],
-			})
+					await this.addToApiConversationHistory({
+						role: "assistant",
+						content: [{ type: "text", text: assistantMessage }],
+					})
 
-			TelemetryService.instance.captureConversationMessage(this.taskId, "assistant")
+					TelemetryService.instance.captureConversationMessage(this.taskId, "assistant")
 
-			await this.processWorldBookTriggers(assistantMessage, this.clineMessages, "assistant")
-			await this.processMemoryTriggers(assistantMessage, this.clineMessages, "assistant")
+					await this.processWorldBookTriggers(assistantMessage, this.clineMessages, "assistant")
+					await this.processMemoryTriggers(assistantMessage, this.clineMessages, "assistant")
 
 					// NOTE: This comment is here for future reference - this was a
 					// workaround for `userMessageContent` not getting set to true.
@@ -2671,7 +2702,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 					// 	this.userMessageContentReady = true
 					// }
 
-					console.log(`[Task] Waiting for userMessageContentReady to become true... Current: ${this.userMessageContentReady}`)
+					console.log(
+						`[Task] Waiting for userMessageContentReady to become true... Current: ${this.userMessageContentReady}`,
+					)
 					await pWaitFor(() => this.userMessageContentReady)
 					console.log(`[Task] userMessageContentReady is now true! Backend can proceed.`)
 
@@ -2800,9 +2833,15 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				throw new Error("Provider not available")
 			}
 
+			// 在获取角色数据前先验证并清理过期缓存
+			await provider.validateAndCleanExpiredCaches()
+
 			// Get fresh role prompt data to apply latest TSProfile settings
 			// This ensures that TSProfile changes are reflected immediately
 			const freshRolePromptData = await provider.getRolePromptData()
+			const currentState = await provider.getState()
+			const enabledTSProfiles = currentState.enabledTSProfiles || []
+			const enabledWorldsets = currentState.enabledWorldsets || []
 
 			let worldBookContent = ""
 			if (provider.anhChatServices?.worldBookService) {
@@ -2820,7 +2859,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			let triggeredWorldBookContent = ""
 			if (provider.anhChatServices?.worldBookTriggerService) {
 				try {
-					triggeredWorldBookContent = await provider.anhChatServices.worldBookTriggerService.getConstantContent()
+					triggeredWorldBookContent =
+						await provider.anhChatServices.worldBookTriggerService.getConstantContent()
 					debugLog("Task.getSystemPrompt - Triggered WorldBook constant content loaded", {
 						contentLength: triggeredWorldBookContent.length,
 						hasContent: triggeredWorldBookContent.length > 0,
@@ -2837,7 +2877,10 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			if (triggeredWorldBookContent) {
 				worldBookSegments.push(triggeredWorldBookContent)
 			}
-			if (this.lastWorldBookTriggerResult?.fullContent) {
+			// 只有在世界书启用时才使用缓存内容
+			const currentWorldBooks =
+				this.providerRef.deref()?.anhChatServices?.worldBookService?.getActiveWorldBookFilePaths() || []
+			if (currentWorldBooks.length > 0 && this.lastWorldBookTriggerResult?.fullContent) {
 				worldBookSegments.push(this.lastWorldBookTriggerResult.fullContent)
 			}
 
@@ -2863,9 +2906,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 			const resolvedUserAvatarVisibility =
 				userAvatarVisibility === "full" ||
-					userAvatarVisibility === "summary" ||
-					userAvatarVisibility === "name" ||
-					userAvatarVisibility === "hidden"
+				userAvatarVisibility === "summary" ||
+				userAvatarVisibility === "name" ||
+				userAvatarVisibility === "hidden"
 					? userAvatarVisibility
 					: userAvatarHideFullData
 						? "summary"
@@ -2997,8 +3040,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		// Log the context window error for debugging
 		console.warn(
 			`[ANH-Chat:Task#${this.taskId}] Context window exceeded for model ${this.api.getModel().id}. ` +
-			`Current tokens: ${contextTokens}, Context window: ${contextWindow}. ` +
-			`Forcing truncation to ${FORCED_CONTEXT_REDUCTION_PERCENT}% of current context.`,
+				`Current tokens: ${contextTokens}, Context window: ${contextWindow}. ` +
+				`Forcing truncation to ${FORCED_CONTEXT_REDUCTION_PERCENT}% of current context.`,
 		)
 
 		// Force aggressive truncation by keeping only 75% of the conversation history
@@ -3073,7 +3116,12 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 					const customUserAgent = provider?.contextProxy.getGlobalState("customUserAgent")
 					const customUserAgentMode = provider?.contextProxy.getGlobalState("customUserAgentMode")
 					const customUserAgentFull = provider?.contextProxy.getGlobalState("customUserAgentFull")
-					condensingApiHandler = buildApiHandler(profile, customUserAgent, customUserAgentMode, customUserAgentFull)
+					condensingApiHandler = buildApiHandler(
+						profile,
+						customUserAgent,
+						customUserAgentMode,
+						customUserAgentFull,
+					)
 				}
 			}
 		}
@@ -3236,8 +3284,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			if (isContextWindowExceededError && retryAttempt < MAX_CONTEXT_WINDOW_RETRIES) {
 				console.warn(
 					`[ANH-Chat:Task#${this.taskId}] Context window exceeded for model ${this.api.getModel().id}. ` +
-					`Retry attempt ${retryAttempt + 1}/${MAX_CONTEXT_WINDOW_RETRIES}. ` +
-					`Attempting automatic truncation...`,
+						`Retry attempt ${retryAttempt + 1}/${MAX_CONTEXT_WINDOW_RETRIES}. ` +
+						`Attempting automatic truncation...`,
 				)
 				await this.handleContextWindowExceededError()
 				// Retry the request after handling the context window error
@@ -3451,6 +3499,17 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 	public getWorldBookTriggerResult(): TriggeredContent | undefined {
 		return this.lastWorldBookTriggerResult
+	}
+
+	/**
+	 * 清理世界书触发结果缓存
+	 */
+	public clearWorldBookTriggerCache(): void {
+		this.lastWorldBookTriggerResult = undefined
+		const provider = this.providerRef.deref()
+		if (provider) {
+			provider.log(`[Task#${this.taskId}] WorldBook trigger cache cleared`)
+		}
 	}
 
 	public getMemoryTriggerResult(): MemoryTriggerResult | undefined {
@@ -3767,7 +3826,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			if (!this.messageQueueService.isEmpty()) {
 				const queued = this.messageQueueService.dequeueMessage()
 				if (queued) {
-					console.log(`[Task] Processing queued message: "${queued.text?.slice(0, 50)}...", images=${queued.images?.length || 0}`)
+					console.log(
+						`[Task] Processing queued message: "${queued.text?.slice(0, 50)}...", images=${queued.images?.length || 0}`,
+					)
 
 					// CRITICAL FIX: Ensure queued messages are displayed with user name and chat bubble
 					// First, display the message in the chat interface
@@ -3784,7 +3845,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 						this.userMessageContent.push(...imageBlocks)
 					}
 
-					console.log(`[Task] Added queued message to userMessageContent: total blocks=${this.userMessageContent.length}`)
+					console.log(
+						`[Task] Added queued message to userMessageContent: total blocks=${this.userMessageContent.length}`,
+					)
 				}
 			}
 		} catch (e) {
@@ -3893,7 +3956,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 		// 实验性功能开启时，才进行累积和正则处理逻辑
 		this.aiOutputBuffer += newText
-		console.log(`[Task] 📝 AI output buffer accumulated (${this.aiOutputBuffer.length} chars): "${this.aiOutputBuffer.substring(0, 100)}${this.aiOutputBuffer.length > 100 ? "..." : ""}"`)
+		console.log(
+			`[Task] 📝 AI output buffer accumulated (${this.aiOutputBuffer.length} chars): "${this.aiOutputBuffer.substring(0, 100)}${this.aiOutputBuffer.length > 100 ? "..." : ""}"`,
+		)
 
 		// 检查是否到达处理边界（句号、换行、段落等）
 		const processReason = this.shouldProcessAccumulatedText()
@@ -4014,16 +4079,22 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		}
 
 		try {
-			console.log(`[Task] 🔄 Applying regex to accumulated text (${this.aiOutputBuffer.length} characters) due to ${reason}`)
+			console.log(
+				`[Task] 🔄 Applying regex to accumulated text (${this.aiOutputBuffer.length} characters) due to ${reason}`,
+			)
 			const originalText = this.aiOutputBuffer
 			const processedText = regexManager.processAIOutput(originalText, {
-				variables: this.anhTsProfileVariables || {}
+				variables: this.anhTsProfileVariables || {},
 			})
 
 			if (processedText !== originalText) {
 				console.log(`[Task] ✅ Accumulated text was MODIFIED by regex processing`)
-				console.log(`[Task] 📊 Before: "${originalText.substring(0, 200)}${originalText.length > 200 ? "..." : ""}"`)
-				console.log(`[Task] 📊 After: "${processedText.substring(0, 200)}${processedText.length > 200 ? "..." : ""}"`)
+				console.log(
+					`[Task] 📊 Before: "${originalText.substring(0, 200)}${originalText.length > 200 ? "..." : ""}"`,
+				)
+				console.log(
+					`[Task] 📊 After: "${processedText.substring(0, 200)}${processedText.length > 200 ? "..." : ""}"`,
+				)
 
 				// 更新处理后的缓冲区
 				this.aiOutputProcessedBuffer = processedText
@@ -4077,9 +4148,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	/**
 	 * 切换显示模式（原文/处理后）
 	 */
-	toggleAIOutputDisplayMode(): { mode: 'original' | 'processed', content: AssistantMessageContent[] } {
+	toggleAIOutputDisplayMode(): { mode: "original" | "processed"; content: AssistantMessageContent[] } {
 		this.useProcessedContent = !this.useProcessedContent
-		const mode = this.useProcessedContent ? 'processed' : 'original'
+		const mode = this.useProcessedContent ? "processed" : "original"
 		const content = this.getCurrentDisplayContent()
 
 		console.log(`[Task] 🔄 AI output display mode toggled to: ${mode}`)
@@ -4090,7 +4161,6 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		return { mode, content }
 	}
 
-
 	/**
 	 * 清理已处理的缓冲区文本，避免无限累积
 	 */
@@ -4100,7 +4170,9 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			const keepLength = 500
 			const trimStart = this.aiOutputBuffer.length - keepLength
 			this.aiOutputBuffer = this.aiOutputBuffer.substring(trimStart)
-			console.log(`[Task] ✂️ Trimmed buffer from ${this.aiOutputBuffer.length + keepLength} to ${this.aiOutputBuffer.length} characters`)
+			console.log(
+				`[Task] ✂️ Trimmed buffer from ${this.aiOutputBuffer.length + keepLength} to ${this.aiOutputBuffer.length} characters`,
+			)
 		}
 
 		if (this.lastRegexProcessedBufferLength > this.aiOutputBuffer.length) {
@@ -4129,7 +4201,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	 * 确保每条消息都有变量状态快照，而不是只留一个全局值
 	 * @param message 当前消息
 	 */
-		/**
+	/**
 	 * 检查文本是否包含变量命令
 	 */
 	private hasVariableCommands(text?: string): boolean {
@@ -4137,15 +4209,16 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		return Task.VARIABLE_COMMAND_REGEX.test(text)
 	}
 
-private async saveVariableStateToMessage(message: ClineMessage): Promise<void> {
+	private async saveVariableStateToMessage(message: ClineMessage): Promise<void> {
 		try {
 			// 只对包含变量命令的消息保存变量状态
 			if (message.type === "say" && message.say === "text" && message.text) {
 				// 检查消息是否包含变量命令
-				const hasVariableCommands = message.text.includes('_.set(') || 
-												message.text.includes('_.add(') || 
-												message.text.includes('_.insert(') || 
-												message.text.includes('_.remove(')
+				const hasVariableCommands =
+					message.text.includes("_.set(") ||
+					message.text.includes("_.add(") ||
+					message.text.includes("_.insert(") ||
+					message.text.includes("_.remove(")
 
 				if (hasVariableCommands) {
 					// 解析当前消息中的变量命令
@@ -4161,17 +4234,18 @@ private async saveVariableStateToMessage(message: ClineMessage): Promise<void> {
 
 						parsedCommands.forEach((command: any) => {
 							switch (command.type) {
-								case 'set':
+								case "set":
 									// 设置变量的值
 									variableStates[command.variable] = command.value
 									break
-								case 'add': {
+								case "add": {
 									// 增加变量的值（用于数字）
 									const currentAddValue = variableStates[command.variable] || 0
-									variableStates[command.variable] = (Number(currentAddValue) || 0) + (Number(command.value) || 0)
+									variableStates[command.variable] =
+										(Number(currentAddValue) || 0) + (Number(command.value) || 0)
 									break
 								}
-								case 'insert':
+								case "insert":
 									// 插入到数组（如果是数组）或设置
 									if (Array.isArray(variableStates[command.variable])) {
 										variableStates[command.variable].push(command.value)
@@ -4180,11 +4254,11 @@ private async saveVariableStateToMessage(message: ClineMessage): Promise<void> {
 										variableStates[command.variable] = [command.value]
 									}
 									break
-								case 'remove':
+								case "remove":
 									// 从数组中移除元素
 									if (Array.isArray(variableStates[command.variable])) {
 										variableStates[command.variable] = variableStates[command.variable].filter(
-											(item: any) => item !== command.value
+											(item: any) => item !== command.value,
 										)
 									} else {
 										// 如果不是数组，删除变量
@@ -4202,8 +4276,13 @@ private async saveVariableStateToMessage(message: ClineMessage): Promise<void> {
 						}
 						messageWithTool.tool.variableState = variableStates
 
-						console.log(`[Task] 💾 Saved variable state to message ${message.ts}: ${Object.keys(variableStates).length} variables`)
-						console.log(`[Task] 📊 Variable updates applied:`, parsedCommands.map(cmd => `${cmd.type} ${cmd.variable} = ${cmd.value}`))
+						console.log(
+							`[Task] 💾 Saved variable state to message ${message.ts}: ${Object.keys(variableStates).length} variables`,
+						)
+						console.log(
+							`[Task] 📊 Variable updates applied:`,
+							parsedCommands.map((cmd) => `${cmd.type} ${cmd.variable} = ${cmd.value}`),
+						)
 					}
 				}
 			}
@@ -4223,7 +4302,9 @@ private async saveVariableStateToMessage(message: ClineMessage): Promise<void> {
 			for (let i = this.clineMessages.length - 1; i >= 0; i--) {
 				const message = this.clineMessages[i] as any
 				if (message.tool && message.tool.variableState) {
-					console.log(`[Task] 📖 Found latest variable state in message ${message.ts}: ${Object.keys(message.tool.variableState).length} variables`)
+					console.log(
+						`[Task] 📖 Found latest variable state in message ${message.ts}: ${Object.keys(message.tool.variableState).length} variables`,
+					)
 					return message.tool.variableState
 				}
 			}

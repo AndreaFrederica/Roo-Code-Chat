@@ -33,6 +33,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		anhUseAskTool,
 		userAvatarRole,
 		enableUserAvatar,
+		enabledTSProfiles,
 		enabledWorldsets,
 		userAvatarVisibility,
 		userAvatarHideFullData,
@@ -66,7 +67,12 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		const customUserAgent = provider.contextProxy.getGlobalState("customUserAgent")
 		const customUserAgentMode = provider.contextProxy.getGlobalState("customUserAgentMode")
 		const customUserAgentFull = provider.contextProxy.getGlobalState("customUserAgentFull")
-		const tempApiHandler = buildApiHandler(apiConfiguration, customUserAgent, customUserAgentMode, customUserAgentFull)
+		const tempApiHandler = buildApiHandler(
+			apiConfiguration,
+			customUserAgent,
+			customUserAgentMode,
+			customUserAgentFull,
+		)
 		modelSupportsComputerUse = tempApiHandler.getModel().info.supportsComputerUse ?? false
 	} catch (error) {
 		console.error("Error checking if model supports computer use:", error)
@@ -79,6 +85,9 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	// Only enable browser tools if the model supports it, the mode includes browser tools,
 	// and browser tools are enabled in settings
 	const canUseBrowserTool = modelSupportsComputerUse && modeSupportsBrowser && (browserToolEnabled ?? true)
+
+	// 在获取角色数据前先验证并清理过期缓存
+	await provider.validateAndCleanExpiredCaches()
 
 	const rolePromptData = await provider.getRolePromptData()
 
@@ -112,18 +121,33 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		}
 	}
 
+	// 运行时检查：验证世界书启用状态
+	const currentWorldBooks = provider.anhChatServices?.worldBookService?.getActiveWorldBookFilePaths() || []
+	const worldBookEnabled = currentWorldBooks.length > 0
+
 	const worldBookSegments: string[] = []
-	if (worldBookContent) {
-		worldBookSegments.push(worldBookContent)
-	}
-	if (triggeredWorldBookContent) {
-		worldBookSegments.push(triggeredWorldBookContent)
-	}
 
 	const activeTask = provider.getCurrentTask()
-	const taskWorldBookTrigger = activeTask?.getWorldBookTriggerResult()
-	if (taskWorldBookTrigger?.fullContent) {
-		worldBookSegments.push(taskWorldBookTrigger.fullContent)
+
+	// 只有在世界书启用时才添加世界书内容
+	if (worldBookEnabled) {
+		if (worldBookContent) {
+			worldBookSegments.push(worldBookContent)
+		}
+		if (triggeredWorldBookContent) {
+			worldBookSegments.push(triggeredWorldBookContent)
+		}
+
+		const taskWorldBookTrigger = activeTask?.getWorldBookTriggerResult()
+		if (taskWorldBookTrigger?.fullContent) {
+			worldBookSegments.push(taskWorldBookTrigger.fullContent)
+		}
+	} else {
+		// 如果世界书已禁用但有缓存内容，则清理缓存
+		if (activeTask?.getWorldBookTriggerResult()?.fullContent) {
+			provider.clearWorldBookTriggerCache()
+			debugLog("generateSystemPrompt - WorldBook disabled but cached content found, clearing cache")
+		}
 	}
 
 	const taskMemoryTrigger = activeTask?.getMemoryTriggerResult()
@@ -186,7 +210,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 	const extensionToolDescriptions = extensionTools.map((tool) => tool.prompt)
 
 	// Get TSProfile settings from provider state
-	const { enabledTSProfiles = [], anhTsProfileAutoInject = true, anhTsProfileVariables = {} } = providerState
+	const { anhTsProfileAutoInject = true, anhTsProfileVariables = {} } = providerState
 
 	// 添加调试日志
 	debugLog("generateSystemPrompt - System prompt generator selection:", {
@@ -202,11 +226,15 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		enabledWorldsets: enabledWorldsets,
 		enabledWorldsetsCount: enabledWorldsets?.length || 0,
 		worldBookContentLength: worldBookContent?.length || 0,
-		taskMemoryTrigger: !!taskMemoryTrigger
+		taskMemoryTrigger: !!taskMemoryTrigger,
 	})
 
 	// 根据设置选择使用哪个系统提示词生成器
-	debugLog("generateSystemPrompt - Using", useRefactoredSystemPrompt ? "REFACTORED" : "LEGACY", "system prompt generator")
+	debugLog(
+		"generateSystemPrompt - Using",
+		useRefactoredSystemPrompt ? "REFACTORED" : "LEGACY",
+		"system prompt generator",
+	)
 
 	// 为新版生成器添加额外的调试信息
 	if (useRefactoredSystemPrompt) {
@@ -221,7 +249,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 			worldBookContentLength: worldBookContent?.length || 0,
 			hasMemoryTrigger: !!taskMemoryTrigger,
 			enableInjectSystemPromptVariables: enableInjectSystemPromptVariables,
-			hasCurrentTask: !!currentTask
+			hasCurrentTask: !!currentTask,
 		})
 	}
 
@@ -270,7 +298,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		generator: useRefactoredSystemPrompt ? "REFACTORED" : "LEGACY",
 		systemPromptLength: systemPrompt.length,
 		hasCustomInstructions: !!customInstructions,
-		hasRolePromptData: !!rolePromptData
+		hasRolePromptData: !!rolePromptData,
 	})
 
 	const finalPrompt = await provider.applySystemPromptExtensions(systemPrompt, {

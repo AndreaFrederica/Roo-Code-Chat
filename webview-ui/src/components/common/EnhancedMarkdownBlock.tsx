@@ -21,6 +21,64 @@ interface EnhancedMarkdownBlockProps {
 	markdown?: string
 }
 
+/**
+ * 内容哈希缓存，避免重复计算
+ */
+const contentHashCache = new Map<string, string>()
+
+/**
+ * 生成内容哈希，用于稳定的React key
+ * 使用简单但有效的哈希算法，避免crypto API的复杂性
+ */
+const generateContentHash = (content: string): string => {
+	// 检查缓存
+	if (contentHashCache.has(content)) {
+		return contentHashCache.get(content)!
+	}
+
+	// 使用多个字符采样生成哈希
+	let hash = 0
+	const len = content.length
+
+	// 采样策略：取开头、中间、结尾的字符
+	const samples = [
+		content.slice(0, Math.min(10, len)),
+		content.slice(Math.floor(len * 0.3), Math.min(len * 0.3 + 10, len)),
+		content.slice(Math.floor(len * 0.7), Math.min(len * 0.7 + 10, len)),
+		content.slice(Math.max(-10, len - 10)),
+	].join("")
+
+	// 简单的字符串哈希算法
+	for (let i = 0; i < samples.length; i++) {
+		const char = samples.charCodeAt(i)
+		hash = (hash << 5) - hash + char
+		hash = hash & hash // 转换为32位整数
+	}
+
+	// 转换为base36字符串，确保为正数
+	const result = Math.abs(hash).toString(36)
+
+	// 缓存结果（限制缓存大小，避免内存泄漏）
+	if (contentHashCache.size > 1000) {
+		// 清理最旧的缓存项
+		const firstKey = contentHashCache.keys().next().value
+		if (firstKey) {
+			contentHashCache.delete(firstKey)
+		}
+	}
+	contentHashCache.set(content, result)
+
+	return result
+}
+
+/**
+ * 为代码块生成更稳定的哈希，包含代码长度信息
+ * 这样可以避免内容相似但长度不同的代码块产生相同哈希
+ */
+const generateCodeBlockHash = (content: string, language?: string): string => {
+	const key = `${language || "unknown"}:${content.length}:${generateContentHash(content)}`
+	return generateContentHash(key)
+}
 
 const StyledMarkdown = styled.div`
 	* {
@@ -275,11 +333,10 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 
 		const blocks = splitBlocks(markdown, {
 			pre: myPre,
-			rules: defaultBlockRules,   // 这里就是纯"查找表达式"集合
+			rules: defaultBlockRules, // 这里就是纯"查找表达式"集合
 			stripTrailingHalf: stripHalf,
 		})
 
-		
 		return { blocks }
 	}, [markdown])
 
@@ -289,18 +346,17 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 			.map((block, index) => (block.type !== "text" ? index : -1))
 			.filter((index) => index !== -1)
 
-		
 		if (foldableBlockIndices.length > 0 && collapsedThinkingBlocks.size === 0) {
 			// Initialize with default settings based on block type
 			const initialCollapsed = new Set<number>()
 			foldableBlockIndices.forEach((index) => {
 				const block = processedContent.blocks[index]
 				const shouldCollapse = getDefaultCollapsedState(block, reasoningBlockCollapsed ?? false)
-								if (shouldCollapse) {
+				if (shouldCollapse) {
 					initialCollapsed.add(index)
 				}
 			})
-						setCollapsedThinkingBlocks(initialCollapsed)
+			setCollapsedThinkingBlocks(initialCollapsed)
 		}
 	}, [processedContent.blocks, reasoningBlockCollapsed, collapsedThinkingBlocks.size])
 
@@ -419,12 +475,11 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 		const { t } = useTranslation()
 
 		return (
-			<button
-				className="toggle-button"
-				onClick={() => setShowRaw(!showRaw)}
-			>
+			<button className="toggle-button" onClick={() => setShowRaw(!showRaw)}>
 				{showRaw ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-				{showRaw ? t("settings:markdown.showRaw", "显示原文") : t("settings:markdown.showRendered", "显示渲染结果")}
+				{showRaw
+					? t("settings:markdown.showRaw", "显示原文")
+					: t("settings:markdown.showRendered", "显示渲染结果")}
 			</button>
 		)
 	}
@@ -432,11 +487,13 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 	const RenderedContent = () => (
 		<>
 			{processedContent.blocks.map((block, index) => {
-				
+				// 生成内容哈希以确保稳定的React key
+				const contentHash = generateContentHash(block.content)
+
 				if (block.type === "text") {
 					return (
 						<ReactMarkdown
-							key={`text-${index}`}
+							key={`text-${contentHash}`}
 							remarkPlugins={[
 								remarkGfm,
 								remarkMath,
@@ -460,7 +517,7 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 				} else {
 					return (
 						<FoldableBlock
-							key={`${block.type}-${index}`}
+							key={`${block.type}-${contentHash}`}
 							content={block.content}
 							type={block.type}
 							isCollapsed={collapsedThinkingBlocks.has(index)}
@@ -472,11 +529,7 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 		</>
 	)
 
-	const RawContent = () => (
-		<div className="raw-content">
-			{markdown || ""}
-		</div>
-	)
+	const RawContent = () => <div className="raw-content">{markdown || ""}</div>
 
 	return (
 		<StyledMarkdown>

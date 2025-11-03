@@ -22,7 +22,7 @@ const tabIcons: Record<Tab, string> = {
 	modes: "⚙️",
 	settings: "🔧",
 	marketplace: "🛍️",
-	cloud: "☁️"
+	cloud: "☁️",
 }
 
 const tabLabels: Record<Tab, string> = {
@@ -32,28 +32,39 @@ const tabLabels: Record<Tab, string> = {
 	modes: "模式",
 	settings: "设置",
 	marketplace: "商店",
-	cloud: "云端"
+	cloud: "云端",
 }
 
 export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 	className,
 	currentTab,
 	onTabChange,
-	enableRooCloudServices = false
+	enableRooCloudServices = false,
 }) => {
 	const { t } = useTranslation()
 
 	// 连接状态管理
 	const [isConnected, setIsConnected] = useState<boolean>(vscode.isConnected())
+	const [reconnectCountdown, setReconnectCountdown] = useState<number>(0)
 
 	useEffect(() => {
-		const unsubscribe = vscode.onConnectionStatusChange((status) => {
+		const unsubscribeConnection = vscode.onConnectionStatusChange((status) => {
 			setIsConnected(status)
+			if (status) {
+				setReconnectCountdown(0) // 连接成功时清除倒计时
+			}
+		})
+
+		const unsubscribeCountdown = vscode.onReconnectCountdown((seconds) => {
+			setReconnectCountdown(seconds)
 		})
 
 		return () => {
-			if (typeof unsubscribe === 'function') {
-				unsubscribe()
+			if (typeof unsubscribeConnection === "function") {
+				unsubscribeConnection()
+			}
+			if (typeof unsubscribeCountdown === "function") {
+				unsubscribeCountdown()
 			}
 		}
 	}, [])
@@ -67,9 +78,21 @@ export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 				</StandardTooltip>
 			)
 		} else {
+			let tooltipText = "未连接到扩展服务"
+			if (reconnectCountdown > 0) {
+				tooltipText = `重连中...${reconnectCountdown}秒`
+			}
+
 			return (
-				<StandardTooltip content="未连接到扩展服务">
-					<Loader2 size={14} className="text-yellow-500 animate-spin" />
+				<StandardTooltip content={tooltipText}>
+					<div className="flex items-center space-x-1">
+						<Loader2 size={14} className="text-yellow-500 animate-spin" />
+						{reconnectCountdown > 0 && (
+							<span className="text-xs text-yellow-500 font-mono min-w-[12px] text-center">
+								{reconnectCountdown}
+							</span>
+						)}
+					</div>
 				</StandardTooltip>
 			)
 		}
@@ -85,15 +108,22 @@ export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 			// 直接调用回调函数
 			onTabChange(newTab)
 		},
-		[onTabChange, enableRooCloudServices]
+		[onTabChange, enableRooCloudServices],
 	)
 
 	const handleNewTask = useCallback(() => {
 		vscode.postMessage({ type: "clearTask" })
 	}, [])
 
-	const tabs: Tab[] = ["chat", "history", "mcp", "modes", "settings", "marketplace",
-		...(enableRooCloudServices ? (["cloud"] as Tab[]) : [])]
+	const tabs: Tab[] = [
+		"chat",
+		"history",
+		"mcp",
+		"modes",
+		"settings",
+		"marketplace",
+		...(enableRooCloudServices ? (["cloud"] as Tab[]) : []),
+	]
 
 	// 检查是否为移动端屏幕
 	const [isMobile, setIsMobile] = useState(false)
@@ -106,16 +136,16 @@ export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 		}
 
 		checkIsMobile()
-		window.addEventListener('resize', checkIsMobile)
-		return () => window.removeEventListener('resize', checkIsMobile)
+		window.addEventListener("resize", checkIsMobile)
+		return () => window.removeEventListener("resize", checkIsMobile)
 	}, [])
 
 	// 在移动端时，只显示最重要的标签
 	const getMobileTabs = () => {
 		if (isMobile) {
-			const importantTabs: Tab[] = ['chat', 'history']
-			if (enableRooCloudServices && currentTab === 'cloud') {
-				importantTabs.push('cloud')
+			const importantTabs: Tab[] = ["chat", "history"]
+			if (enableRooCloudServices && currentTab === "cloud") {
+				importantTabs.push("cloud")
 			}
 			return importantTabs
 		}
@@ -125,12 +155,12 @@ export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 	// 获取移动端的菜单项
 	const getMobileMenuItems = () => {
 		if (isMobile) {
-			const menuTabs = tabs.filter(tab => !getMobileTabs().includes(tab))
-			return menuTabs.map(tab => ({
+			const menuTabs = tabs.filter((tab) => !getMobileTabs().includes(tab))
+			return menuTabs.map((tab) => ({
 				key: tab,
 				icon: tabIcons[tab],
 				label: tabLabels[tab],
-				onClick: () => switchTab(tab)
+				onClick: () => switchTab(tab),
 			}))
 		}
 		return []
@@ -152,10 +182,9 @@ export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 								"hover:bg-vscode-toolbar-hoverBackground/80 whitespace-nowrap flex-shrink-0",
 								currentTab === tab
 									? "bg-vscode-tab-activeBackground text-vscode-tab-activeForeground"
-									: "text-vscode-tab-inactiveForeground hover:text-vscode-tab-activeForeground"
+									: "text-vscode-tab-inactiveForeground hover:text-vscode-tab-activeForeground",
 							)}
-							title={tabLabels[tab]}
-						>
+							title={tabLabels[tab]}>
 							<span className="text-base">{tabIcons[tab]}</span>
 							<span className="hidden xs:inline sm:inline">{tabLabels[tab]}</span>
 						</button>
@@ -170,9 +199,8 @@ export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 								onClick={() => setShowMobileMenu(!showMobileMenu)}
 								className={cn(
 									"flex items-center justify-center px-2 py-2 rounded-md text-sm font-medium transition-all duration-200",
-									"bg-vscode-button-secondaryBackground hover:bg-vscode-button-secondaryHoverBackground text-vscode-button-secondaryForeground"
-								)}
-							>
+									"bg-vscode-button-secondaryBackground hover:bg-vscode-button-secondaryHoverBackground text-vscode-button-secondaryForeground",
+								)}>
 								<Plus size={16} className="transform rotate-90" />
 							</button>
 						</StandardTooltip>
@@ -180,7 +208,7 @@ export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 
 					{/* 连接状态指示器 - 移动端隐藏 */}
 					{!isMobile && (
-						<div className="connection-indicator flex items-center justify-center w-8 h-8">
+						<div className="connection-indicator flex items-center justify-center min-w-[32px] h-8">
 							{getConnectionIndicator()}
 						</div>
 					)}
@@ -193,9 +221,8 @@ export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 								"flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200",
 								"bg-vscode-button-background hover:bg-vscode-button-hoverBackground text-vscode-button-foreground",
 								"hover:scale-105 active:scale-95",
-								isMobile && "px-2 py-1" // 移动端更紧凑
-							)}
-						>
+								isMobile && "px-2 py-1", // 移动端更紧凑
+							)}>
 							<Plus size={isMobile ? 14 : 16} />
 							<span className="hidden xs:inline sm:inline">{isMobile ? "" : "新任务"}</span>
 						</button>
@@ -208,32 +235,27 @@ export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 				<div
 					className="mobile-menu-overlay"
 					onClick={() => setShowMobileMenu(false)}
-					style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
-				>
+					style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
 					<div
 						className="mobile-menu"
 						onClick={(e) => e.stopPropagation()}
 						style={{
-							position: 'fixed',
-							top: '56px', // 导航栏高度
-							right: '8px',
-							backgroundColor: 'var(--vscode-dropdown-background)',
-							border: '1px solid var(--vscode-dropdown-border)',
-							borderRadius: '6px',
-							minWidth: '180px',
-							maxWidth: 'calc(100vw - 16px)',
-							maxHeight: 'calc(100vh - 72px)',
-							overflowY: 'auto',
-							boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-							zIndex: 10000
-						}}
-					>
+							position: "fixed",
+							top: "56px", // 导航栏高度
+							right: "8px",
+							backgroundColor: "var(--vscode-dropdown-background)",
+							border: "1px solid var(--vscode-dropdown-border)",
+							borderRadius: "6px",
+							minWidth: "180px",
+							maxWidth: "calc(100vw - 16px)",
+							maxHeight: "calc(100vh - 72px)",
+							overflowY: "auto",
+							boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+							zIndex: 10000,
+						}}>
 						<div className="mobile-menu-header">
 							<span>更多选项</span>
-							<button
-								onClick={() => setShowMobileMenu(false)}
-								className="mobile-menu-close"
-							>
+							<button onClick={() => setShowMobileMenu(false)} className="mobile-menu-close">
 								×
 							</button>
 						</div>
@@ -244,8 +266,7 @@ export const WebClientNavigation: React.FC<WebClientNavigationProps> = ({
 									item.onClick()
 									setShowMobileMenu(false)
 								}}
-								className="mobile-menu-item"
-							>
+								className="mobile-menu-item">
 								<span className="text-base">{item.icon}</span>
 								<span>{item.label}</span>
 							</button>

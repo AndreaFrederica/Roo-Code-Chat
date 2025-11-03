@@ -197,6 +197,7 @@ export class ClineProvider
 	private activeRoleUuid?: string
 	private cachedRoleUuid?: string
 	private cachedRolePromptData?: RolePromptData
+	private rolePromptDataCacheTimestamp?: number // 添加缓存时间戳
 	private cachedTsProfileKey: string | null = null
 	private cachedTsProfile: CurrentTsProfile | null = null
 	private pendingOperations: Map<string, PendingEditOperation> = new Map()
@@ -548,9 +549,7 @@ export class ClineProvider
 
 			if (!mixinPath) {
 				const ext = path.extname(resolvedProfile.profilePath)
-				const basePath = ext
-					? resolvedProfile.profilePath.slice(0, -ext.length)
-					: resolvedProfile.profilePath
+				const basePath = ext ? resolvedProfile.profilePath.slice(0, -ext.length) : resolvedProfile.profilePath
 				const mixinExt = ext === ".jsonc" ? ".mixin.jsonc" : ".mixin.json"
 				mixinPath = `${basePath}${mixinExt}`
 			}
@@ -560,7 +559,9 @@ export class ClineProvider
 					const mixinContent = await fs.readFile(mixinPath, "utf-8")
 					mixinData = JSON.parse(mixinContent)
 				} catch (error) {
-					this.log(`Warning: Failed to parse mixin file "${mixinPath}": ${error instanceof Error ? error.message : String(error)}`)
+					this.log(
+						`Warning: Failed to parse mixin file "${mixinPath}": ${error instanceof Error ? error.message : String(error)}`,
+					)
 				}
 			} else if (mixinPath) {
 				this.log(`Mixin file not found at ${mixinPath}, continuing without mixin`)
@@ -677,30 +678,32 @@ export class ClineProvider
 	private async initializeWebSocketBridge(): Promise<void> {
 		try {
 			// 检查配置是否启用WebSocket服务器
-			const config = vscode.workspace.getConfiguration('anh-cline')
-			const enableWebSocketServer = config.get<boolean>('enableWebSocketServer', false)
+			const config = vscode.workspace.getConfiguration("anh-cline")
+			const enableWebSocketServer = config.get<boolean>("enableWebSocketServer", false)
 
 			if (enableWebSocketServer) {
 				// 获取端口和绑定配置 - 使用同一个端口
-				const port = config.get<number>('httpServerPort', 3002)
-				const bindHost = config.get<string>('serverBindHost', 'localhost')
+				const port = config.get<number>("httpServerPort", 3002)
+				const bindHost = config.get<string>("serverBindHost", "localhost")
 
 				// 创建服务器管理器
-				this.serverManager = new ExtensionServerManager(
-					this.context.extensionUri,
-					this.outputChannel
-				)
+				this.serverManager = new ExtensionServerManager(this.context.extensionUri, this.outputChannel)
 
 				// 启动服务器
-				await this.serverManager.start({
-					webSocketPort: port,
-					httpPort: port,
-					enableWebSocket: true,
-					autoStart: true,
-					bindHost
-				}, this)
+				await this.serverManager.start(
+					{
+						webSocketPort: port,
+						httpPort: port,
+						enableWebSocket: true,
+						autoStart: true,
+						bindHost,
+					},
+					this,
+				)
 
-				this.outputChannel.appendLine(`[ClineProvider] ServerManager started with WebSocket and HTTP on port ${port}`)
+				this.outputChannel.appendLine(
+					`[ClineProvider] ServerManager started with WebSocket and HTTP on port ${port}`,
+				)
 			}
 		} catch (error) {
 			this.outputChannel.appendLine(`[ClineProvider] Failed to initialize servers: ${error}`)
@@ -715,16 +718,18 @@ export class ClineProvider
 		const configChangeListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
 			// 检查是否影响我们关心的配置
 			const relevantSettings = [
-				'anh-cline.enableWebSocketServer',
-				'anh-cline.webSocketServerPort',
-				'anh-cline.httpServerPort',
-				'anh-cline.serverBindHost'
+				"anh-cline.enableWebSocketServer",
+				"anh-cline.webSocketServerPort",
+				"anh-cline.httpServerPort",
+				"anh-cline.serverBindHost",
 			]
 
-			const affectsRelevantSettings = relevantSettings.some(setting => event.affectsConfiguration(setting))
+			const affectsRelevantSettings = relevantSettings.some((setting) => event.affectsConfiguration(setting))
 
 			if (affectsRelevantSettings) {
-				this.outputChannel.appendLine('[ClineProvider] Configuration changed, checking if server restart is needed...')
+				this.outputChannel.appendLine(
+					"[ClineProvider] Configuration changed, checking if server restart is needed...",
+				)
 				await this.handleConfigurationChange()
 			}
 		})
@@ -738,21 +743,25 @@ export class ClineProvider
 	 */
 	private async handleConfigurationChange(): Promise<void> {
 		try {
-			const config = vscode.workspace.getConfiguration('anh-cline')
-			const enableWebSocketServer = config.get<boolean>('enableWebSocketServer', false)
-			const port = config.get<number>('httpServerPort', 3002)
-			const bindHost = config.get<string>('serverBindHost', 'localhost')
+			const config = vscode.workspace.getConfiguration("anh-cline")
+			const enableWebSocketServer = config.get<boolean>("enableWebSocketServer", false)
+			const port = config.get<number>("httpServerPort", 3002)
+			const bindHost = config.get<string>("serverBindHost", "localhost")
 
 			// 如果当前没有运行服务器，但配置启用了服务器
 			if (!this.serverManager && enableWebSocketServer) {
-				this.outputChannel.appendLine('[ClineProvider] WebSocket server enabled in settings, starting server...')
+				this.outputChannel.appendLine(
+					"[ClineProvider] WebSocket server enabled in settings, starting server...",
+				)
 				await this.startWebSocketServer()
 				return
 			}
 
 			// 如果当前运行着服务器，但配置禁用了服务器
 			if (this.serverManager && !enableWebSocketServer) {
-				this.outputChannel.appendLine('[ClineProvider] WebSocket server disabled in settings, stopping server...')
+				this.outputChannel.appendLine(
+					"[ClineProvider] WebSocket server disabled in settings, stopping server...",
+				)
 				this.stopWebSocketServer()
 				return
 			}
@@ -760,7 +769,9 @@ export class ClineProvider
 			// 如果服务器正在运行且配置启用，检查是否需要重启
 			if (this.serverManager && enableWebSocketServer) {
 				const serverInfo = this.serverManager.getServerInfo()
-				const currentPort = serverInfo.webSocket?.port || (serverInfo.http?.url ? parseInt(serverInfo.http.url.split(':')[2]) : null)
+				const currentPort =
+					serverInfo.webSocket?.port ||
+					(serverInfo.http?.url ? parseInt(serverInfo.http.url.split(":")[2]) : null)
 
 				const portChanged = currentPort !== port
 
@@ -768,27 +779,31 @@ export class ClineProvider
 				const bindHostChanged = await this.checkBindHostChanged(bindHost)
 
 				if (portChanged || bindHostChanged) {
-					this.outputChannel.appendLine(`[ClineProvider] Server configuration changed (ports: ${portChanged}, bindHost: ${bindHostChanged})`)
+					this.outputChannel.appendLine(
+						`[ClineProvider] Server configuration changed (ports: ${portChanged}, bindHost: ${bindHostChanged})`,
+					)
 
 					// 询问用户是否重启服务器
 					const restartOption = await vscode.window.showInformationMessage(
-						'服务器配置已更改，是否重启WebSocket服务器？',
-						'重启服务器',
-						'稍后重启',
-						'忽略'
+						"服务器配置已更改，是否重启WebSocket服务器？",
+						"重启服务器",
+						"稍后重启",
+						"忽略",
 					)
 
 					switch (restartOption) {
-						case '重启服务器':
-							this.outputChannel.appendLine('[ClineProvider] User chose to restart server...')
+						case "重启服务器":
+							this.outputChannel.appendLine("[ClineProvider] User chose to restart server...")
 							await this.restartWebSocketServer()
 							break
-						case '稍后重启':
-							this.outputChannel.appendLine('[ClineProvider] User chose to restart later...')
+						case "稍后重启":
+							this.outputChannel.appendLine("[ClineProvider] User chose to restart later...")
 							// 可以在这里添加一个延迟重启的逻辑
 							break
-						case '忽略':
-							this.outputChannel.appendLine('[ClineProvider] User chose to ignore configuration change...')
+						case "忽略":
+							this.outputChannel.appendLine(
+								"[ClineProvider] User chose to ignore configuration change...",
+							)
 							break
 						default:
 							// 用户取消了对话框
@@ -808,7 +823,7 @@ export class ClineProvider
 	private async checkBindHostChanged(newBindHost: string): Promise<boolean> {
 		// 这里需要比较当前的绑定主机和新的绑定主机
 		// 由于我们无法直接从serverManager获取当前的bindHost，我们需要跟踪它
-		const currentBindHost = this.currentServerConfig?.bindHost || 'localhost'
+		const currentBindHost = this.currentServerConfig?.bindHost || "localhost"
 		return currentBindHost !== newBindHost
 	}
 
@@ -817,19 +832,19 @@ export class ClineProvider
 	 */
 	private async restartWebSocketServer(): Promise<void> {
 		try {
-			this.outputChannel.appendLine('[ClineProvider] Restarting WebSocket server...')
+			this.outputChannel.appendLine("[ClineProvider] Restarting WebSocket server...")
 
 			// 停止当前服务器
 			this.stopWebSocketServer()
 
 			// 等待一小段时间确保服务器完全停止
-			await new Promise(resolve => setTimeout(resolve, 1000))
+			await new Promise((resolve) => setTimeout(resolve, 1000))
 
 			// 启动新服务器
 			await this.startWebSocketServer()
 
-			this.outputChannel.appendLine('[ClineProvider] WebSocket server restarted successfully')
-			vscode.window.showInformationMessage('WebSocket服务器已重启')
+			this.outputChannel.appendLine("[ClineProvider] WebSocket server restarted successfully")
+			vscode.window.showInformationMessage("WebSocket服务器已重启")
 		} catch (error) {
 			this.outputChannel.appendLine(`[ClineProvider] Error restarting server: ${error}`)
 			vscode.window.showErrorMessage(`重启服务器失败: ${error}`)
@@ -840,11 +855,11 @@ export class ClineProvider
 	 * 重写postMessageToWebview方法，同时发送给webview和WebSocket客户端
 	 */
 	async postMessageToWebview(message: ExtensionMessage): Promise<void> {
-		console.log(`[ClineProvider] postMessageToWebview: ${message.type}`, {
-			messageType: message.type,
-			hasData: 'openAiModels' in message ? (message as any).openAiModels?.length : 'N/A',
-			connectedClients: this.serverManager?.getConnectedClientsCount() || 0
-		})
+		// console.log(`[ClineProvider] postMessageToWebview: ${message.type}`, {
+		// 	messageType: message.type,
+		// 	hasData: 'openAiModels' in message ? (message as any).openAiModels?.length : 'N/A',
+		// 	connectedClients: this.serverManager?.getConnectedClientsCount() || 0
+		// })
 
 		// 发送给webview（原有逻辑）
 		await this.view?.webview.postMessage(message)
@@ -852,15 +867,15 @@ export class ClineProvider
 		// 发送给WebSocket客户端（仅在有连接时）
 		if (this.serverManager && this.serverManager.getConnectedClientsCount() > 0) {
 			try {
-				console.log(`[ClineProvider] Broadcasting message ${message.type} to ${this.serverManager.getConnectedClientsCount()} WebSocket clients`)
+				// console.log(`[ClineProvider] Broadcasting message ${message.type} to ${this.serverManager.getConnectedClientsCount()} WebSocket clients`)
 				this.serverManager.broadcast(message)
-				console.log(`[ClineProvider] Successfully broadcasted message ${message.type}`)
+				// console.log(`[ClineProvider] Successfully broadcasted message ${message.type}`)
 			} catch (error) {
 				this.outputChannel.appendLine(`[ClineProvider] Error broadcasting to WebSocket clients: ${error}`)
 				console.error(`[ClineProvider] Error broadcasting to WebSocket clients:`, error)
 			}
 		} else {
-			console.log(`[ClineProvider] No WebSocket clients connected, skipping broadcast`)
+			// console.log(`[ClineProvider] No WebSocket clients connected, skipping broadcast`)
 		}
 	}
 
@@ -894,9 +909,9 @@ export class ClineProvider
 	 */
 	public async startWebSocketServer(): Promise<void> {
 		if (!this.serverManager) {
-			const config = vscode.workspace.getConfiguration('anh-cline')
-			const port = config.get<number>('httpServerPort', 3002)
-			const bindHost = config.get<string>('serverBindHost', 'localhost')
+			const config = vscode.workspace.getConfiguration("anh-cline")
+			const port = config.get<number>("httpServerPort", 3002)
+			const bindHost = config.get<string>("serverBindHost", "localhost")
 
 			// 保存当前配置
 			this.currentServerConfig = {
@@ -904,21 +919,21 @@ export class ClineProvider
 				httpPort: port,
 				bindHost,
 				enableWebSocket: true,
-				autoStart: true
+				autoStart: true,
 			}
 
-			this.serverManager = new ExtensionServerManager(
-				this.context.extensionUri,
-				this.outputChannel
-			)
+			this.serverManager = new ExtensionServerManager(this.context.extensionUri, this.outputChannel)
 
-			await this.serverManager.start({
-				webSocketPort: port,
-				httpPort: port,
-				enableWebSocket: true,
-				autoStart: true,
-				bindHost
-			}, this)
+			await this.serverManager.start(
+				{
+					webSocketPort: port,
+					httpPort: port,
+					enableWebSocket: true,
+					autoStart: true,
+					bindHost,
+				},
+				this,
+			)
 		}
 	}
 
@@ -938,7 +953,7 @@ export class ClineProvider
 		return {
 			running: true,
 			clients: this.serverManager.getConnectedClientsCount(),
-			clientInfo: this.serverManager.getClientInfo()
+			clientInfo: this.serverManager.getClientInfo(),
 		}
 	}
 
@@ -946,7 +961,7 @@ export class ClineProvider
 		if (this.serverManager) {
 			this.serverManager.showWebSocketLogs()
 		} else {
-			vscode.window.showInformationMessage('WebSocket服务器未运行')
+			vscode.window.showInformationMessage("WebSocket服务器未运行")
 		}
 	}
 
@@ -957,10 +972,12 @@ export class ClineProvider
 		webSocket: { running: boolean; port: number; clients: number } | null
 		http: { running: boolean; url: string } | null
 	} {
-		return this.serverManager ? this.serverManager.getServerInfo() : {
-			webSocket: null,
-			http: null
-		}
+		return this.serverManager
+			? this.serverManager.getServerInfo()
+			: {
+					webSocket: null,
+					http: null,
+				}
 	}
 
 	// Adds a new Task instance to clineStack, marking the start of a new task.
@@ -1895,7 +1912,12 @@ export class ClineProvider
 					const customUserAgent = this.contextProxy.getGlobalState("customUserAgent")
 					const customUserAgentMode = this.contextProxy.getGlobalState("customUserAgentMode")
 					const customUserAgentFull = this.contextProxy.getGlobalState("customUserAgentFull")
-					task.api = buildApiHandler(providerSettings, customUserAgent, customUserAgentMode, customUserAgentFull)
+					task.api = buildApiHandler(
+						providerSettings,
+						customUserAgent,
+						customUserAgentMode,
+						customUserAgentFull,
+					)
 				}
 			} else {
 				await this.updateGlobalState("listApiConfigMeta", await this.providerSettingsManager.listConfig())
@@ -2292,7 +2314,7 @@ export class ClineProvider
 
 	async postStateToWebview() {
 		const state = await this.getStateToPostToWebview()
-		console.log("[ClineProvider.postStateToWebview] State to post:", state)
+		// console.log("[ClineProvider.postStateToWebview] State to post:", state)
 		this.postMessageToWebview({ type: "state", state })
 
 		// Check MDM compliance and send user to account tab if not compliant
@@ -2685,8 +2707,7 @@ export class ClineProvider
 			memoryToolsEnabled,
 		} = await this.getState()
 
-		const resolvedCurrentTsProfile =
-			currentTsProfile ?? (await this.resolveCurrentTsProfile(enabledTSProfiles))
+		const resolvedCurrentTsProfile = currentTsProfile ?? (await this.resolveCurrentTsProfile(enabledTSProfiles))
 
 		const resolvedUserAvatarVisibility =
 			userAvatarVisibility === "full" ||
@@ -2930,7 +2951,9 @@ export class ClineProvider
 
 		if (shouldPersistWorkspaceContextSettings) {
 			await this.contextProxy.setValue("workspaceContextSettings", workspaceContextSettings)
-			this.log(`[WorkspaceContext] getState normalized and persisted: ${JSON.stringify(workspaceContextSettings)}`)
+			this.log(
+				`[WorkspaceContext] getState normalized and persisted: ${JSON.stringify(workspaceContextSettings)}`,
+			)
 		}
 
 		stateValues.workspaceContextSettings = workspaceContextSettings
@@ -3294,13 +3317,13 @@ export class ClineProvider
 
 	public async setAnhUseAskTool(value: boolean) {
 		await this.setValue("anhUseAskTool", value)
-		
+
 		// Update the current task's use ask tool setting if there is an active task
 		const currentTask = this.getCurrentTask()
 		if (currentTask) {
 			currentTask.updateUseAskTool(value)
 		}
-		
+
 		await this.postStateToWebview()
 		debugLog("Set ANH use ask tool:", value)
 	}
@@ -3524,6 +3547,137 @@ export class ClineProvider
 		return this.clineStack[this.clineStack.length - 1]
 	}
 
+	/**
+	 * 清理所有任务的世界书缓存
+	 */
+	public clearWorldBookTriggerCache(): void {
+		for (const task of this.clineStack) {
+			task.clearWorldBookTriggerCache()
+		}
+		this.log("WorldBook trigger cache cleared for all tasks")
+	}
+
+	/**
+	 * 清理角色数据缓存（包括TSProfile内容）
+	 */
+	public clearRolePromptDataCache(): void {
+		this.cachedRoleUuid = undefined
+		this.cachedRolePromptData = undefined
+		this.rolePromptDataCacheTimestamp = undefined
+		this.log("Role prompt data cache cleared (including TSProfile content)")
+	}
+
+	/**
+	 * 清理所有相关缓存（世界书缓存 + 角色数据缓存）
+	 */
+	public clearAllContentCaches(): void {
+		this.clearWorldBookTriggerCache()
+		this.clearRolePromptDataCache()
+		this.log("All content caches cleared")
+	}
+
+	/**
+	 * 验证并清理过期的内容缓存
+	 * 在每次系统提示词生成时调用，确保缓存与当前配置状态一致
+	 * 优化：批量处理、性能监控、智能验证
+	 */
+	public async validateAndCleanExpiredCaches(): Promise<void> {
+		const validationStartTime = Date.now()
+		const state = await this.getState()
+		const enabledTSProfiles = state.enabledTSProfiles || []
+		const enabledWorldsets = state.enabledWorldsets || []
+		const currentWorldBooks = this.anhChatServices?.worldBookService?.getActiveWorldBookFilePaths() || []
+
+		let cacheCleared = false
+		const clearedCaches: string[] = []
+
+		// 优化1：角色数据缓存验证 - 添加缓存时间戳检查
+		if (this.cachedRolePromptData) {
+			const roleData = this.cachedRolePromptData
+			let shouldClearCache = false
+			let clearReason = ""
+
+			// 检查缓存是否过期（如果有时间戳）
+			if (this.rolePromptDataCacheTimestamp) {
+				const cacheAge = Date.now() - this.rolePromptDataCacheTimestamp
+				const maxCacheAge = 5 * 60 * 1000 // 5分钟缓存有效期
+
+				if (cacheAge > maxCacheAge) {
+					shouldClearCache = true
+					clearReason = "expired"
+					this.log("Cleared role data cache: Cache expired")
+				}
+			}
+
+			if (!shouldClearCache) {
+				// 检查TSProfile配置变更
+				if (roleData?.role?.extensions?.tsProfile && enabledTSProfiles.length === 0) {
+					shouldClearCache = true
+					clearReason = "TSProfile disabled"
+					this.log("Cleared role data cache: TSProfile disabled but found in cached role data")
+				}
+
+				// 检查世界观设定变更
+				if (!shouldClearCache && roleData?.role?.extensions?.worldset && enabledWorldsets.length === 0) {
+					shouldClearCache = true
+					clearReason = "Worldset disabled"
+					this.log("Cleared role data cache: Worldset disabled but found in cached role data")
+				}
+
+				// 优化2：深度验证TSProfile内容一致性
+				if (!shouldClearCache && roleData?.role?.extensions?.tsProfile && enabledTSProfiles.length > 0) {
+					const cachedProfiles = Object.keys(roleData.role.extensions.tsProfile)
+					const profileMismatch =
+						cachedProfiles.length !== enabledTSProfiles.length ||
+						!cachedProfiles.every((profile) => enabledTSProfiles.includes(profile))
+
+					if (profileMismatch) {
+						shouldClearCache = true
+						clearReason = "TSProfile mismatch"
+						this.log("Cleared role data cache: TSProfile configuration changed")
+					}
+				}
+			}
+
+			if (shouldClearCache) {
+				this.clearRolePromptDataCache()
+				cacheCleared = true
+				clearedCaches.push(`role data (${clearReason})`)
+			}
+		}
+
+		// 优化3：批量处理任务世界书缓存
+		const tasksNeedingCleanup = this.clineStack.filter((task) => {
+			const worldBookTrigger = task.getWorldBookTriggerResult()
+			return worldBookTrigger?.fullContent && currentWorldBooks.length === 0
+		})
+
+		if (tasksNeedingCleanup.length > 0) {
+			tasksNeedingCleanup.forEach((task) => {
+				task.clearWorldBookTriggerCache()
+			})
+			cacheCleared = true
+			clearedCaches.push(`${tasksNeedingCleanup.length} worldbook task caches`)
+			this.log(
+				`Cleared worldbook cache for ${tasksNeedingCleanup.length} tasks: WorldBook disabled but cached content found`,
+			)
+		}
+
+		const validationDuration = Date.now() - validationStartTime
+
+		// 优化4：详细的性能和状态日志
+		if (cacheCleared) {
+			this.log(`Cache validation completed in ${validationDuration}ms - cleared: ${clearedCaches.join(", ")}`)
+		} else {
+			this.log(`Cache validation completed in ${validationDuration}ms - all caches valid`)
+		}
+
+		// 优化5：性能警告
+		if (validationDuration > 100) {
+			console.warn(`[ClineProvider] Cache validation took ${validationDuration}ms - consider optimizing`)
+		}
+	}
+
 	public getRecentTasks(): string[] {
 		if (this.recentTasksCache) {
 			return this.recentTasksCache
@@ -3596,13 +3750,17 @@ export class ClineProvider
 
 			this.cachedRolePromptData = promptData
 			this.cachedRoleUuid = roleUuid
+			this.rolePromptDataCacheTimestamp = Date.now()
 			this.outputChannel.appendLine("[AnhChat] Role prompt data prepared for Default Assistant (builtin)")
 
 			return promptData
 		}
 
 		try {
-			let role = storedRole && storedRole.uuid === roleUuid && storedRole.scope === storedRole.scope ? storedRole : undefined
+			let role =
+				storedRole && storedRole.uuid === roleUuid && storedRole.scope === storedRole.scope
+					? storedRole
+					: undefined
 
 			if (!role && this.anhChatServices) {
 				role = await this.anhChatServices.roleRegistry.loadRole(roleUuid)
@@ -3636,6 +3794,7 @@ export class ClineProvider
 
 			this.cachedRolePromptData = promptData
 			this.cachedRoleUuid = roleUuid
+			this.rolePromptDataCacheTimestamp = Date.now()
 			this.outputChannel.appendLine(
 				`[AnhChat] Role prompt data prepared for ${processedRole.name ?? roleUuid} (uuid=${roleUuid})`,
 			)
