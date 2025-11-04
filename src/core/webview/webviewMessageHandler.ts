@@ -28,6 +28,7 @@ import { ClineProvider } from "./ClineProvider"
 import { handleCheckpointRestoreOperation } from "./checkpointRestoreHandler"
 import { changeLanguage, t } from "../../i18n"
 import { Package } from "../../shared/package"
+import { mixinFileService } from "../../services/mixinFileService"
 import { type RouterName, type ModelRecord, toRouterName } from "../../shared/api"
 import { MessageEnhancer } from "./messageEnhancer"
 
@@ -48,6 +49,8 @@ import { discoverChromeHostUrl, tryChromeHostUrl } from "../../services/browser/
 import { searchWorkspaceFiles } from "../../services/search/file-search"
 import { fileExistsAtPath } from "../../utils/fs"
 import { playTts, setTtsEnabled, setTtsSpeed, stopTts } from "../../utils/tts"
+import { getSettingsDirectoryPath } from "../../utils/storage"
+// Built-in rules are now handled entirely by the frontend
 import { searchCommits } from "../../utils/git"
 import { exportSettings, importSettingsWithFeedback } from "../config/importExport"
 import type { WorldBookConfig } from "../../services/silly-tavern/sillyTavernWorldBookService"
@@ -60,7 +63,7 @@ import { getModels, flushModels } from "../../api/providers/fetchers/modelCache"
 import { GetModelsOptions } from "../../shared/api"
 import { generateSystemPrompt } from "./generateSystemPrompt"
 import { getCommand } from "../../utils/commands"
-import { loadTsProfiles, validateTsProfile, browseTsProfile } from "../../services/anh-chat/tsProfileService"
+import { loadTsProfiles, validateTsProfile } from "../../services/anh-chat/tsProfileService"
 import { getExtendedTSProfileService } from "../../services/anh-chat/ExtendedTSProfileService"
 import { getExtendedWorldBookService } from "../../services/silly-tavern/ExtendedWorldBookService"
 import { getGlobalStorageService } from "../../services/storage/GlobalStorageService"
@@ -187,8 +190,7 @@ export const webviewMessageHandler = async (
 							globalWorldsetDir = globalStorageService.getGlobalWorldsetsPath()
 						} catch (error) {
 							provider.log(
-								`[Worldset] Failed to resolve global worldset directory: ${
-									error instanceof Error ? error.message : String(error)
+								`[Worldset] Failed to resolve global worldset directory: ${error instanceof Error ? error.message : String(error)
 								}`,
 							)
 						}
@@ -203,8 +205,7 @@ export const webviewMessageHandler = async (
 				}
 			} catch (error) {
 				provider.log(
-					`[Worldset] Failed to normalize legacy worldset key ${fileName}: ${
-						error instanceof Error ? error.message : String(error)
+					`[Worldset] Failed to normalize legacy worldset key ${fileName}: ${error instanceof Error ? error.message : String(error)
 					}`,
 				)
 			}
@@ -219,8 +220,7 @@ export const webviewMessageHandler = async (
 				await updateGlobalState("enabledWorldsets", normalizedList)
 			} catch (error) {
 				provider.log(
-					`[Worldset] Failed to persist normalized worldset keys: ${
-						error instanceof Error ? error.message : String(error)
+					`[Worldset] Failed to persist normalized worldset keys: ${error instanceof Error ? error.message : String(error)
 					}`,
 				)
 			}
@@ -1623,7 +1623,7 @@ export const webviewMessageHandler = async (
 			} else {
 				vscode.window.showErrorMessage(
 					t("common:errors.invalid_character_limit") ||
-						"Terminal output character limit must be a positive number",
+					"Terminal output character limit must be a positive number",
 				)
 			}
 			break
@@ -2381,6 +2381,188 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
+		case "outputStreamProcessorConfig": {
+			try {
+				console.log("[OutputStreamProcessor] Saving output stream processor configuration...")
+
+				const config = message.config as any || {}
+				console.log("[OutputStreamProcessor] Saving config:", {
+					hasBuiltinRulesEnabled: !!config.builtinRulesEnabled,
+					hasBuiltinRulesConfig: !!config.builtinRulesConfig,
+					hasCustomRulesFiles: !!config.customRulesFiles,
+					hasContentInjection: !!config.contentInjection
+				})
+
+				// 新架构：后端只存储配置状态，不合并规则
+				// 前端负责所有的规则处理和渲染
+				const storageConfig = {
+					builtinRulesEnabled: config.builtinRulesEnabled || {},
+					builtinRulesConfig: config.builtinRulesConfig || {},
+					customRulesFiles: config.customRulesFiles || { regexMixins: [], astMixins: [] },
+					contentInjection: config.contentInjection || { timestampEnabled: true, variableEnabled: true, dateFormat: 'YYYY-MM-DD HH:mm:ss' }
+				}
+
+				console.log("[OutputStreamProcessor] Storing configuration state:", {
+					builtinRulesEnabledCount: Object.keys(storageConfig.builtinRulesEnabled).length,
+					builtinRulesConfigCount: Object.keys(storageConfig.builtinRulesConfig).length,
+					customRegexMixinsCount: storageConfig.customRulesFiles.regexMixins.length,
+					customAstMixinsCount: storageConfig.customRulesFiles.astMixins.length
+				})
+
+				// 保存配置状态到全局状态
+				await updateGlobalState("outputStreamProcessorConfig", storageConfig as any)
+
+				// 刷新状态到前端
+				await provider.postStateToWebview()
+
+				provider.log("Output stream processor configuration saved successfully")
+				vscode.window.showInformationMessage("输出流处理器配置已保存")
+
+				// 发送确认消息给前端（包含存储的配置状态）
+				await provider.postMessageToWebview({
+					type: "outputStreamProcessorState",
+					text: "outputStreamProcessorState",
+					payload: { config: storageConfig }
+				})
+
+			} catch (error) {
+				provider.log(
+					`Error saving output stream processor configuration: ${error instanceof Error ? error.message : String(error)}`,
+				)
+				vscode.window.showErrorMessage("保存输出流处理器配置失败")
+
+				// 发送错误状态给前端
+				await provider.postMessageToWebview({
+					type: "outputStreamProcessorState",
+					text: "outputStreamProcessorState",
+					payload: {
+						config: getGlobalState("outputStreamProcessorConfig") ?? {},
+						error: error instanceof Error ? error.message : String(error)
+					},
+				})
+			}
+			break
+		}
+		case "createRulesMixin": {
+			try {
+				const { fileType, fileName, builtinRuleKey } = message
+				if (!fileType || !fileName) {
+					throw new Error("文件类型和文件名是必需的")
+				}
+
+				provider.log(`[RulesMixin] Creating ${fileType} mixin file: ${fileName}${builtinRuleKey ? ` based on builtin rule: ${builtinRuleKey}` : ''}`)
+
+				// 使用新的mixin文件服务
+				const mixinInfo = await mixinFileService.createMixinFile(provider.context, {
+					fileType,
+					fileName,
+					builtinRuleKey
+				})
+
+				provider.log(`[RulesMixin] Created and opened ${fileType} mixin file: ${fileName}`)
+				vscode.window.showInformationMessage(`${fileType === 'regex' ? '正则' : 'AST'}规则文件已创建: ${fileName} (${mixinInfo.basedOn ? '基于内置规则' : '空白模板'})`)
+
+			} catch (error) {
+				provider.log(`Error creating rules mixin: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage(`创建规则文件失败: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
+		case "editRulesMixin": {
+			try {
+				const { fileType, fileName } = message
+				if (!fileType || !fileName) {
+					throw new Error("文件类型和文件名是必需的")
+				}
+
+				provider.log(`[RulesMixin] Opening ${fileType} mixin file: ${fileName}`)
+
+				// 使用新的mixin文件服务 - 打开现有文件进行编辑
+				const document = await vscode.workspace.openTextDocument(
+					vscode.Uri.joinPath(provider.context.globalStorageUri, 'rules', 'rules', fileName)
+				)
+				await vscode.window.showTextDocument(document)
+
+			} catch (error) {
+				provider.log(`Error editing rules mixin: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage(`打开规则文件失败: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
+		case "deleteRulesMixin": {
+			try {
+				const { fileType, fileName } = message
+				if (!fileType || !fileName) {
+					throw new Error("文件类型和文件名是必需的")
+				}
+
+				provider.log(`[RulesMixin] Deleting ${fileType} mixin file: ${fileName}`)
+
+				// 使用新的mixin文件服务
+				const success = await mixinFileService.deleteMixinFile(provider.context, fileName)
+
+				provider.log(`[RulesMixin] Deleted ${fileType} mixin file: ${fileName}`)
+				vscode.window.showInformationMessage(`已删除规则文件: ${fileName}`)
+
+			} catch (error) {
+				provider.log(`Error deleting rules mixin: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage(`删除规则文件失败: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
+		case "loadMixinFile": {
+			try {
+				const { fileType, fileName, messageId } = message
+				if (!fileType || !fileName) {
+					throw new Error("文件类型和文件名是必需的")
+				}
+
+				provider.log(`[RulesMixin] Loading ${fileType} mixin file: ${fileName}`)
+
+				// 使用新的mixin文件服务
+				const content = await mixinFileService.loadMixinConfig(provider.context, fileName)
+
+				// 发送文件内容给前端
+				await provider.postMessageToWebview({
+					type: "mixinLoaded",
+					text: "mixinLoaded",
+					messageId,
+					fileType,
+					fileName,
+					payload: {
+						fileName,
+						content,
+						// 尝试解析模块导出（简单实现，实际项目中可能需要更安全的动态导入）
+						rules: null // 前端会解析内容
+					}
+				})
+
+			} catch (error) {
+				provider.log(`Error loading mixin file: ${error instanceof Error ? error.message : String(error)}`)
+
+				// 发送错误消息给前端
+				await provider.postMessageToWebview({
+					type: "mixinLoaded",
+					text: "mixinLoaded",
+					messageId: message.messageId,
+					error: error instanceof Error ? error.message : String(error)
+				})
+			}
+			break
+		}
+		case "openRulesDirectory": {
+			try {
+				provider.log("[RulesMixin] Opening rules directory...")
+
+				// 使用新的mixin文件服务
+				await mixinFileService.openRulesDirectory(provider.context)
+
+			} catch (error) {
+				provider.log(`Error opening rules directory: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage(`打开规则目录失败: ${error instanceof Error ? error.message : String(error)}`)
+			}
+			break
+		}
 		case "getTSProfileState": {
 			try {
 				const enabledProfiles = getGlobalState("enabledTSProfiles") ?? []
@@ -2810,10 +2992,10 @@ export const webviewMessageHandler = async (
 						const existingMode = existingModes.find((mode) => mode.slug === message.modeConfig?.slug)
 						const changedSettings = existingMode
 							? Object.keys(message.modeConfig).filter(
-									(key) =>
-										JSON.stringify((existingMode as Record<string, unknown>)[key]) !==
-										JSON.stringify((message.modeConfig as Record<string, unknown>)[key]),
-								)
+								(key) =>
+									JSON.stringify((existingMode as Record<string, unknown>)[key]) !==
+									JSON.stringify((message.modeConfig as Record<string, unknown>)[key]),
+							)
 							: []
 
 						if (changedSettings.length > 0) {
@@ -3409,13 +3591,13 @@ export const webviewMessageHandler = async (
 			const status = manager
 				? manager.getCurrentStatus()
 				: {
-						systemStatus: "Standby",
-						message: "No workspace folder open",
-						processedItems: 0,
-						totalItems: 0,
-						currentItemUnit: "items",
-						workspacePath: undefined,
-					}
+					systemStatus: "Standby",
+					message: "No workspace folder open",
+					processedItems: 0,
+					totalItems: 0,
+					currentItemUnit: "items",
+					workspacePath: undefined,
+				}
 
 			provider.postMessageToWebview({
 				type: "indexingStatusUpdate",
@@ -3661,22 +3843,7 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
-		case "browseTsProfile": {
-			try {
-				const filePath = await browseTsProfile()
-				if (filePath) {
-					provider.postMessageToWebview({
-						type: "tsProfileSelected",
-						tsProfilePath: filePath,
-					})
-				}
-			} catch (error) {
-				provider.log(`Error browsing TSProfile: ${error}`)
-				vscode.window.showErrorMessage(`Failed to browse TSProfile: ${error}`)
-			}
-			break
-		}
-		case "enableTSProfile": {
+				case "enableTSProfile": {
 			// 已废弃：现在由 saveTSProfileChanges 处理
 			// 保留此代码以防有其他地方仍在使用
 			if (message.tsProfileName) {
@@ -4259,7 +4426,7 @@ export const webviewMessageHandler = async (
 							const storyline = await storylineRepo.getStoryline(role.uuid)
 							if (storyline) {
 								provider.log(`Timeline loaded: ${storyline.arcs.length} arcs`)
-								;(role as any).timeline = storyline
+									; (role as any).timeline = storyline
 							} else {
 								provider.log("No timeline file found")
 							}
@@ -4557,8 +4724,7 @@ export const webviewMessageHandler = async (
 							userAvatarRole = JSON.parse(userAvatarRoleText)
 						} catch (parseError) {
 							provider.log(
-								`Error parsing user avatar role JSON: ${
-									parseError instanceof Error ? parseError.message : String(parseError)
+								`Error parsing user avatar role JSON: ${parseError instanceof Error ? parseError.message : String(parseError)
 								}`,
 							)
 							userAvatarRole = undefined

@@ -60,75 +60,65 @@ const TaskHeader = ({
 		autoOpenOnAuth: false,
 	})
 
-	// 提取并合并变量状态 - 优先从消息中获取已保存的变量状态，如果没有则解析消息文本
+	// 提取并合并变量状态 - 使用单一数据源避免重复渲染
 	const mergedVariableState = useMemo(() => {
-		const variableStates: Record<string, ParsedCommand> = {}
+		// 使用Map确保去重，每个变量只保留最新值
+		const variableStatesMap = new Map<string, ParsedCommand>()
 
-		// 首先从所有消息的tool.variableState中获取已保存的变量状态
+		// 策略：优先使用最新消息中保存的variableState
+		// 只有当完全没有保存状态时，才尝试从文本解析
 		if (clineMessages) {
-			// 从最新到最旧遍历消息，获取最新的变量状态
+			// 从最新到最旧查找第一个包含variableState的消息
 			for (let i = clineMessages.length - 1; i >= 0; i--) {
 				const message = clineMessages[i] as any
-				if (message.tool && message.tool.variableState && typeof message.tool.variableState === 'object') {
+				if (message.tool?.variableState && 
+					typeof message.tool.variableState === 'object' &&
+					Object.keys(message.tool.variableState).length > 0) {
+					
+					// 找到了已保存的状态，使用它并停止搜索
 					Object.entries(message.tool.variableState).forEach(([key, value]) => {
-						if (!variableStates[key]) {
-							variableStates[key] = {
-								type: 'set',
-								method: '_.set',
-								variable: key,
-								value: value as string | number | undefined,
-								position: { start: 0, end: 0 }
-							}
-						}
+						variableStatesMap.set(key, {
+							type: 'set',
+							method: '_.set',
+							variable: key,
+							value: value as string | number | undefined,
+							position: { start: 0, end: 0 }
+						})
 					})
-					// 如果找到了包含变量状态的消息，就停止搜索更早的消息
-					break
+					
+					// 找到后立即返回，避免处理其他消息导致重复
+					return Object.fromEntries(variableStatesMap)
 				}
 			}
 		}
 
-		// 如果没有找到已保存的变量状态，则从消息文本中解析变量命令
-		if (Object.keys(variableStates).length === 0) {
+		// 如果没有找到已保存的变量状态，尝试从消息文本中解析
+		// 注意：这是降级处理，正常情况下应该有保存的状态
+		if (clineMessages && variableStatesMap.size === 0) {
 			const allCommands: ParsedCommand[] = []
 
-			// 遍历所有消息，解析其中的变量命令
-			clineMessages?.forEach((message) => {
+			clineMessages.forEach((message) => {
 				if (message.text && message.say === 'text') {
-					// 解析消息文本中的变量命令
 					const commands = parseVariableCommands(message.text)
 					allCommands.push(...commands)
 				}
 			})
 
-			// 按变量名分组，保留最新的值
+			// 使用Map确保每个变量只保留最新值
 			allCommands.forEach(command => {
-				const existing = variableStates[command.variable]
-				// 保留最新的命令，或者如果没有则设置
-				if (!existing || command.position && existing.position &&
-					command.position.start > existing.position.start) {
-					variableStates[command.variable] = command
+				const existing = variableStatesMap.get(command.variable)
+				// 始终保留位置更靠后（更新）的命令
+				if (!existing || 
+					(command.position && existing.position &&
+					 command.position.start > existing.position.start)) {
+					variableStatesMap.set(command.variable, command)
 				}
 			})
 		}
 
-		// 兼容性：从task的variableState获取变量数据
-		const taskVariableState = (task as any)?.tool?.variableState
-		if (taskVariableState && typeof taskVariableState === 'object') {
-			Object.entries(taskVariableState).forEach(([key, value]) => {
-				if (!variableStates[key]) {
-					variableStates[key] = {
-						type: 'set',
-						method: '_.set',
-						variable: key,
-						value: value as string | number | undefined,
-						position: { start: 0, end: 0 }
-					}
-				}
-			})
-		}
-
-		return variableStates
-	}, [clineMessages, task])
+		// 转换为对象并返回（如果为空则返回undefined）
+		return variableStatesMap.size > 0 ? Object.fromEntries(variableStatesMap) : undefined
+	}, [clineMessages])
 
 	
 	// Check if the task is complete by looking at the last relevant message (skipping resume messages)

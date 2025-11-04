@@ -262,6 +262,31 @@ export const globalSettingsSchema = z.object({
 	// UI Debug settings
 	enableUIDebug: z.boolean().optional(),
 	uiDebugComponents: z.array(z.string()).optional(),
+
+	// Output stream processor settings (matches frontend usage)
+	outputStreamProcessorConfig: z.object({
+		// Built-in rules enable/disable status
+		builtinRulesEnabled: z.record(z.string(), z.boolean()).optional(),
+		// Built-in rules configuration parameters
+		builtinRulesConfig: z.record(z.string(), z.any()).optional(),
+		// Custom rules files management
+		customRulesFiles: z.object({
+			regexMixins: z.array(z.object({
+				fileName: z.string(),
+				enabled: z.boolean()
+			})).optional(),
+			astMixins: z.array(z.object({
+				fileName: z.string(),
+				enabled: z.boolean()
+			})).optional()
+		}).optional(),
+		// Content injection configuration
+		contentInjection: z.object({
+			timestampEnabled: z.boolean(),
+			variableEnabled: z.boolean(),
+			dateFormat: z.string()
+		}).optional()
+	}).optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>
@@ -456,10 +481,25 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 
 	// System prompt enhancement settings
 	enableInjectSystemPromptVariables: false,
-	
+
 	// UI Debug settings
 	enableUIDebug: false,
 	uiDebugComponents: [],
+
+	// Output stream processor settings
+	outputStreamProcessorConfig: {
+		builtinRulesEnabled: {},
+		builtinRulesConfig: {},
+		customRulesFiles: {
+			regexMixins: [],
+			astMixins: []
+		},
+		contentInjection: {
+			timestampEnabled: true,
+			variableEnabled: true,
+			dateFormat: 'YYYY-MM-DD HH:mm:ss'
+		}
+	},
 }
 
 export const EVALS_TIMEOUT = 5 * 60 * 1_000

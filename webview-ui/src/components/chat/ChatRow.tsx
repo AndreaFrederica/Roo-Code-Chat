@@ -819,7 +819,7 @@ export const ChatRowContent = ({
 								{t("chat:subtasks.newTaskContent")}
 							</div>
 							<div style={{ padding: "12px 16px", backgroundColor: "var(--vscode-editor-background)" }}>
-								<MarkdownBlock markdown={tool.content} />
+								<Markdown markdown={tool.content} />
 							</div>
 						</div>
 					</>
@@ -856,7 +856,7 @@ export const ChatRowContent = ({
 								{t("chat:subtasks.completionContent")}
 							</div>
 							<div style={{ padding: "12px 16px", backgroundColor: "var(--vscode-editor-background)" }}>
-								<MarkdownBlock markdown={t("chat:subtasks.completionInstructions")} />
+								<Markdown markdown={t("chat:subtasks.completionInstructions")} />
 							</div>
 						</div>
 					</>
@@ -1016,7 +1016,7 @@ export const ChatRowContent = ({
 										padding: "12px 16px",
 										backgroundColor: "var(--vscode-editor-background)",
 									}}>
-									<MarkdownBlock markdown={message.text} />
+									<Markdown markdown={message.text} />
 								</div>
 							</div>
 						</div>

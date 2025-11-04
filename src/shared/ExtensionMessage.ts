@@ -196,6 +196,14 @@ export interface ExtensionMessage {
 	| "worldBookEntryMixinRemoved"
 	| "anhExtensionState"
 	| "tsProfileState"
+	| "outputStreamProcessorConfig"
+	| "outputStreamProcessorState"
+	| "createRulesMixin"
+	| "editRulesMixin"
+	| "deleteRulesMixin"
+	| "loadMixinFile"
+	| "mixinLoaded"
+	| "openRulesDirectory"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -341,6 +349,14 @@ export interface ExtensionMessage {
 	// AI Output Display Mode Toggle properties
 	displayMode?: "original" | "processed" // For aiOutputDisplayModeToggled
 	message?: string // For aiOutputDisplayModeToggled
+	// Output stream processor related properties
+	outputStreamProcessorConfig?: any // For outputStreamProcessorConfig
+	// Mixin-related properties
+	fileType?: 'regex' | 'ast' // For mixin operations
+	fileName?: string // For mixin operations
+	builtinRuleKey?: string // For createRulesMixin when creating from built-in rule
+	// Message ID for request/response correlation
+	messageId?: string // For loadMixinFile operations
 }
 
 export type ExtensionState = Pick<
@@ -447,6 +463,7 @@ export type ExtensionState = Pick<
 	| "customUserAgent"
 	| "customUserAgentMode"
 	| "customUserAgentFull"
+	| "outputStreamProcessorConfig"
 > & {
 	enabledTSProfiles?: string[]
 	anhTsProfileAutoInject?: boolean

@@ -345,6 +345,12 @@ export interface WebviewMessage {
 		| "loadGlobalRoleMemory"
 		| "saveGlobalRoleMemory"
 		| "updateGlobalSetting"
+		| "outputStreamProcessorConfig"
+		| "createRulesMixin"
+		| "editRulesMixin"
+		| "deleteRulesMixin"
+		| "loadMixinFile"
+		| "openRulesDirectory"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -490,6 +496,13 @@ export interface WebviewMessage {
 	variables?: Record<string, string> // For saveTSProfileChanges
 	workspaceContextKey?: WorkspaceContextSettingKey
 	workspaceContextSettings?: Partial<Record<WorkspaceContextSettingKey, boolean>>
+	// Output stream processor related properties
+	outputStreamProcessorConfig?: any // For outputStreamProcessorConfig
+	// Mixin-related properties
+	fileType?: 'regex' | 'ast' // For mixin operations
+	fileName?: string // For mixin operations
+	builtinRuleKey?: string // For createRulesMixin when creating from built-in rule
+	messageId?: string // For loadMixinFile operations
 }
 
 export const checkoutDiffPayloadSchema = z.object({

@@ -82,12 +82,12 @@ const VariableCommandsRenderer = memo(({ content, className }: VariableCommandsR
       ))}
       
       {/* 显示原始命令（可选，用于调试） */}
-      <details className="mt-3">
-        <summary className="cursor-pointer text-xs text-vscode-descriptionForeground hover:text-vscode-foreground">
+      <details className="mt-3" onClick={(e) => e.stopPropagation()}>
+        <summary className="cursor-pointer text-xs text-vscode-descriptionForeground hover:text-vscode-foreground outline-none">
           查看原始命令
         </summary>
         <pre className="mt-2 p-2 bg-vscode-textBlock-background border border-vscode-panel-border rounded">
-          <code className="text-vscode-foreground text-xs font-mono">{content}</code>
+          <code className="text-vscode-foreground text-xs font-mono whitespace-pre-wrap">{content}</code>
         </pre>
       </details>
     </div>

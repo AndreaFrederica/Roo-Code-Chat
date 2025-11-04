@@ -1,0 +1,441 @@
+/**
+ * Markdown处理器 Hook - 基于真正的AST系统
+ * 
+ * 正确的AST处理流程：
+ * 1. 使用AST解析器提取完整的DOM/标签结构
+ * 2. 根据配置的AST规则，决定每个节点的处理方式
+ * 3. 从最深的节点开始逐层向外处理
+ * 4. 支持各种AST action类型：fold、highlight、wrap、replace、hide、custom
+ */
+
+import { useMemo } from "react"
+import { useExtensionState } from "@/context/ExtensionStateContext"
+import { useMixinRules } from "./useMixinRules"
+import { DEFAULT_REGEX_RULES, type RegexRule } from "@/components/common/builtin-regex-rules"
+import { DEFAULT_AST_RULES, type AstRule } from "@/components/common/builtin-ast-rules"
+import { type Block } from "@/types/block"
+
+// 导入真正的AST系统组件
+import { 
+  ASTNode, 
+  TagRule, 
+  ASTNodeType,
+  ProtectionRule 
+} from "@/components/common/ast-fold-types"
+import { 
+  parseTextToAST, 
+  ASTParser 
+} from "@/components/common/ast-parser"
+import { ASTLexer } from "@/components/common/ast-lexer"
+
+type ReplaceRule = {
+  re: RegExp
+  replace: string | ((match: string) => string)
+}
+
+export type ProcessedBlock = {
+  type: "text" | string
+  content: string
+  start: number
+  end: number
+  defaultCollapsed?: boolean
+  // 唯一标识符，用于状态管理
+  id: string
+  // AST action类型相关的额外属性
+  action?: AstRule['action']
+  params?: Record<string, any>
+  processor?: string
+  highlight?: boolean
+  wrapperClass?: string
+  hidden?: boolean
+  // 嵌套支持
+  children?: ProcessedBlock[]
+  // AST系统特有的属性
+  isComplete?: boolean
+  rawTag?: string
+  originalText?: string // 原始文本，用于某些action类型
+}
+
+const SLOT_RE = /\u0000__SLOT__([\s\S]*?)\u0000/g
+
+/**
+ * 应用正则替换规则（仅用于保护代码块等特殊内容）
+ */
+function applyRegexReplacements(text: string, rules: ReplaceRule[]): string {
+  let result = text
+  for (const rule of rules) {
+    const replacement = rule.replace
+    if (typeof replacement === "function") {
+      result = result.replace(rule.re, replacement)
+    } else {
+      result = result.replace(rule.re, replacement as string)
+    }
+  }
+  return result
+}
+
+/**
+ * 还原被保护的槽位
+ */
+function restoreSlots(text: string): string {
+  return text.replace(SLOT_RE, (_m, raw) => raw)
+}
+
+/**
+ * 将AstRule转换为TagRule（用于AST解析器）
+ * 这里直接使用nodeType和预定义的标签映射
+ */
+function convertAstRulesToTagRules(astRules: AstRule[]): TagRule[] {
+  const tagRules: TagRule[] = []
+  
+  // 预定义的节点类型到标签名的映射
+  const nodeTypeToTagNames: Record<string, string[]> = {
+    'thinking': ['thinking', '思考', 'think', 'Think', 'ThinkingProcess', '思索'],
+    'UpdateVariable': ['UpdateVariable'],
+    'variables': ['variables', 'variable'],
+    'meta': ['meta', 'Meta'],
+    'code': ['code'],
+    'tips': ['Tips', 'Tip']
+  }
+  
+  for (const rule of astRules) {
+    if (!rule.nodeType) continue
+    
+    // 根据nodeType获取对应的标签名
+    const tagNames = nodeTypeToTagNames[rule.nodeType] || [rule.nodeType]
+    
+    tagRules.push({
+      names: tagNames,
+      type: rule.nodeType as ASTNodeType,
+      defaultCollapsed: rule.params?.defaultCollapsed ?? rule.params?.defaultFolded,
+      isBlockLevel: true
+    })
+  }
+  
+  return tagRules
+}
+
+/**
+ * 根据节点类型和标签名找到匹配的AST规则
+ */
+function findMatchingRule(nodeType: string, tagName: string, astRules: AstRule[]): AstRule | null {
+  // 直接根据nodeType查找规则，因为AST解析器已经正确识别了节点类型
+  for (const rule of astRules) {
+    if (rule.nodeType === nodeType) {
+      return rule
+    }
+  }
+  
+  return null
+}
+
+/**
+ * 递归处理AST节点（从最深的节点开始）
+ */
+function processASTNode(
+  node: ASTNode, 
+  originalText: string, 
+  astRules: AstRule[],
+  processedNodes: Set<ASTNode> = new Set()
+): ProcessedBlock {
+  // 避免重复处理
+  if (processedNodes.has(node)) {
+    return {
+      type: 'text',
+      content: '',
+      start: node.startPos,
+      end: node.endPos,
+      id: `text-${node.startPos}-${node.endPos}`
+    }
+  }
+  processedNodes.add(node)
+
+  // 首先递归处理所有子节点（从最深的节点开始）
+  const processedChildren: ProcessedBlock[] = []
+  if (node.children && node.children.length > 0) {
+    for (const child of node.children) {
+      processedChildren.push(processASTNode(child, originalText, astRules, processedNodes))
+    }
+  }
+
+  // 查找匹配的AST规则
+  const matchingRule = findMatchingRule(node.type, node.rawTag || '', astRules)
+  
+  if (!matchingRule) {
+    // 没有匹配的规则，保留原文，不进行任何处理
+    const originalContent = originalText.slice(node.startPos, node.endPos)
+    return {
+      type: node.type,
+      content: originalContent,
+      start: node.startPos,
+      end: node.endPos,
+      id: `${node.type}-${node.startPos}-${node.endPos}`,
+      isComplete: node.isComplete,
+      rawTag: node.rawTag,
+      children: processedChildren.length > 0 ? processedChildren : undefined
+    }
+  }
+
+  // 根据action类型处理节点
+  const action = matchingRule.action || 'fold'
+  
+  const baseBlock: ProcessedBlock = {
+    type: node.type,
+    content: node.content, // AST解析器已经提取了内容
+    start: node.startPos,
+    end: node.endPos,
+    id: `${node.type}-${node.startPos}-${node.endPos}`,
+    action,
+    params: matchingRule.params,
+    processor: matchingRule.processor,
+    isComplete: node.isComplete,
+    rawTag: node.rawTag,
+    originalText: originalText.slice(node.startPos, node.endPos),
+    children: processedChildren.length > 0 ? processedChildren : undefined
+  }
+
+  // 根据不同的action类型设置额外的属性
+  switch (action) {
+    case 'fold':
+      baseBlock.defaultCollapsed = matchingRule.params?.defaultCollapsed ?? 
+                                   matchingRule.params?.defaultFolded ?? 
+                                   getDefaultCollapsedByType(node.type)
+      break
+      
+    case 'highlight':
+      baseBlock.highlight = true
+      break
+      
+    case 'wrap':
+      baseBlock.wrapperClass = matchingRule.params?.wrapperClass ?? `${node.type}-wrapper`
+      break
+      
+    case 'hide':
+      baseBlock.hidden = true
+      break
+      
+    case 'replace':
+      // replace action可能需要特殊处理
+      if (matchingRule.params?.replacement) {
+        if (typeof matchingRule.params.replacement === 'function') {
+          baseBlock.content = matchingRule.params.replacement(node.content)
+        } else {
+          baseBlock.content = matchingRule.params.replacement
+        }
+      }
+      break
+      
+    case 'custom':
+      // custom需要processor函数名
+      if (!matchingRule.processor) {
+        console.warn(`Custom action requires processor for type: ${node.type}`)
+      }
+      break
+  }
+
+  return baseBlock
+}
+
+/**
+ * 根据类型获取默认折叠状态
+ */
+function getDefaultCollapsedByType(type: ASTNodeType): boolean {
+  const collapsedTypes = new Set(['thinking', 'meta'])
+  return collapsedTypes.has(type)
+}
+
+/**
+ * 使用真正的AST系统处理文本
+ * 
+ * 处理流程：
+ * 1. 使用AST解析器提取完整的DOM结构
+ * 2. 根据配置的AST规则处理每个节点
+ * 3. 从最深的节点开始递归处理
+ */
+function processWithRealAST(
+  originalText: string, 
+  astRules: AstRule[], 
+  regexRules: ReplaceRule[]
+): ProcessedBlock[] {
+  if (!originalText) {
+    return [{ type: "text", content: originalText, start: 0, end: originalText.length, id: "text-empty" }]
+  }
+
+  try {
+    // 第一阶段：应用正则替换（仅保护代码块等特殊内容）
+    const protectedText = applyRegexReplacements(originalText, regexRules)
+    
+    // 第二阶段：AST解析 - 提取完整的DOM结构
+    const tagRules = convertAstRulesToTagRules(astRules)
+    
+    if (tagRules.length === 0) {
+      // 没有AST规则，返回还原后的文本
+      return [{
+        type: "text",
+        content: restoreSlots(protectedText),
+        start: 0,
+        end: protectedText.length,
+        id: "text-no-rules"
+      }]
+    }
+    
+    // 使用AST解析器解析文本，获取完整的DOM结构
+    const astNodes = parseTextToAST(protectedText, tagRules)
+    
+    if (astNodes.length === 0) {
+      // 没有找到AST节点，返回还原后的文本
+      return [{
+        type: "text",
+        content: restoreSlots(protectedText),
+        start: 0,
+        end: protectedText.length,
+        id: "text-no-ast-nodes"
+      }]
+    }
+    
+    // 第三阶段：根据AST规则处理节点（从最深的节点开始）
+    const processedBlocks: ProcessedBlock[] = []
+    const processedNodes = new Set<ASTNode>()
+    
+    for (const node of astNodes) {
+      const processedBlock = processASTNode(node, protectedText, astRules, processedNodes)
+      
+      // 对于hide action，不添加到结果中
+      if (processedBlock.hidden) {
+        continue
+      }
+      
+      processedBlocks.push(processedBlock)
+    }
+    
+    return processedBlocks.length > 0 ? processedBlocks : [{
+      type: "text",
+      content: restoreSlots(protectedText),
+      start: 0,
+      end: protectedText.length,
+      id: "text-fallback"
+    }]
+    
+  } catch (error) {
+    console.warn('AST处理失败，回退到简单文本处理:', error)
+    return [{
+      type: "text",
+      content: originalText,
+      start: 0,
+      end: originalText.length,
+      id: "text-error-fallback"
+    }]
+  }
+}
+
+/**
+ * Markdown处理器Hook - 基于真正的AST系统
+ * 
+ * @param markdown 要处理的markdown文本
+ * @returns 处理后的blocks数组
+ */
+export function useMarkdownProcessor(markdown?: string): ProcessedBlock[] {
+  const { outputStreamProcessorConfig } = useExtensionState()
+
+  // 加载mixin规则
+  const customRulesFiles = useMemo(() => 
+    outputStreamProcessorConfig?.customRulesFiles || { regexMixins: [], astMixins: [] },
+    [outputStreamProcessorConfig?.customRulesFiles]
+  )
+
+  const { regexMixins, astMixins } = useMixinRules(customRulesFiles)
+
+  const processedBlocks = useMemo(() => {
+    if (!markdown) {
+      return []
+    }
+
+    const builtinRulesEnabled = outputStreamProcessorConfig?.builtinRulesEnabled || {}
+    const rulesConfig = outputStreamProcessorConfig?.builtinRulesConfig || {}
+
+    // ========== 阶段1：收集正则替换规则（仅用于保护代码块等） ==========
+    
+    const regexReplacements: ReplaceRule[] = [
+      // 保护代码块 ```...``` 或 ~~~...~~~
+      {
+        re: /(^|[\r\n])(```|~~~)[^\r\n]*[\r\n][\s\S]*?\2(?=[\r\n]|$)/g,
+        replace: (m: string) => (m.startsWith("\n") ? "\n" : "") + `\u0000__SLOT__${m}\u0000`,
+      },
+      // 保护行内代码 `...`
+      {
+        re: /`[^`\r\n]+`/g,
+        replace: (m: string) => `\u0000__SLOT__${m}\u0000`,
+      }
+    ]
+
+    // 添加内置正则替换规则（只添加有replacement的规则）
+    Object.entries(DEFAULT_REGEX_RULES).forEach(([key, rule]) => {
+      const isEnabled = builtinRulesEnabled[key] ?? true
+      if (isEnabled && rule.replacement) {
+        regexReplacements.push({
+          re: new RegExp(rule.pattern, rule.flags || "g"),
+          replace: rule.replacement
+        })
+      }
+    })
+
+    // 添加mixin正则替换规则
+    Object.values(regexMixins).forEach(rule => {
+      if (rule?.enabled && rule.replacement) {
+        regexReplacements.push({
+          re: new RegExp(rule.pattern ?? "", rule.flags || "g"),
+          replace: rule.replacement
+        })
+      }
+    })
+
+    // ========== 阶段2：收集AST规则 ==========
+    
+    const astRulesToApply: AstRule[] = []
+
+    // 添加内置AST规则（根据开关）
+    Object.entries(DEFAULT_AST_RULES).forEach(([key, rule]) => {
+      const isEnabled = builtinRulesEnabled[key] ?? true
+      if (isEnabled) {
+        const config = rulesConfig[key]
+        const overrideCollapsed = config?.defaultCollapsed ?? config?.defaultFolded
+
+        // 创建AST规则副本并应用配置覆盖
+        const astRule: AstRule = {
+          ...rule,
+          params: {
+            ...rule.params,
+            ...(overrideCollapsed !== undefined && { defaultFolded: overrideCollapsed })
+          }
+        }
+
+        astRulesToApply.push(astRule)
+      }
+    })
+
+    // 添加mixin AST规则
+    Object.entries(astMixins).forEach(([key, rule]) => {
+      if (rule?.enabled && rule.pattern && rule.toType) {
+        astRulesToApply.push({
+          enabled: true,
+          description: `Mixin AST规则: ${key}`,
+          nodeType: rule.toType,
+          action: 'fold',
+          params: {
+            pattern: rule.pattern,
+            flags: rule.flags || 'gi',
+            defaultFolded: rule.defaultCollapsed
+          }
+        })
+      }
+    })
+    
+    // ========== 阶段3：使用真正的AST系统处理 ==========
+    
+    const blocks = processWithRealAST(markdown, astRulesToApply, regexReplacements)
+
+    return blocks
+  }, [markdown, outputStreamProcessorConfig, regexMixins, astMixins])
+
+  return processedBlocks
+}

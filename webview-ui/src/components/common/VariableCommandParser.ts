@@ -27,26 +27,40 @@ export class VariableCommandParser {
   // 解析所有命令
   parseCommands(): ParsedCommand[] {
     const commands: ParsedCommand[] = []
-    
+
     while (this.position < this.input.length) {
       this.skipWhitespace()
-      
+
       if (this.position >= this.input.length) break
-      
-      // 查找 _. 开头的调用
+
+      // 查找 _. 开头的调用或直接命令
       if (this.input.slice(this.position).startsWith('_.')) {
         this.position += 2
         this.skipWhitespace()
-        
+
         const command = this.parseCommand()
         if (command) {
           commands.push(command)
         }
       } else {
-        this.position++
+        // 检查是否是直接命令（set, add, insert, remove）
+        const remaining = this.input.slice(this.position)
+        const commandMatch = remaining.match(/^(set|add|insert|remove)\b/i)
+
+        if (commandMatch) {
+          const command = this.parseCommand()
+          if (command) {
+            commands.push(command)
+          }
+        } else {
+          // 跳过注释或其他内容
+          const nextLine = this.input.indexOf('\n', this.position)
+          if (nextLine === -1) break
+          this.position = nextLine + 1
+        }
       }
     }
-    
+
     return commands
   }
 

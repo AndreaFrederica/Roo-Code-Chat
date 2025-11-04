@@ -5,9 +5,9 @@ import rehypeKatex from "rehype-katex"
 import remarkMath from "remark-math"
 import remarkGfm from "remark-gfm"
 
-import { ChevronUp, Lightbulb, Database, FileText, Code } from "lucide-react"
+import { ChevronUp, Lightbulb, Database, FileText, Code, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BlockTypeConfig } from "./fold-config"
+import { getBlockTypeAppearance } from "./fold-config"
 import CodeBlock from "./CodeBlock"
 import VariableCommandsRenderer from "./VariableCommandsRenderer"
 
@@ -16,13 +16,28 @@ interface FoldableBlockProps {
   type: string
   isCollapsed: boolean
   onToggle: () => void
+  children?: React.ReactNode
 }
 
-const FoldableBlock = memo(({ content, type, isCollapsed, onToggle }: FoldableBlockProps) => {
+const FoldableBlock = memo(({ content, type, isCollapsed, onToggle, children }: FoldableBlockProps) => {
   const { t } = useTranslation()
 
   // 获取块类型配置
-  const config = BlockTypeConfig[type as keyof typeof BlockTypeConfig] || BlockTypeConfig.thinking
+  const config = getBlockTypeAppearance(type)
+
+  const iconComponents: Record<string, React.ComponentType<{ className?: string }>> = {
+    Lightbulb,
+    Database,
+    FileText,
+    Code,
+    Info,
+  }
+
+  const IconComponent = iconComponents[config.icon] || Lightbulb
+
+  const displayLabel = config.labelKey
+    ? t(config.labelKey, config.label ?? type.charAt(0).toUpperCase() + type.slice(1))
+    : config.label ?? type.charAt(0).toUpperCase() + type.slice(1)
 
   return (
     <div className="group my-4">
@@ -30,18 +45,8 @@ const FoldableBlock = memo(({ content, type, isCollapsed, onToggle }: FoldableBl
         className="flex items-center justify-between mb-2.5 pr-2 cursor-pointer select-none"
         onClick={onToggle}>
         <div className="flex items-center gap-2">
-          {(() => {
-            const iconMap = {
-              thinking: <Lightbulb className="w-4" />,
-              variables: <Database className="w-4" />,
-              meta: <FileText className="w-4" />,
-              code: <Code className="w-4" />,
-            }
-            return iconMap[type as keyof typeof iconMap] || <Lightbulb className="w-4" />
-          })()}
-          <span className="font-bold text-vscode-foreground">
-            {t(config.label, type.charAt(0).toUpperCase() + type.slice(1))}
-          </span>
+          <IconComponent className="w-4" />
+          <span className="font-bold text-vscode-foreground">{displayLabel}</span>
         </div>
         <div className="flex items-center gap-2">
           <ChevronUp
@@ -60,8 +65,17 @@ const FoldableBlock = memo(({ content, type, isCollapsed, onToggle }: FoldableBl
           )}
         >
           <div className={cn(config.color)}>
-            {type === 'variables' ? (
-              <VariableCommandsRenderer content={content} />
+            {/* 对于UpdateVariable/variables类型，需要同时渲染children和自己的内容 */}
+            {type === 'UpdateVariable' || type === 'variables' ? (
+              <>
+                {/* 先渲染嵌套的子块（如ThinkingProcess） */}
+                {children}
+                {/* 再渲染变量命令部分 */}
+                {content && <VariableCommandsRenderer content={content} />}
+              </>
+            ) : children ? (
+              // 其他类型有children时，只渲染children
+              children
             ) : (
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}

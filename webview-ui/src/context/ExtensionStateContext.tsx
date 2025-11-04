@@ -66,6 +66,7 @@ interface ExtendedExtensionState extends ExtensionState {
 	enableInjectSystemPromptVariables?: boolean
 	enableUIDebug?: boolean
 	uiDebugComponents?: string[]
+	outputStreamProcessorConfig?: any
 }
 
 export interface ExtensionStateContextType extends ExtendedExtensionState {
@@ -272,6 +273,8 @@ export interface ExtensionStateContextType extends ExtendedExtensionState {
 	setCustomUserAgentMode: (value: "segments" | "full") => void
 	customUserAgentFull?: string
 	setCustomUserAgentFull: (value: string) => void
+	outputStreamProcessorConfig?: any
+	setOutputStreamProcessorConfig: (value: any) => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -615,6 +618,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update customUserAgentFull if present in state message
 					if ((newState as any).customUserAgentFull !== undefined) {
 						setState((prevState) => ({ ...prevState, customUserAgentFull: (newState as any).customUserAgentFull }))
+					}
+					// Update outputStreamProcessorConfig if present in state message
+					if ((newState as any).outputStreamProcessorConfig !== undefined) {
+						setState((prevState) => ({ ...prevState, outputStreamProcessorConfig: (newState as any).outputStreamProcessorConfig }))
 					}
 					// Update enableUIDebug if present in state message
 					if ((newState as any).enableUIDebug !== undefined) {
@@ -1139,6 +1146,11 @@ const contextValue: ExtensionStateContextType = {
 	customUserAgentFull: state.customUserAgentFull ?? "",
 	setCustomUserAgentFull: (value: string) => {
 		vscode.postMessage({ type: "customUserAgentFull", text: value })
+	},
+	outputStreamProcessorConfig: state.outputStreamProcessorConfig ?? {},
+	setOutputStreamProcessorConfig: (value: any) => {
+		setState((prevState) => ({ ...prevState, outputStreamProcessorConfig: value }))
+		vscode.postMessage({ type: "outputStreamProcessorConfig" as any, config: value })
 	},
 	enableUIDebug: state.enableUIDebug ?? false,
 	setEnableUIDebug: (value: boolean) => {

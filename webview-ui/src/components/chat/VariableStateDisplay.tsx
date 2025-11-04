@@ -55,26 +55,20 @@ export function VariableStateDisplay({
 	const variableNames = Object.keys(variableStates)
 	const hasVariables = variableNames.length > 0
 
-	// 如果没有变量，不显示
-	if (!hasVariables) {
-		return null
-	}
-
 	// 限制显示的变量数量（用于网格显示）
 	const maxDisplayCount = maxRows * maxColumns
 	const limitedVariableNames = variableNames.slice(0, maxDisplayCount)
 
 	// 获取最重要的变量（按类型排序：set > add > insert > remove）
-	const getMostImportantVariable = () => {
+	const mostImportantVar = useMemo(() => {
+		if (!hasVariables) return null
 		const priorities = { set: 4, add: 3, insert: 2, remove: 1 }
 		const sortedVars = limitedVariableNames
 			.map(name => ({ name, command: variableStates[name] }))
 			.sort((a, b) => (priorities[b.command.type as keyof typeof priorities] || 0) -
 							   (priorities[a.command.type as keyof typeof priorities] || 0))
 		return sortedVars[0]
-	}
-
-	const mostImportantVar = getMostImportantVariable()
+	}, [hasVariables, limitedVariableNames, variableStates])
 
 	// 生成网格布局的变量数组
 	const gridVariables = useMemo(() => {
@@ -91,6 +85,11 @@ export function VariableStateDisplay({
 		}
 		return grid
 	}, [limitedVariableNames, variableStates, maxRows, maxColumns])
+
+	// 如果没有变量，不显示
+	if (!hasVariables) {
+		return null
+	}
 
 	// 获取变量命令的图标
 	const getVariableIcon = (type: ParsedCommand['type']) => {
@@ -232,12 +231,12 @@ export function VariableStateDisplay({
 						}}
 					>
 						<div style={{ color: "var(--vscode-terminal-ansiBlue)", flexShrink: 0 }}>
-							{getVariableIcon(mostImportantVar.command.type)}
+							{getVariableIcon(mostImportantVar!.command.type)}
 						</div>
 						<span
 							style={{
 								fontWeight: 500,
-								color: getVariableColor(mostImportantVar.command.type),
+								color: getVariableColor(mostImportantVar!.command.type),
 								flex: 1,
 								overflow: "hidden",
 								textOverflow: "ellipsis",
@@ -245,7 +244,7 @@ export function VariableStateDisplay({
 								fontSize: "12px",
 							}}
 						>
-							{mostImportantVar.name}: {formatValue(mostImportantVar.command.value)}
+							{mostImportantVar!.name}: {formatValue(mostImportantVar!.command.value)}
 						</span>
 					</div>
 				)}
@@ -267,7 +266,7 @@ export function VariableStateDisplay({
 								fontWeight: 500,
 							}}
 						>
-							{formatValue(mostImportantVar.command.value)}
+							{formatValue(mostImportantVar!.command.value)}
 						</span>
 					)}
 

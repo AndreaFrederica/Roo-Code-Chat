@@ -13,72 +13,13 @@ import { useTranslation } from "react-i18next"
 import CodeBlock from "./CodeBlock"
 import MermaidBlock from "./MermaidBlock"
 import FoldableBlock from "./FoldableBlock"
-import { defaultPreReplace, defaultBlockRules, getAllRuleNames } from "./fold-config"
-import { splitBlocks, getDefaultCollapsedState } from "./fold-engine"
+import { useMarkdownProcessor } from "@/hooks/useMarkdownProcessor"
 import { Eye, EyeOff } from "lucide-react"
 
 interface EnhancedMarkdownBlockProps {
 	markdown?: string
 }
 
-/**
- * 内容哈希缓存，避免重复计算
- */
-const contentHashCache = new Map<string, string>()
-
-/**
- * 生成内容哈希，用于稳定的React key
- * 使用简单但有效的哈希算法，避免crypto API的复杂性
- */
-const generateContentHash = (content: string): string => {
-	// 检查缓存
-	if (contentHashCache.has(content)) {
-		return contentHashCache.get(content)!
-	}
-
-	// 使用多个字符采样生成哈希
-	let hash = 0
-	const len = content.length
-
-	// 采样策略：取开头、中间、结尾的字符
-	const samples = [
-		content.slice(0, Math.min(10, len)),
-		content.slice(Math.floor(len * 0.3), Math.min(len * 0.3 + 10, len)),
-		content.slice(Math.floor(len * 0.7), Math.min(len * 0.7 + 10, len)),
-		content.slice(Math.max(-10, len - 10)),
-	].join("")
-
-	// 简单的字符串哈希算法
-	for (let i = 0; i < samples.length; i++) {
-		const char = samples.charCodeAt(i)
-		hash = (hash << 5) - hash + char
-		hash = hash & hash // 转换为32位整数
-	}
-
-	// 转换为base36字符串，确保为正数
-	const result = Math.abs(hash).toString(36)
-
-	// 缓存结果（限制缓存大小，避免内存泄漏）
-	if (contentHashCache.size > 1000) {
-		// 清理最旧的缓存项
-		const firstKey = contentHashCache.keys().next().value
-		if (firstKey) {
-			contentHashCache.delete(firstKey)
-		}
-	}
-	contentHashCache.set(content, result)
-
-	return result
-}
-
-/**
- * 为代码块生成更稳定的哈希，包含代码长度信息
- * 这样可以避免内容相似但长度不同的代码块产生相同哈希
- */
-const generateCodeBlockHash = (content: string, language?: string): string => {
-	const key = `${language || "unknown"}:${content.length}:${generateContentHash(content)}`
-	return generateContentHash(key)
-}
 
 const StyledMarkdown = styled.div`
 	* {
@@ -310,63 +251,44 @@ const StyledMarkdown = styled.div`
 
 const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) => {
 	const { reasoningBlockCollapsed } = useExtensionState()
-	const [collapsedThinkingBlocks, setCollapsedThinkingBlocks] = useState<Set<number>>(new Set())
+	const [collapsedBlockIds, setCollapsedBlockIds] = useState<Set<string>>(new Set())
 	const [showRaw, setShowRaw] = useState(false)
 
-	// 使用新的折叠引擎处理内容
-	const processedContent = useMemo(() => {
-		if (!markdown) {
-			return { blocks: [] }
-		}
+	// 使用新的处理器 Hook
+	const processedBlocks = useMarkdownProcessor(markdown)
 
-		// 可选：额外添加你自己的"替换表达式"规则
-		const myPre = [
-			...defaultPreReplace,
-			// 确保 <思索>…</思索> 被转换为 <thinking>…</thinking> 以便统一处理
-			{ re: /<\s*思索\b([^>]*)>/gi, replace: "<thinking$1>" } as any,
-			{ re: /<\s*\/\s*思索\b[^>]*>/gi, replace: "</thinking>" } as any,
-		]
-
-		// 清理尾部半截标签
-		const ruleNames = getAllRuleNames(defaultBlockRules)
-		const stripHalf = new RegExp(`<\\s*\\/??\\s*(?:${ruleNames})\\b[^>]*$`, "i")
-
-		const blocks = splitBlocks(markdown, {
-			pre: myPre,
-			rules: defaultBlockRules, // 这里就是纯"查找表达式"集合
-			stripTrailingHalf: stripHalf,
-		})
-
-		return { blocks }
-	}, [markdown])
-
-	// Initialize collapsed state for all foldable blocks
+	// Initialize collapsed state for all foldable blocks using unique IDs
 	useMemo(() => {
-		const foldableBlockIndices = processedContent.blocks
-			.map((block, index) => (block.type !== "text" ? index : -1))
-			.filter((index) => index !== -1)
+		const foldableBlocks = processedBlocks.filter((block) => block.type !== "text")
 
-		if (foldableBlockIndices.length > 0 && collapsedThinkingBlocks.size === 0) {
-			// Initialize with default settings based on block type
-			const initialCollapsed = new Set<number>()
-			foldableBlockIndices.forEach((index) => {
-				const block = processedContent.blocks[index]
-				const shouldCollapse = getDefaultCollapsedState(block, reasoningBlockCollapsed ?? false)
-				if (shouldCollapse) {
-					initialCollapsed.add(index)
-				}
+		if (foldableBlocks.length > 0) {
+			// 为每个新块初始化折叠状态（如果还没有设置的话）
+			setCollapsedBlockIds((prevCollapsedIds) => {
+				const newCollapsedIds = new Set(prevCollapsedIds)
+				
+				foldableBlocks.forEach((block) => {
+					// 只有当这个块还没有折叠状态记录时，才设置默认状态
+					if (!prevCollapsedIds.has(block.id)) {
+						// 使用block的defaultCollapsed属性
+						const shouldCollapse = block.defaultCollapsed ?? (reasoningBlockCollapsed ?? false)
+						if (shouldCollapse) {
+							newCollapsedIds.add(block.id)
+						}
+					}
+				})
+				
+				return newCollapsedIds
 			})
-			setCollapsedThinkingBlocks(initialCollapsed)
 		}
-	}, [processedContent.blocks, reasoningBlockCollapsed, collapsedThinkingBlocks.size])
+	}, [processedBlocks, reasoningBlockCollapsed])
 
-	const toggleThinkingBlock = useCallback((blockIndex: number) => {
-		setCollapsedThinkingBlocks((prev) => {
+	const toggleThinkingBlock = useCallback((blockId: string) => {
+		setCollapsedBlockIds((prev) => {
 			const newSet = new Set(prev)
-			if (newSet.has(blockIndex)) {
-				newSet.delete(blockIndex)
+			if (newSet.has(blockId)) {
+				newSet.delete(blockId)
 			} else {
-				newSet.add(blockIndex)
+				newSet.add(blockId)
 			}
 			return newSet
 		})
@@ -475,61 +397,135 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 		const { t } = useTranslation()
 
 		return (
-			<button className="toggle-button" onClick={() => setShowRaw(!showRaw)}>
+			<button
+				className="toggle-button"
+				onClick={() => setShowRaw(!showRaw)}
+			>
 				{showRaw ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-				{showRaw
-					? t("settings:markdown.showRaw", "显示原文")
-					: t("settings:markdown.showRendered", "显示渲染结果")}
+				{showRaw ? t("settings:markdown.showRaw", "显示原文") : t("settings:markdown.showRendered", "显示渲染结果")}
 			</button>
+		)
+	}
+
+	// 递归渲染块（支持嵌套）
+	const renderBlock = (block: any, index: number, depth: number = 0): React.ReactNode => {
+		// 处理普通文本块
+		if (block.type === "text") {
+			return (
+				<ReactMarkdown
+					key={`text-${depth}-${index}`}
+					remarkPlugins={[remarkGfm, remarkMath]}
+					rehypePlugins={[rehypeKatex as any]}
+					components={components}>
+					{block.content}
+				</ReactMarkdown>
+			)
+		}
+
+		// 处理隐藏块（不渲染）
+		if (block.action === "hide" || block.hidden) {
+			return null
+		}
+
+		// 递归渲染children
+		const childrenContent = block.children && block.children.length > 0
+			? block.children.map((child: any, childIndex: number) => renderBlock(child, childIndex, depth + 1))
+			: null
+
+		// 处理高亮块
+		if (block.action === "highlight") {
+			return (
+				<div
+					key={`highlight-${depth}-${index}`}
+					style={{
+						backgroundColor: "var(--vscode-editor-selectionHighlightBackground)",
+						border: "1px solid var(--vscode-editor-selectionHighlightBorder, transparent)",
+						borderRadius: "3px",
+						padding: "0.5em",
+						margin: "0.5em 0",
+					}}>
+					{childrenContent || (
+						<ReactMarkdown
+							remarkPlugins={[remarkGfm, remarkMath]}
+							rehypePlugins={[rehypeKatex as any]}
+							components={components}>
+							{block.content}
+						</ReactMarkdown>
+					)}
+				</div>
+			)
+		}
+
+		// 处理包装块
+		if (block.action === "wrap") {
+			return (
+				<div
+					key={`wrap-${depth}-${index}`}
+					className={block.wrapperClass || `${block.type}-wrapper`}
+					style={{
+						border: "1px solid var(--vscode-panel-border)",
+						borderRadius: "4px",
+						padding: "0.75em",
+						margin: "0.5em 0",
+					}}>
+					{childrenContent || (
+						<ReactMarkdown
+							remarkPlugins={[remarkGfm, remarkMath]}
+							rehypePlugins={[rehypeKatex as any]}
+							components={components}>
+							{block.content}
+						</ReactMarkdown>
+					)}
+				</div>
+			)
+		}
+
+		// 处理自定义处理器块
+		if (block.action === "custom") {
+			return (
+				<div
+					key={`custom-${depth}-${index}`}
+					data-processor={block.processor}
+					data-type={block.type}
+					style={{
+						margin: "0.5em 0",
+					}}>
+					{childrenContent || (
+						<ReactMarkdown
+							remarkPlugins={[remarkGfm, remarkMath]}
+							rehypePlugins={[rehypeKatex as any]}
+							components={components}>
+							{block.content}
+						</ReactMarkdown>
+					)}
+				</div>
+			)
+		}
+
+		// 处理折叠块（默认行为）- 保留原始内容，不设置为空字符串
+		return (
+			<FoldableBlock
+				key={`${block.type}-${depth}-${index}`}
+				content={block.content}
+				type={block.type}
+				isCollapsed={collapsedBlockIds.has(block.id)}
+				onToggle={() => toggleThinkingBlock(block.id)}>
+				{childrenContent}
+			</FoldableBlock>
 		)
 	}
 
 	const RenderedContent = () => (
 		<>
-			{processedContent.blocks.map((block, index) => {
-				// 生成内容哈希以确保稳定的React key
-				const contentHash = generateContentHash(block.content)
-
-				if (block.type === "text") {
-					return (
-						<ReactMarkdown
-							key={`text-${contentHash}`}
-							remarkPlugins={[
-								remarkGfm,
-								remarkMath,
-								() => {
-									return (tree: any) => {
-										visit(tree, "code", (node: any) => {
-											if (!node.lang) {
-												node.lang = "text"
-											} else if (node.lang.includes(".")) {
-												node.lang = node.lang.split(".").slice(-1)[0]
-											}
-										})
-									}
-								},
-							]}
-							rehypePlugins={[rehypeKatex as any]}
-							components={components}>
-							{block.content}
-						</ReactMarkdown>
-					)
-				} else {
-					return (
-						<FoldableBlock
-							key={`${block.type}-${contentHash}`}
-							content={block.content}
-							type={block.type}
-							isCollapsed={collapsedThinkingBlocks.has(index)}
-							onToggle={() => toggleThinkingBlock(index)}
-						/>
-					)
-				}
-			})}
+			{processedBlocks.map((block, index) => renderBlock(block, index, 0))}
 		</>
 	)
 
-	const RawContent = () => <div className="raw-content">{markdown || ""}</div>
+	const RawContent = () => (
+		<div className="raw-content">
+			{markdown || ""}
+		</div>
+	)
 
 	return (
 		<StyledMarkdown>

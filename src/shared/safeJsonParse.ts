@@ -13,8 +13,9 @@ export function safeJsonParse<T>(jsonString: string | null | undefined, defaultV
 	try {
 		return JSON.parse(jsonString) as T
 	} catch (error) {
-		// Log the error to the console for debugging
-		console.error("Error parsing JSON:", error)
+		if (process.env.NODE_ENV !== "production") {
+			console.debug("Error parsing JSON:", error)
+		}
 		return defaultValue
 	}
 }

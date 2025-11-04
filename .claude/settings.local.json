@@ -18,7 +18,8 @@
       "Bash(mkdir:*)",
       "Read(//d//**)",
       "Bash(find:*)",
-      "Read(//d/Projcets/Novel-Helper/andrea-novel-helper/**)"
+      "Read(//d/Projcets/Novel-Helper/andrea-novel-helper/**)",
+      "Bash(npx eslint:*)"
     ],
     "deny": [],
     "ask": []

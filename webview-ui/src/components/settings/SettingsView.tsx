@@ -33,6 +33,7 @@ import {
 	FileText,
 	Brain,
 	Layers,
+	Zap,
 } from "lucide-react"
 
 import type { ProviderSettings, ExperimentId, TelemetrySetting, UserAvatarVisibility } from "@roo-code/types"
@@ -84,6 +85,7 @@ import { AssistantRoleSettings } from "./AssistantRoleSettings"
 import { TSProfileSettings } from "./TSProfileSettings"
 import { MemoryManagementSettings } from "./MemoryManagementSettings"
 import { WorkspaceContextSettings } from "./WorkspaceContextSettings"
+import { OutputStreamProcessorSettings } from "./OutputStreamProcessorSettings"
 
 export const settingsTabsContainer = "flex flex-1 overflow-hidden [&.narrow_.tab-label]:hidden"
 export const settingsTabList =
@@ -110,6 +112,7 @@ const sectionNames = [
 	"tsProfile",
 	"userAvatar",
 	"memoryManagement",
+	"outputStreamProcessor",
 	"prompts",
 	"ui",
 	"extensions",
@@ -583,6 +586,12 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({ type: "enableInjectSystemPromptVariables", bool: enableInjectSystemPromptVariables ?? false })
 			vscode.postMessage({ type: "useRefactoredSystemPrompt", bool: useRefactoredSystemPrompt ?? false })
 
+			// Output stream processor settings
+			vscode.postMessage({
+				type: "outputStreamProcessorConfig" as any,
+				config: cachedState.outputStreamProcessorConfig ?? {}
+			})
+
 			setChangeDetected(false)
 		}
 
@@ -721,6 +730,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		customUserAgentFull,
 		enableInjectSystemPromptVariables,
 		useRefactoredSystemPrompt,
+		cachedState.outputStreamProcessorConfig,
 		setChangeDetected,
 		componentChanges,
 		setComponentChanges,
@@ -817,6 +827,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			{ id: "tsProfile", icon: FileText },
 			{ id: "userAvatar", icon: User },
 			{ id: "memoryManagement", icon: Brain },
+			{ id: "outputStreamProcessor", icon: Zap },
 			{ id: "prompts", icon: MessageSquare },
 			{ id: "ui", icon: Glasses },
 			{ id: "extensions", icon: Puzzle },
@@ -1148,6 +1159,13 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 						<MemoryManagementSettings
 							memorySystemEnabled={cachedState.memorySystemEnabled}
 							memoryToolsEnabled={cachedState.memoryToolsEnabled}
+							setCachedStateField={setCachedStateField}
+						/>
+					)}
+
+					{/* Output Stream Processor Section */}
+					{activeTab === "outputStreamProcessor" && (
+						<OutputStreamProcessorSettings
 							setCachedStateField={setCachedStateField}
 						/>
 					)}

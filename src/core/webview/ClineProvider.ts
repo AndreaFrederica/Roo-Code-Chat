@@ -3215,6 +3215,7 @@ export class ClineProvider
 			allowNoToolsInChatMode: stateValues.allowNoToolsInChatMode ?? false,
 			memorySystemEnabled: stateValues.memorySystemEnabled ?? true,
 			memoryToolsEnabled: stateValues.memoryToolsEnabled ?? true,
+			outputStreamProcessorConfig: stateValues.outputStreamProcessorConfig ?? {},
 			sillyTavernWorldBookState: this.anhChatServices?.worldBookService
 				? this.anhChatServices.worldBookService.getState()
 				: {
