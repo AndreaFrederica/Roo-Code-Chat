@@ -32,6 +32,7 @@
 		"terminal": "Terminal",
 		"assistantRole": "Assistant Role",
 		"tsProfile": "SillyTavern Profile",
+		"outputStreamProcessor" : "Output Stream Processor",
 		"userAvatar": "User Avatar",
 		"prompts": "Prompts",
 		"ui": "UI",

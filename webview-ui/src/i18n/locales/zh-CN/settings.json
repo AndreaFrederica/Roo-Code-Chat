@@ -34,6 +34,7 @@
 		"terminal": "终端",
 		"assistantRole": "助手角色",
 		"tsProfile": "SillyTavern Profile",
+		"outputStreamProcessor": "输出流处理器",
 		"userAvatar": "用户代理角色",
 		"memoryManagement": "记忆管理",
 		"prompts": "提示词",
