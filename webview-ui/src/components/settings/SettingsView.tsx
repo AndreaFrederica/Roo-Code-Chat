@@ -26,7 +26,7 @@ import {
 	SquareSlash,
 	Glasses,
 	User,
-	UserCog,
+	// UserCog,
 	BookOpen,
 	Puzzle,
 	Users,
@@ -158,6 +158,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 	// 为Worldview组件创建ref
 	const worldviewRef = useRef<{ handleSaveChanges: () => Promise<void> }>(null)
+const outputStreamProcessorRef = useRef<{ handleSaveChanges: () => Promise<void> }>(null)
 
 	// 统一管理所有设置子组件的变更状态
 	const [componentChanges, setComponentChanges] = useState<Record<string, boolean>>({
@@ -626,8 +627,10 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 		// 保存 OutputStreamProcessor 设置
 		if (componentChanges.outputStreamProcessor) {
-			// OutputStreamProcessor 设置会通过它的 onSaveChanges 回调自动保存
-			// 这里我们不需要做额外操作，因为组件会自己处理保存
+			// 调用 OutputStreamProcessor 组件的保存方法
+			if (outputStreamProcessorRef.current?.handleSaveChanges) {
+				promises.push(outputStreamProcessorRef.current.handleSaveChanges())
+			}
 		}
 
 		await Promise.all(promises)
@@ -1182,12 +1185,16 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 					{/* Output Stream Processor Section */}
 					{activeTab === "outputStreamProcessor" && (
 						<OutputStreamProcessorSettings
+							ref={outputStreamProcessorRef}
 							setCachedStateField={setCachedStateField}
 							onHasChangesChange={(hasChanges) =>
 								handleComponentChange("outputStreamProcessor", hasChanges)
 							}
 							onSaveChanges={async () => {
-								// 当用户点击保存按钮时，OutputStreamProcessorSettings 会通过 onSaveChanges 回调来保存
+								// 当用户点击保存按钮时，调用ref的保存方法
+								if (outputStreamProcessorRef.current?.handleSaveChanges) {
+									await outputStreamProcessorRef.current.handleSaveChanges()
+								}
 							}}
 							onResetChanges={() => {
 								// 重置变更状态

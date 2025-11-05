@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from "react"
+import React, { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle } from "react"
 import { HTMLAttributes } from "react"
 import { useAppTranslation } from "@/i18n/TranslationContext"
 import { VSCodeCheckbox, VSCodeTextField, VSCodeButton } from "@vscode/webview-ui-toolkit/react"
@@ -75,13 +75,16 @@ const getDefaultConfig = () => ({
 	},
 })
 
-export const OutputStreamProcessorSettings = ({
+export const OutputStreamProcessorSettings = forwardRef<
+	{ handleSaveChanges: () => Promise<void> },
+	OutputStreamProcessorSettingsProps
+>(({
 	setCachedStateField,
 	onHasChangesChange,
 	onSaveChanges,
 	onResetChanges,
 	...props
-}: OutputStreamProcessorSettingsProps) => {
+}, ref) => {
 	const { t } = useAppTranslation()
 	const { outputStreamProcessorConfig } = useExtensionState()
 
@@ -95,11 +98,10 @@ export const OutputStreamProcessorSettings = ({
 		ast: true,
 	})
 
-	// 获取当前配置 - 优先使用从ExtensionState获取的配置
+	// 使用已保存的配置作为初始状态，确保UI显示当前的实际状态
 	const [config, setConfig] = useState(() => {
-		// 合并默认配置和已保存的配置
-		const defaultConfig = getDefaultConfig()
 		const savedConfig = outputStreamProcessorConfig || {}
+		const defaultConfig = getDefaultConfig()
 
 		return {
 			...defaultConfig,
@@ -124,7 +126,7 @@ export const OutputStreamProcessorSettings = ({
 		}
 	})
 
-	// 变更状态跟踪
+	// 变更状态跟踪 - 初始配置用于比较变更
 	const [hasChanges, setHasChanges] = useState(false)
 	const initialConfigRef = useRef(JSON.parse(JSON.stringify(config)))
 
@@ -155,9 +157,18 @@ export const OutputStreamProcessorSettings = ({
 				// 保持内容注入配置
 				contentInjection: savedConfig.contentInjection || defaultConfig.contentInjection,
 			}
-			setConfig(mergedConfig)
+			// 只有在没有未保存变更时才同步状态，避免覆盖用户的编辑
+			// 同时检查配置是否真的发生了变化
+			const configChanged = JSON.stringify(mergedConfig.enabledRules) !== JSON.stringify(config.enabledRules) ||
+				JSON.stringify(mergedConfig.contentInjection) !== JSON.stringify(config.contentInjection)
+
+			if (!hasChanges && configChanged) {
+				console.log("[OutputStreamProcessorSettings] Syncing config from ExtensionState (no user changes)")
+				setConfig(mergedConfig)
+				initialConfigRef.current = JSON.parse(JSON.stringify(mergedConfig))
+			}
 		}
-	}, [outputStreamProcessorConfig])
+	}, [outputStreamProcessorConfig, hasChanges]) // 移除 config 依赖，避免无限循环
 
 	// 从后端获取所有可用规则数据
 	useEffect(() => {
@@ -205,7 +216,7 @@ export const OutputStreamProcessorSettings = ({
 		return () => {
 			window.removeEventListener("message", handleMessage)
 		}
-	}, [config, setCachedStateField])
+	}, [setCachedStateField]) // 移除 config 依赖，避免无限循环
 
 	const ruleRegistry = useMemo(() => {
 		const map = new Map<string, { key: string; type: "regex" | "ast"; defaultEnabled: boolean }>()
@@ -224,13 +235,13 @@ export const OutputStreamProcessorSettings = ({
 			const rules = availableRules[type]
 			const categorized: Record<string, Array<Rule>> = {}
 
-			Object.entries(rules).forEach(([key, rule]: [string, Rule]) => {
+			Object.entries(rules).forEach(([, rule]: [string, Rule]) => {
 				const source = rule.source || "default"
 				if (!categorized[source]) {
 					categorized[source] = []
 				}
-				// 将 id 添加到 rule 对象中，这样就可以直接访问 rule.id
-				categorized[source].push({ ...rule, id: key })
+				// 直接使用规则对象，不需要添加额外字段
+				categorized[source].push(rule)
 			})
 
 			return categorized
@@ -241,25 +252,28 @@ export const OutputStreamProcessorSettings = ({
 	// 更新配置并通知父组件有变更
 	const updateConfig = useCallback(
 		(newConfig: any) => {
-			console.log("[OutputStreamProcessorSettings] updateConfig called with:", newConfig)
 			setConfig(newConfig)
-			setCachedStateField("outputStreamProcessorConfig", newConfig)
+			// 注意：不要立即同步到ExtensionState，保持为临时状态
+			// setCachedStateField("outputStreamProcessorConfig", newConfig)  // 注释掉这行
 
-			// 检查是否有变更
-			const hasConfigChanges = JSON.stringify(newConfig) !== JSON.stringify(initialConfigRef.current)
+			// 检查是否有变更 - 使用更高效的方式比较
+			const hasConfigChanges = JSON.stringify(newConfig.enabledRules) !== JSON.stringify(initialConfigRef.current.enabledRules) ||
+				JSON.stringify(newConfig.contentInjection) !== JSON.stringify(initialConfigRef.current.contentInjection)
+
 			if (hasConfigChanges !== hasChanges) {
 				setHasChanges(hasConfigChanges)
 				// 通知父组件有变更
 				if (onHasChangesChange) {
 					onHasChangesChange(hasConfigChanges)
 				}
+				console.log("[OutputStreamProcessorSettings] Configuration changed, hasChanges:", hasConfigChanges)
 			}
 		},
-		[setCachedStateField, hasChanges, onHasChangesChange],
+		[hasChanges, onHasChangesChange],
 	)
 
 	// 保存变更到后端
-	const _handleSaveChanges = useCallback(async () => {
+	const handleSaveChanges = useCallback(async () => {
 		console.log("[OutputStreamProcessorSettings] Saving changes to backend:", config)
 		try {
 			// 发送配置到后端
@@ -271,13 +285,17 @@ export const OutputStreamProcessorSettings = ({
 			// 等待一小段时间确保消息发送
 			await new Promise((resolve) => setTimeout(resolve, 100))
 
+			// 不要立即同步到ExtensionState，等待后端处理并返回新的状态
+			// 后端会通过 postStateToWebview 更新ExtensionState
+			// setCachedStateField("outputStreamProcessorConfig", config)  // 注释掉
+
 			// 重置变更状态
 			setHasChanges(false)
 			if (onHasChangesChange) {
 				onHasChangesChange(false)
 			}
 
-			// 更新初始配置
+			// 更新初始配置（作为新的基准）
 			initialConfigRef.current = JSON.parse(JSON.stringify(config))
 
 			console.log("[OutputStreamProcessorSettings] Changes saved successfully")
@@ -289,8 +307,12 @@ export const OutputStreamProcessorSettings = ({
 	// 重置变更
 	const _handleResetChanges = useCallback(() => {
 		console.log("[OutputStreamProcessorSettings] Resetting changes")
-		// 恢复到初始配置
-		setConfig(JSON.parse(JSON.stringify(initialConfigRef.current)))
+		// 恢复到ExtensionState中已保存的配置
+		if (outputStreamProcessorConfig) {
+			setConfig(outputStreamProcessorConfig)
+			// 重置初始配置基准
+			initialConfigRef.current = JSON.parse(JSON.stringify(outputStreamProcessorConfig))
+		}
 		setHasChanges(false)
 		if (onHasChangesChange) {
 			onHasChangesChange(false)
@@ -298,74 +320,87 @@ export const OutputStreamProcessorSettings = ({
 		if (onResetChanges) {
 			onResetChanges()
 		}
-	}, [onHasChangesChange, onResetChanges])
+	}, [outputStreamProcessorConfig, onHasChangesChange, onResetChanges])
 
-	// 暴露保存和重置函数给父组件使用
-	useEffect(() => {
-		if (onSaveChanges) {
-			// 父组件可以在需要时调用这个函数
-			// 我们通过 ref 或者回调来暴露这个功能
-		}
-	}, [onSaveChanges])
-
-	// 如果父组件需要，可以通过 ref 获取保存方法
-	// 不过更简单的方式是直接使用回调函数
+	// 暴露保存方法给父组件
+	useImperativeHandle(ref, () => ({
+		handleSaveChanges,
+	}), [handleSaveChanges])
 
 	// 内置规则启用状态切换
-	const handleRuleToggle = (ruleKey: string, type: "regex" | "ast") => {
-		const rule = type === "regex" ? availableRules.regex[ruleKey] : availableRules.ast[ruleKey]
-		if (!rule?.id) return
+	const handleRuleToggle = (ruleId: string, type: "regex" | "ast", source?: string) => {
+		const ruleSource = source || "default"
+		const uniqueKey = `${type}.${ruleSource}.${ruleId}` // 统一格式: type.source.id
 
 		const currentEnabledRules = config.enabledRules || { regex: {}, ast: {} }
 		const typeEnabledRules = currentEnabledRules[type] || {}
-		const currentEnabled = !!typeEnabledRules[rule.id]
+		const currentEnabled = !!typeEnabledRules[uniqueKey]
+
+		console.log(`[handleRuleToggle] ${!currentEnabled ? 'Enabling' : 'Disabling'} ${type} rule: ${uniqueKey}`)
+
+		// 从已存储的规则定义中获取信息，如果不存在则查找可用规则
+		let existingRule = typeEnabledRules[uniqueKey]
+		if (!existingRule) {
+			// 需要查找规则信息来构建完整的规则定义
+			const rules = type === "regex" ? availableRules.regex : availableRules.ast
+			for (const [, r] of Object.entries(rules)) {
+				if (r.id === ruleId && (source ? r.source === source : true)) {
+					existingRule = r
+					break
+				}
+			}
+		}
+
+		if (!existingRule) {
+			console.warn(`[handleRuleToggle] Rule not found: ${uniqueKey}`)
+			return
+		}
 
 		// 构建完整的规则对象
 		const ruleDefinition = {
-			id: rule.id,
-			name: rule.name,
-			key: ruleKey,
+			id: existingRule.id,
+			name: existingRule.name,
 			type: type,
 			enabled: !currentEnabled,
-			description: rule.description || ruleKey,
+			description: existingRule.description || existingRule.id,
+			source: ruleSource, // 使用实际的来源
 			// 根据类型添加特定属性
 			...(type === "regex"
 				? {
-						pattern: rule.pattern,
-						flags: rule.flags,
-						replacement: rule.replacement,
-						replacementFunction: rule.replacementFunction,
-						groups: rule.groups,
-						stage: rule.stage,
-						priority: rule.priority || 0,
-						dependsOn: rule.dependsOn || [],
-						params: {},
+						pattern: existingRule.pattern,
+						flags: existingRule.flags,
+						replacement: existingRule.replacement,
+						replacementFunction: existingRule.replacementFunction,
+						groups: existingRule.groups,
+						stage: existingRule.stage,
+						priority: existingRule.priority || 0,
+						dependsOn: existingRule.dependsOn || [],
+						params: existingRule.params || {},
 					}
 				: {
-						nodeType: rule.nodeType,
-						nodeAttributes: rule.nodeAttributes,
-						action: rule.action,
-						priority: rule.priority || 0,
-						processor: rule.processor,
-						params: rule.params || {},
-						recursive: rule.recursive,
-						dependsOn: rule.dependsOn || [],
+						nodeType: existingRule.nodeType,
+						nodeAttributes: existingRule.nodeAttributes,
+						action: existingRule.action,
+						priority: existingRule.priority || 0,
+						processor: existingRule.processor,
+						params: existingRule.params || {},
+						recursive: existingRule.recursive,
+						dependsOn: existingRule.dependsOn || [],
 					}),
-			source: "builtin",
 		}
 
-		// 更新 enabledRules
+		// 更新 enabledRules，使用统一的唯一键
 		const newEnabledRules = {
 			...currentEnabledRules,
 			[type]: {
 				...typeEnabledRules,
-				[rule.id]: !currentEnabled ? ruleDefinition : undefined,
+				[uniqueKey]: !currentEnabled ? ruleDefinition : undefined,
 			},
 		}
 
 		// 移除 undefined 值
-		if (!newEnabledRules[type][rule.id]) {
-			delete newEnabledRules[type][rule.id]
+		if (!newEnabledRules[type][uniqueKey]) {
+			delete newEnabledRules[type][uniqueKey]
 		}
 
 		updateConfig({
@@ -393,22 +428,30 @@ export const OutputStreamProcessorSettings = ({
 		}))
 	}, [])
 
+	// 使用 useMemo 来缓存规则状态检查结果，避免无限重新渲染
+	const enabledRulesState = useMemo(() => {
+		const enabledRules = config.enabledRules || { regex: {}, ast: {} }
+		return {
+			regexKeys: new Set(Object.keys(enabledRules.regex || {})),
+			astKeys: new Set(Object.keys(enabledRules.ast || {})),
+			enabledRules
+		}
+	}, [config.enabledRules])
+
 	const isRuleDesired = useCallback(
-		(ruleKey: string, type: "regex" | "ast"): boolean => {
-			const rules = type === "regex" ? availableRules.regex : availableRules.ast
-			const rule = rules[ruleKey]
-			if (!rule?.id) return false
+		(ruleId: string, type: "regex" | "ast", source?: string): boolean => {
+			// 直接构造复合键，无需查找规则对象
+			// 必须使用实际的source，因为后端返回的规则有不同的source（如"builtin"）
+			const ruleSource = source || "default"
+			const uniqueKey = `${type}.${ruleSource}.${ruleId}` // 统一格式: type.source.id
 
-			const enabledRules = config.enabledRules || { regex: {}, ast: {} }
-			const typeEnabledRules = enabledRules[type] || {}
-			const isEnabled = !!typeEnabledRules[rule.id]
-
-			// 调试日志
-			console.log(`[isRuleDesired] ${type} rule ${ruleKey} (id: ${rule.id}): ${isEnabled}`)
+			const isEnabled = type === "regex"
+				? enabledRulesState.regexKeys.has(uniqueKey)
+				: enabledRulesState.astKeys.has(uniqueKey)
 
 			return isEnabled
 		},
-		[config.enabledRules, availableRules.regex, availableRules.ast],
+		[enabledRulesState],
 	)
 
 	const isDependencyActive = useCallback(
@@ -674,8 +717,9 @@ export const OutputStreamProcessorSettings = ({
 																	<div className="ml-4 space-y-2">
 																		{rules.map((rule) => {
 																			const desired = isRuleDesired(
-																				rule.id,
+																				rule.id, // 使用rule.id
 																				"regex",
+																				source, // 传递source参数
 																			)
 																			const missingDeps = getMissingDependencies(
 																				rule.dependsOn,
@@ -684,17 +728,18 @@ export const OutputStreamProcessorSettings = ({
 
 																			return (
 																				<div
-																					key={rule.id}
+																					key={`${source}.${rule.id}`}
 																					className="flex items-center gap-3 p-3 border border-vscode-panel-border rounded">
 																					<VSCodeCheckbox
 																						checked={desired}
 																						onChange={() =>
 																							handleRuleToggle(
-																								rule.id,
+																								rule.id, // 使用rule.id
 																								"regex",
+																								source, // 传递source参数
 																							)
 																						}
-																						data-testid={`regex-rule-${rule.id}-checkbox`}></VSCodeCheckbox>
+																						data-testid={`regex-rule-${source}-${rule.id}-checkbox`}></VSCodeCheckbox>
 																					<div className="flex-1 space-y-1">
 																						<div className="font-medium text-vscode-foreground">
 																							{rule.name}
@@ -938,24 +983,25 @@ export const OutputStreamProcessorSettings = ({
 																</div>
 																<div className="ml-4 space-y-2">
 																	{rules.map((rule) => {
-																		const desired = isRuleDesired(rule.id, "ast")
+																		const desired = isRuleDesired(rule.id, "ast", source) // 使用rule.id并传递source
 																		const missingDeps = getMissingDependencies(
 																			rule.dependsOn,
 																			desired,
 																		)
 
 																		return (
-																			<div key={rule.id}>
+																			<div key={`${source}.${rule.id}`}>
 																				<div className="flex items-center gap-3 p-3 border border-vscode-panel-border rounded">
 																					<VSCodeCheckbox
 																						checked={desired}
 																						onChange={() =>
 																							handleRuleToggle(
-																								rule.id,
+																								rule.id, // 使用rule.id
 																								"ast",
+																								source, // 传递source参数
 																							)
 																						}
-																						data-testid={`ast-rule-${rule.id}-checkbox`}></VSCodeCheckbox>
+																						data-testid={`ast-rule-${source}-${rule.id}-checkbox`}></VSCodeCheckbox>
 																					<div className="flex-1 space-y-1">
 																						<div className="font-medium text-vscode-foreground">
 																							{rule.name}
@@ -1184,4 +1230,4 @@ export const OutputStreamProcessorSettings = ({
 			</Section>
 		</div>
 	)
-}
+})

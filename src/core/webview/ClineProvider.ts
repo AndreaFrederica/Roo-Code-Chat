@@ -113,10 +113,11 @@ function getDefaultEnabledRules() {
 		ast: {} as Record<string, any>,
 	}
 
-	// 添加默认启用的正则规则
+	// 添加默认启用的正则规则，使用复合键格式: type.source.id
 	Object.entries(DEFAULT_REGEX_RULES).forEach(([key, rule]) => {
 		if (rule.enabled) {
-			enabledRules.regex[rule.id] = {
+			const uniqueKey = `regex.builtin.${rule.id}` // 复合键格式
+			enabledRules.regex[uniqueKey] = {
 				id: rule.id,
 				name: rule.name,
 				key: key,
@@ -137,10 +138,11 @@ function getDefaultEnabledRules() {
 		}
 	})
 
-	// 添加默认启用的AST规则
+	// 添加默认启用的AST规则，使用复合键格式: type.source.id
 	Object.entries(DEFAULT_AST_RULES).forEach(([key, rule]) => {
 		if (rule.enabled) {
-			enabledRules.ast[rule.id] = {
+			const uniqueKey = `ast.builtin.${rule.id}` // 复合键格式
+			enabledRules.ast[uniqueKey] = {
 				id: rule.id,
 				name: rule.name,
 				key: key,
@@ -3316,36 +3318,37 @@ export class ClineProvider
 						dateFormat: "YYYY-MM-DD HH:mm:ss",
 					},
 				}
+				// 完善配置的合并逻辑，支持复合键格式
+				// 如果没有保存的配置，使用默认配置
+				if (!savedConfig) {
+					return defaultConfig
+				}
 
-				// // 如果没有保存的配置，使用默认配置
-				// if (!savedConfig) {
-				// 	return defaultConfig
-				// }
+				// 合并保存的配置和默认配置
+				const config = { ...savedConfig }
 
-				// // 如果有保存的配置但 enabledRules 为空，补充默认规则
-				// const config = { ...savedConfig }
-				// if (!config.enabledRules) {
-				// 	config.enabledRules = defaultConfig.enabledRules
-				// } else {
-				// 	// 确保规则对象存在
-				// 	if (!config.enabledRules.regex) {
-				// 		config.enabledRules.regex = defaultConfig.enabledRules.regex
-				// 	}
-				// 	if (!config.enabledRules.ast) {
-				// 		config.enabledRules.ast = defaultConfig.enabledRules.ast
-				// 	}
-				// }
+				// 确保基本配置结构存在
+				if (!config.enabledRules) {
+					config.enabledRules = defaultConfig.enabledRules
+				} else {
+					// 确保规则对象存在
+					if (!config.enabledRules.regex) {
+						config.enabledRules.regex = {}
+					}
+					if (!config.enabledRules.ast) {
+						config.enabledRules.ast = {}
+					}
+				}
 
-				// // 补充其他缺失的默认配置
-				// if (!config.customRulesFiles) {
-				// 	config.customRulesFiles = defaultConfig.customRulesFiles
-				// }
-				// if (!config.contentInjection) {
-				// 	config.contentInjection = defaultConfig.contentInjection
-				// }
+				// 补充其他缺失的默认配置
+				if (!config.customRulesFiles) {
+					config.customRulesFiles = defaultConfig.customRulesFiles
+				}
+				if (!config.contentInjection) {
+					config.contentInjection = defaultConfig.contentInjection
+				}
 
-				// return config
-				return defaultConfig
+				return config
 			})(),
 			sillyTavernWorldBookState: this.anhChatServices?.worldBookService
 				? this.anhChatServices.worldBookService.getState()
