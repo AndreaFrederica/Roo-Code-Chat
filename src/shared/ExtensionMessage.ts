@@ -170,7 +170,7 @@ export interface ExtensionMessage {
 		| "aiOutputDisplayModeToggled"
 		| "STWordBookBrowseResponse"
 		| "STWordBookValidateResponse"
-	| "globalHistoryLoaded"
+		| "globalHistoryLoaded"
 		| "globalHistoryItemAdded"
 		| "globalHistoryItemDeleted"
 		| "globalHistoryCleared"
@@ -190,20 +190,24 @@ export interface ExtensionMessage {
 		| "tsProfileDeleted"
 		| "globalExtensionDeleted"
 		| "globalRoleMemoryLoaded"
-	| "saveGlobalRoleMemory"
-	| "worldBookMixinLoaded"
-	| "worldBookEntryMixinUpdated"
-	| "worldBookEntryMixinRemoved"
-	| "anhExtensionState"
-	| "tsProfileState"
-	| "outputStreamProcessorConfig"
-	| "outputStreamProcessorState"
-	| "createRulesMixin"
-	| "editRulesMixin"
-	| "deleteRulesMixin"
-	| "loadMixinFile"
-	| "mixinLoaded"
-	| "openRulesDirectory"
+		| "saveGlobalRoleMemory"
+		| "worldBookMixinLoaded"
+		| "worldBookEntryMixinUpdated"
+		| "worldBookEntryMixinRemoved"
+		| "anhExtensionState"
+		| "tsProfileState"
+		| "outputStreamProcessorConfig"
+		| "outputStreamProcessorState"
+		| "ospCreateRulesMixin"
+		| "ospEditRulesMixin"
+		| "ospDeleteRulesMixin"
+		| "ospLoadMixinFile"
+		| "ospMixinLoaded"
+		| "ospOpenRulesDirectory"
+		| "ospGetAllRules"
+		| "ospRulesLoaded"
+		| "ospGetEnabledRules"
+		| "ospEnabledRulesLoaded"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	action?:
@@ -351,12 +355,16 @@ export interface ExtensionMessage {
 	message?: string // For aiOutputDisplayModeToggled
 	// Output stream processor related properties
 	outputStreamProcessorConfig?: any // For outputStreamProcessorConfig
-	// Mixin-related properties
-	fileType?: 'regex' | 'ast' // For mixin operations
-	fileName?: string // For mixin operations
-	builtinRuleKey?: string // For createRulesMixin when creating from built-in rule
-	// Message ID for request/response correlation
-	messageId?: string // For loadMixinFile operations
+	outputStreamProcessorState?: any // For outputStreamProcessorState
+	// OSP Mixin-related properties
+	ospFileType?: "regex" | "ast" // For osp mixin operations
+	ospFileName?: string // For osp mixin operations
+	ospBuiltinRuleKey?: string // For ospCreateRulesMixin when creating from built-in rule
+	// Message ID for OSP request/response correlation
+	ospMessageId?: string // For ospLoadMixinFile operations
+	// OSP (OutputStreamProcessor) related properties
+	ospRules?: any // For ospRulesLoaded (all available OSP rules)
+	ospEnabledRules?: any // For ospEnabledRulesLoaded (enabled OSP rules)
 }
 
 export type ExtensionState = Pick<

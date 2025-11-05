@@ -12,6 +12,18 @@ export const Markdown = memo(({ markdown, partial }: { markdown?: string; partia
 	// Shorter feedback duration for copy button flash.
 	const { copyWithFeedback } = useCopyToClipboard(200)
 
+	// // 调试：记录Markdown组件的调用
+	// if (markdown?.length < 50) {
+	// 	console.warn('[Markdown] Suspicious short markdown in wrapper component:', markdown)
+	// 	console.trace('[Markdown] Call stack for short markdown in wrapper:')
+
+	// 	// 添加调用源标识
+	// 	const stack = new Error().stack
+	// 	if (stack) {
+	// 		console.log('[Markdown] Wrapper component call stack:', stack)
+	// 	}
+	// }
+
 	if (!markdown || markdown.length === 0) {
 		return null
 	}

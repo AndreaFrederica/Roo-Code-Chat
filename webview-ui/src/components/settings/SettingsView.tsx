@@ -131,8 +131,8 @@ type SettingsViewProps = {
 }
 
 const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, targetSection }, ref) => {
-	const { t } = useAppTranslation();
-	const extensionState = useExtensionState();
+	const { t } = useAppTranslation()
+	const extensionState = useExtensionState()
 	const {
 		currentApiConfigName,
 		listApiConfigMeta,
@@ -143,54 +143,58 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		setUserAvatarHideFullData,
 		anhExtensionsRuntime = [],
 		anhExtensionCapabilityRegistry,
-	anhExtensionsEnabled = {},
-	setAnhExtensionEnabled,
-	anhExtensionSettings: extensionAnhExtensionSettings = {},
-	setAnhExtensionSettings: setContextAnhExtensionSettings,
+		anhExtensionsEnabled = {},
+		setAnhExtensionEnabled,
+		anhExtensionSettings: extensionAnhExtensionSettings = {},
+		setAnhExtensionSettings: setContextAnhExtensionSettings,
 	} = extensionState
 
 	const [isDiscardDialogShow, setDiscardDialogShow] = useState(false)
 	const [isChangeDetected, setChangeDetected] = useState(false)
 	const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined)
-	
+
 	// 为WorldBook组件创建ref
-	const worldBookRef = useRef<{ handleSaveAll: () => Promise<void> }>(null);
-	
+	const worldBookRef = useRef<{ handleSaveAll: () => Promise<void> }>(null)
+
 	// 为Worldview组件创建ref
-	const worldviewRef = useRef<{ handleSaveChanges: () => Promise<void> }>(null);
-	
+	const worldviewRef = useRef<{ handleSaveChanges: () => Promise<void> }>(null)
+
 	// 统一管理所有设置子组件的变更状态
 	const [componentChanges, setComponentChanges] = useState<Record<string, boolean>>({
 		worldview: false,
 		sillyTavernWorldBook: false,
 		extensions: false,
+		outputStreamProcessor: false,
 	})
 
 	// 处理子组件的变更状态
 	const handleComponentChange = useCallback((componentId: string, hasChanges: boolean) => {
-		setComponentChanges(prev => {
+		setComponentChanges((prev) => {
 			const newChanges = { ...prev, [componentId]: hasChanges }
 			return newChanges
 		})
 	}, [])
 
 	// 为ExtensionsSettings创建稳定的回调
-	const handleExtensionsChange = useCallback((hasChanges: boolean) => {
-		handleComponentChange('extensions', hasChanges)
-	}, [handleComponentChange])
+	const handleExtensionsChange = useCallback(
+		(hasChanges: boolean) => {
+			handleComponentChange("extensions", hasChanges)
+		},
+		[handleComponentChange],
+	)
 
 	const handleResetAllChanges = useCallback(() => {
 		// 重置主设置
 		setCachedState(extensionState)
 		setChangeDetected(false)
-		
+
 		// 重置子组件变更状态
 		setComponentChanges({
 			worldview: false,
 			sillyTavernWorldBook: false,
 			extensions: false,
 		})
-		
+
 		// 重置TSProfile变更状态
 		if (tsProfilesHasChanges) {
 			setCachedStateField("tsProfilesHasChanges", false)
@@ -280,11 +284,11 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		openRouterImageApiKey,
 		openRouterImageGenerationSelectedModel,
 		reasoningBlockCollapsed,
-	anhChatModeHideTaskCompletion,
-	anhShowRoleCardOnSwitch,
-	anhExtensionSettings: cachedAnhExtensionSettings = extensionAnhExtensionSettings,
-	currentAnhRole,
-	userAvatarRole,
+		anhChatModeHideTaskCompletion,
+		anhShowRoleCardOnSwitch,
+		anhExtensionSettings: cachedAnhExtensionSettings = extensionAnhExtensionSettings,
+		currentAnhRole,
+		userAvatarRole,
 		enableUserAvatar,
 		userAvatarVisibility,
 		hideRoleDescription,
@@ -304,8 +308,8 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	} = cachedState
 
 	const apiConfiguration = useMemo(() => {
-		console.log('[SettingsView] cachedState.apiConfiguration type:', typeof cachedState.apiConfiguration)
-		console.log('[SettingsView] cachedState.apiConfiguration:', cachedState.apiConfiguration)
+		console.log("[SettingsView] cachedState.apiConfiguration type:", typeof cachedState.apiConfiguration)
+		console.log("[SettingsView] cachedState.apiConfiguration:", cachedState.apiConfiguration)
 		return cachedState.apiConfiguration ?? {}
 	}, [cachedState.apiConfiguration])
 
@@ -340,43 +344,37 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		// 只有在保存后才应该重置变更状态
 	}, [componentChanges, tsProfilesHasChanges])
 
-	const setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType> = useCallback(
-		(field, value) => {
-			setCachedState((prevState) => {
-				if (prevState[field] === value) {
-					return prevState
-				}
+	const setCachedStateField: SetCachedStateField<keyof ExtensionStateContextType> = useCallback((field, value) => {
+		setCachedState((prevState) => {
+			if (prevState[field] === value) {
+				return prevState
+			}
 
-				if (field !== "currentAnhRole") {
-					setChangeDetected(true)
-				}
+			if (field !== "currentAnhRole") {
+				setChangeDetected(true)
+			}
 
-				return { ...prevState, [field]: value }
-			})
-		},
-		[],
-	)
+			return { ...prevState, [field]: value }
+		})
+	}, [])
 
-	const handleExtensionSettingChange = useCallback(
-		(extensionId: string, key: string, value: unknown) => {
-			setCachedState((prevState) => {
-				const prevSettings = prevState.anhExtensionSettings ?? {}
-				return {
-					...prevState,
-					anhExtensionSettings: {
-						...prevSettings,
-						[extensionId]: {
-							...(prevSettings[extensionId] ?? {}),
-							[key]: value,
-						},
+	const handleExtensionSettingChange = useCallback((extensionId: string, key: string, value: unknown) => {
+		setCachedState((prevState) => {
+			const prevSettings = prevState.anhExtensionSettings ?? {}
+			return {
+				...prevState,
+				anhExtensionSettings: {
+					...prevSettings,
+					[extensionId]: {
+						...(prevSettings[extensionId] ?? {}),
+						[key]: value,
 					},
-					anhExtensionsHasChanges: true,
-				}
-			})
-			setChangeDetected(true)
-		},
-		[],
-	)
+				},
+				anhExtensionsHasChanges: true,
+			}
+		})
+		setChangeDetected(true)
+	}, [])
 
 	const setApiConfigurationField = useCallback(
 		<K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K], isUserAction: boolean = true) => {
@@ -562,11 +560,11 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			// TSProfile settings - skip unified save if TSProfile has its own changes
 			// TSProfile has its own save mechanism, only save here if no pending changes
 			if (!tsProfilesHasChanges) {
-				vscode.postMessage({ 
+				vscode.postMessage({
 					type: "saveTSProfileChanges",
 					enabledProfiles: enabledTSProfiles || [],
 					autoInject: anhTsProfileAutoInject,
-					variables: anhTsProfileVariables || {}
+					variables: anhTsProfileVariables || {},
 				})
 			}
 
@@ -583,13 +581,17 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({ type: "customUserAgentFull", text: customUserAgentFull ?? "" })
 
 			// System prompt enhancement settings
-			vscode.postMessage({ type: "enableInjectSystemPromptVariables", bool: enableInjectSystemPromptVariables ?? false })
+			vscode.postMessage({
+				type: "enableInjectSystemPromptVariables",
+				bool: enableInjectSystemPromptVariables ?? false,
+			})
 			vscode.postMessage({ type: "useRefactoredSystemPrompt", bool: useRefactoredSystemPrompt ?? false })
 
 			// Output stream processor settings
+			console.log("[SettingsView] Saving outputStreamProcessorConfig:", cachedState.outputStreamProcessorConfig)
 			vscode.postMessage({
-				type: "outputStreamProcessorConfig" as any,
-				config: cachedState.outputStreamProcessorConfig ?? {}
+				type: "outputStreamProcessorConfig",
+				config: cachedState.outputStreamProcessorConfig ?? {},
 			})
 
 			setChangeDetected(false)
@@ -622,6 +624,12 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			}
 		}
 
+		// 保存 OutputStreamProcessor 设置
+		if (componentChanges.outputStreamProcessor) {
+			// OutputStreamProcessor 设置会通过它的 onSaveChanges 回调自动保存
+			// 这里我们不需要做额外操作，因为组件会自己处理保存
+		}
+
 		await Promise.all(promises)
 
 		// 重置所有组件变更状态
@@ -629,8 +637,9 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			worldview: false,
 			sillyTavernWorldBook: false,
 			extensions: false,
+			outputStreamProcessor: false,
 		})
-		
+
 		// 重置TSProfile变更状态
 		if (tsProfilesHasChanges) {
 			setCachedStateField("tsProfilesHasChanges", false)
@@ -775,9 +784,12 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	)
 
 	// Memoize the onValueChange function for TabList to prevent infinite loops
-	const memoizedOnValueChange = useCallback((value: string) => {
-		handleTabChange(value as SectionName)
-	}, [handleTabChange])
+	const memoizedOnValueChange = useCallback(
+		(value: string) => {
+			handleTabChange(value as SectionName)
+		},
+		[handleTabChange],
+	)
 
 	useLayoutEffect(() => {
 		if (contentRef.current) {
@@ -865,11 +877,15 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	}, [activeTab])
 
 	// 使用统一的消息监听 Hook 来处理webview可见性变化
-	useMessageListener(["action"], (message: any) => {
-		if (message.type === "action" && message.action === "didBecomeVisible") {
-			scrollToActiveTab()
-		}
-	}, [scrollToActiveTab])
+	useMessageListener(
+		["action"],
+		(message: any) => {
+			if (message.type === "action" && message.action === "didBecomeVisible") {
+				scrollToActiveTab()
+			}
+		},
+		[scrollToActiveTab],
+	)
 
 	return (
 		<Tab>
@@ -884,7 +900,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							: isChangeDetected
 								? t("settings:header.saveButtonTooltip")
 								: t("settings:header.nothingChangedTooltip")
-						
+
 						return (
 							<StandardTooltip content={tooltipContent}>
 								<Button
@@ -898,14 +914,17 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							</StandardTooltip>
 						)
 					}, [isSettingValid, errorMessage, isChangeDetected, t, handleSaveAllChanges])}
-					
-					{useMemo(() => (
-						<StandardTooltip content={t("settings:header.doneButtonTooltip")}>
-							<Button variant="secondary" onClick={() => checkUnsaveChanges(onDone)}>
-								{t("settings:common.done")}
-							</Button>
-						</StandardTooltip>
-					), [t, checkUnsaveChanges, onDone])}
+
+					{useMemo(
+						() => (
+							<StandardTooltip content={t("settings:header.doneButtonTooltip")}>
+								<Button variant="secondary" onClick={() => checkUnsaveChanges(onDone)}>
+									{t("settings:common.done")}
+								</Button>
+							</StandardTooltip>
+						),
+						[t, checkUnsaveChanges, onDone],
+					)}
 				</div>
 			</TabHeader>
 
@@ -1127,10 +1146,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 					{/* Assistant Role Section */}
 					{activeTab === "assistantRole" && (
-						<AssistantRoleSettings
-							currentRole={currentAnhRole}
-							setCachedStateField={setCachedStateField}
-						/>
+						<AssistantRoleSettings currentRole={currentAnhRole} setCachedStateField={setCachedStateField} />
 					)}
 
 					{/* TSProfile Section */}
@@ -1167,6 +1183,16 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 					{activeTab === "outputStreamProcessor" && (
 						<OutputStreamProcessorSettings
 							setCachedStateField={setCachedStateField}
+							onHasChangesChange={(hasChanges) =>
+								handleComponentChange("outputStreamProcessor", hasChanges)
+							}
+							onSaveChanges={async () => {
+								// 当用户点击保存按钮时，OutputStreamProcessorSettings 会通过 onSaveChanges 回调来保存
+							}}
+							onResetChanges={() => {
+								// 重置变更状态
+								setComponentChanges((prev) => ({ ...prev, outputStreamProcessor: false }))
+							}}
 						/>
 					)}
 
@@ -1213,30 +1239,32 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 					{/* Worldview Section */}
 					{activeTab === "worldview" && (
-						<WorldviewSettings 
+						<WorldviewSettings
 							ref={worldviewRef}
-							onHasChangesChange={(hasChanges) => handleComponentChange('worldview', hasChanges)}
+							onHasChangesChange={(hasChanges) => handleComponentChange("worldview", hasChanges)}
 							onSaveChanges={async () => {
 								// Worldview的保存逻辑
 								// 这里可以调用Worldview的保存方法
 							}}
 							onResetChanges={() => {
 								// 重置Worldview的变更状态
-								setComponentChanges(prev => ({ ...prev, worldview: false }))
+								setComponentChanges((prev) => ({ ...prev, worldview: false }))
 							}}
 						/>
 					)}
 
 					{/* SillyTavern World Book Section */}
 					{activeTab === "sillyTavernWorldBook" && (
-						<SillyTavernWorldBookSettings 
+						<SillyTavernWorldBookSettings
 							ref={worldBookRef}
 							state={extensionState}
 							vscode={vscode}
-							onHasChangesChange={(hasChanges) => handleComponentChange('sillyTavernWorldBook', hasChanges)}
+							onHasChangesChange={(hasChanges) =>
+								handleComponentChange("sillyTavernWorldBook", hasChanges)
+							}
 							onResetChanges={() => {
 								// 重置WorldBook的变更状态
-								setComponentChanges(prev => ({ ...prev, sillyTavernWorldBook: false }))
+								setComponentChanges((prev) => ({ ...prev, sillyTavernWorldBook: false }))
 							}}
 						/>
 					)}
@@ -1262,9 +1290,13 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							customUserAgentMode={customUserAgentMode}
 							customUserAgentFull={customUserAgentFull}
 							enableInjectSystemPromptVariables={enableInjectSystemPromptVariables}
-							setEnableInjectSystemPromptVariables={(value) => setCachedStateField("enableInjectSystemPromptVariables", value)}
+							setEnableInjectSystemPromptVariables={(value) =>
+								setCachedStateField("enableInjectSystemPromptVariables", value)
+							}
 							useRefactoredSystemPrompt={useRefactoredSystemPrompt}
-							setUseRefactoredSystemPrompt={(value) => setCachedStateField("useRefactoredSystemPrompt", value)}
+							setUseRefactoredSystemPrompt={(value) =>
+								setCachedStateField("useRefactoredSystemPrompt", value)
+							}
 						/>
 					)}
 

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { vscode } from '@/utils/vscode'
+import { useState, useEffect, useCallback } from "react"
+import { vscode } from "@/utils/vscode"
 
 interface MixinRule {
 	id: string
@@ -8,7 +8,7 @@ interface MixinRule {
 	flags?: string
 	description?: string
 	replacement?: string
-	action?: 'replace' | 'match' | 'extract' | 'validate'
+	action?: "replace" | "match" | "extract" | "validate"
 	toType?: string
 	defaultCollapsed?: boolean
 	dependsOn?: string[]
@@ -16,7 +16,7 @@ interface MixinRule {
 
 interface MixinConfig {
 	version: string
-	type: 'regex' | 'ast'
+	type: "regex" | "ast"
 	name: string
 	description?: string
 	basedOn?: string
@@ -40,14 +40,14 @@ interface MixinRulesState {
  * 安全的Mixin规则Hook - 基于JSON配置而非代码执行
  */
 export function useMixinRules(customRulesFiles: {
-	regexMixins: Array<{ fileName: string; enabled: boolean }>,
+	regexMixins: Array<{ fileName: string; enabled: boolean }>
 	astMixins: Array<{ fileName: string; enabled: boolean }>
 }) {
 	const [state, setState] = useState<MixinRulesState>({
 		regexMixins: {},
 		astMixins: {},
 		loading: false,
-		error: null
+		error: null,
 	})
 
 	// 安全解析JSON配置文件
@@ -57,7 +57,7 @@ export function useMixinRules(customRulesFiles: {
 
 			// 验证配置结构
 			if (!config.version || !config.type || !config.name || !config.rules) {
-				throw new Error('Invalid mixin configuration structure')
+				throw new Error("Invalid mixin configuration structure")
 			}
 
 			return config
@@ -72,7 +72,7 @@ export function useMixinRules(customRulesFiles: {
 		const rules: Record<string, MixinRule> = {}
 
 		for (const [ruleKey, rule] of Object.entries(config.rules)) {
-			if (!rule.id || typeof rule.id !== 'string' || !rule.id.trim()) {
+			if (!rule.id || typeof rule.id !== "string" || !rule.id.trim()) {
 				console.warn(`Mixin rule ${ruleKey} is missing required id; skipping`)
 				continue
 			}
@@ -83,11 +83,13 @@ export function useMixinRules(customRulesFiles: {
 				pattern: rule.pattern,
 				flags: rule.flags,
 				description: rule.description,
-				replacement: typeof rule.replacement === 'string' ? rule.replacement : undefined,
-				action: rule.action || 'replace',
-				toType: typeof rule.toType === 'string' ? rule.toType.trim() : undefined,
-				defaultCollapsed: typeof rule.defaultCollapsed === 'boolean' ? rule.defaultCollapsed : undefined,
-				dependsOn: Array.isArray(rule.dependsOn) ? rule.dependsOn.filter(id => typeof id === 'string' && id.trim().length > 0) : undefined
+				replacement: typeof rule.replacement === "string" ? rule.replacement : undefined,
+				action: rule.action || "replace",
+				toType: typeof rule.toType === "string" ? rule.toType.trim() : undefined,
+				defaultCollapsed: typeof rule.defaultCollapsed === "boolean" ? rule.defaultCollapsed : undefined,
+				dependsOn: Array.isArray(rule.dependsOn)
+					? rule.dependsOn.filter((id) => typeof id === "string" && id.trim().length > 0)
+					: undefined,
 			}
 		}
 
@@ -95,59 +97,62 @@ export function useMixinRules(customRulesFiles: {
 	}, [])
 
 	// 加载mixin文件
-	const loadMixinFile = useCallback(async (fileName: string): Promise<Record<string, MixinRule>> => {
-		return new Promise((resolve) => {
-			const messageId = Date.now().toString()
+	const loadMixinFile = useCallback(
+		async (fileName: string): Promise<Record<string, MixinRule>> => {
+			return new Promise((resolve) => {
+				const messageId = Date.now().toString()
 
-			// 请求后端加载mixin文件
-			vscode.postMessage({
-				type: 'loadMixinFile',
-				messageId,
-				fileType: fileName.includes('regex') ? 'regex' : 'ast',
-				fileName
-			})
+				// 请求后端加载mixin文件
+				vscode.postMessage({
+					type: "loadMixinFile",
+					messageId,
+					fileType: fileName.includes("regex") ? "regex" : "ast",
+					fileName,
+				})
 
-			// 监听响应
-			const handleMessage = (event: MessageEvent) => {
-				const message = event.data
-				if (message.type === 'mixinLoaded' && message.messageId === messageId) {
-					window.removeEventListener('message', handleMessage)
+				// 监听响应
+				const handleMessage = (event: MessageEvent) => {
+					const message = event.data
+					if (message.type === "ospMixinLoaded" && message.ospMessageId === messageId) {
+						window.removeEventListener("message", handleMessage)
 
-					if (message.error) {
-						console.warn(`Failed to load mixin ${fileName}:`, message.error)
-						resolve({})
-						return
-					}
+						if (message.error) {
+							console.warn(`Failed to load mixin ${fileName}:`, message.error)
+							resolve({})
+							return
+						}
 
-					if (message.payload?.content) {
-						const config = parseMixinConfig(message.payload.content, fileName)
-						if (config) {
-							const rules = convertConfigToRules(config)
-							resolve(rules)
+						if (message.payload?.content) {
+							const config = parseMixinConfig(message.payload.content, fileName)
+							if (config) {
+								const rules = convertConfigToRules(config)
+								resolve(rules)
+							} else {
+								resolve({})
+							}
 						} else {
 							resolve({})
 						}
-					} else {
-						resolve({})
 					}
 				}
-			}
 
-			window.addEventListener('message', handleMessage)
+				window.addEventListener("message", handleMessage)
 
-			// 超时处理
-			setTimeout(() => {
-				window.removeEventListener('message', handleMessage)
-				console.warn(`Timeout loading mixin ${fileName}`)
-				resolve({})
-			}, 5000)
-		})
-	}, [parseMixinConfig, convertConfigToRules])
+				// 超时处理
+				setTimeout(() => {
+					window.removeEventListener("message", handleMessage)
+					console.warn(`Timeout loading mixin ${fileName}`)
+					resolve({})
+				}, 5000)
+			})
+		},
+		[parseMixinConfig, convertConfigToRules],
+	)
 
 	// 加载所有启用的mixin规则
 	useEffect(() => {
 		const loadAllMixins = async () => {
-			setState(prev => ({ ...prev, loading: true, error: null }))
+			setState((prev) => ({ ...prev, loading: true, error: null }))
 
 			try {
 				const regexMixins: Record<string, MixinRule> = {}
@@ -173,14 +178,14 @@ export function useMixinRules(customRulesFiles: {
 					regexMixins,
 					astMixins,
 					loading: false,
-					error: null
+					error: null,
 				})
 			} catch (error) {
 				const errorMsg = error instanceof Error ? error.message : String(error)
-				setState(prev => ({
+				setState((prev) => ({
 					...prev,
 					loading: false,
-					error: errorMsg
+					error: errorMsg,
 				}))
 			}
 		}

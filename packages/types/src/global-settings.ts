@@ -199,9 +199,7 @@ export const globalSettingsSchema = z.object({
 	anhShowRoleCardOnSwitch: z.boolean().optional(),
 	allowNoToolsInChatMode: z.boolean().optional(),
 	anhExtensionsEnabled: z.record(z.string(), z.boolean()).optional(),
-	anhExtensionSettings: z
-		.record(z.string(), z.record(z.string(), z.any()))
-		.optional(),
+	anhExtensionSettings: z.record(z.string(), z.record(z.string(), z.any())).optional(),
 	anhExtensionsHasChanges: z.boolean().optional(),
 
 	// TS Profile settings
@@ -209,7 +207,7 @@ export const globalSettingsSchema = z.object({
 	anhTsProfileAutoInject: z.boolean().optional(),
 	anhTsProfileVariables: z.record(z.string(), z.string()).optional(),
 	tsProfilesHasChanges: z.boolean().optional(),
-	
+
 	// User avatar settings
 	userAvatarRole: roleSchema.optional(),
 	enableUserAvatar: z.boolean().optional(),
@@ -226,21 +224,30 @@ export const globalSettingsSchema = z.object({
 	enabledWorldsets: z.array(z.string()).optional(),
 
 	// SillyTavern WorldBook settings
-	sillyTavernWorldBookConfigs: z.record(z.string(), z.object({
-		filePath: z.string(),
-		enabled: z.boolean(),
-		markdownOptions: z.object({
-			headingLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
-			titleStrategy: z.enum(['auto', 'comment', 'key', 'uid']).optional(),
-			includeDisabled: z.boolean().optional(),
-			sortBy: z.enum(['order', 'displayIndex', 'uid', 'title', 'none']).optional(),
-			includeFrontMatter: z.boolean().optional(),
-			frontMatterStyle: z.enum(['table', 'yaml']).optional(),
-			includeKeys: z.boolean().optional()
-		}).optional(),
-		autoReload: z.boolean().optional(),
-		reloadInterval: z.number().optional()
-	})).optional(),
+	sillyTavernWorldBookConfigs: z
+		.record(
+			z.string(),
+			z.object({
+				filePath: z.string(),
+				enabled: z.boolean(),
+				markdownOptions: z
+					.object({
+						headingLevel: z
+							.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)])
+							.optional(),
+						titleStrategy: z.enum(["auto", "comment", "key", "uid"]).optional(),
+						includeDisabled: z.boolean().optional(),
+						sortBy: z.enum(["order", "displayIndex", "uid", "title", "none"]).optional(),
+						includeFrontMatter: z.boolean().optional(),
+						frontMatterStyle: z.enum(["table", "yaml"]).optional(),
+						includeKeys: z.boolean().optional(),
+					})
+					.optional(),
+				autoReload: z.boolean().optional(),
+				reloadInterval: z.number().optional(),
+			}),
+		)
+		.optional(),
 	sillyTavernWorldBookActiveBooks: z.array(z.string()).optional(),
 
 	// Memory system settings
@@ -258,35 +265,52 @@ export const globalSettingsSchema = z.object({
 
 	// System prompt enhancement settings
 	enableInjectSystemPromptVariables: z.boolean().optional(),
-	
+
 	// UI Debug settings
 	enableUIDebug: z.boolean().optional(),
 	uiDebugComponents: z.array(z.string()).optional(),
 
 	// Output stream processor settings (matches frontend usage)
-	outputStreamProcessorConfig: z.object({
-		// Built-in rules enable/disable status
-		builtinRulesEnabled: z.record(z.string(), z.boolean()).optional(),
-		// Built-in rules configuration parameters
-		builtinRulesConfig: z.record(z.string(), z.any()).optional(),
-		// Custom rules files management
-		customRulesFiles: z.object({
-			regexMixins: z.array(z.object({
-				fileName: z.string(),
-				enabled: z.boolean()
-			})).optional(),
-			astMixins: z.array(z.object({
-				fileName: z.string(),
-				enabled: z.boolean()
-			})).optional()
-		}).optional(),
-		// Content injection configuration
-		contentInjection: z.object({
-			timestampEnabled: z.boolean(),
-			variableEnabled: z.boolean(),
-			dateFormat: z.string()
-		}).optional()
-	}).optional(),
+	outputStreamProcessorConfig: z
+		.object({
+			// Complete enabled rules definitions - contains full rule objects
+			enabledRules: z
+				.object({
+					regex: z.record(z.string(), z.any()).default({}),
+					ast: z.record(z.string(), z.any()).default({}),
+				})
+				.default({}),
+			// Custom rules files management
+			customRulesFiles: z
+				.object({
+					regexMixins: z
+						.array(
+							z.object({
+								fileName: z.string(),
+								enabled: z.boolean(),
+							}),
+						)
+						.default([]),
+					astMixins: z
+						.array(
+							z.object({
+								fileName: z.string(),
+								enabled: z.boolean(),
+							}),
+						)
+						.default([]),
+				})
+				.default({}),
+			// Content injection configuration
+			contentInjection: z
+				.object({
+					timestampEnabled: z.boolean().default(true),
+					variableEnabled: z.boolean().default(true),
+					dateFormat: z.string().default("YYYY-MM-DD HH:mm:ss"),
+				})
+				.default({}),
+		})
+		.optional(),
 })
 
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>
@@ -488,17 +512,19 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 
 	// Output stream processor settings
 	outputStreamProcessorConfig: {
-		builtinRulesEnabled: {},
-		builtinRulesConfig: {},
+		enabledRules: {
+			regex: {},
+			ast: {},
+		},
 		customRulesFiles: {
 			regexMixins: [],
-			astMixins: []
+			astMixins: [],
 		},
 		contentInjection: {
 			timestampEnabled: true,
 			variableEnabled: true,
-			dateFormat: 'YYYY-MM-DD HH:mm:ss'
-		}
+			dateFormat: "YYYY-MM-DD HH:mm:ss",
+		},
 	},
 }
 

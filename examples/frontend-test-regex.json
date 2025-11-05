@@ -1,0 +1,99 @@
+{
+	"version": "1.0.0",
+	"type": "regex",
+	"name": "frontend-test-replacements",
+	"description": "前端测试正则替换规则",
+	"rules": {
+		"testEmoji": {
+			"id": "test-emoji-001",
+			"enabled": true,
+			"pattern": ":([a-z]+):",
+			"flags": "g",
+			"replacementFunction": "emoji",
+			"description": "表情符号转换测试",
+			"stage": "post-ast",
+			"priority": 30,
+			"groups": [
+				{
+					"name": "emojiName",
+					"description": "表情名称",
+					"example": ":smiley: → 😊"
+				}
+			]
+		},
+		"testTimestamp": {
+			"id": "test-timestamp-001",
+			"enabled": true,
+			"pattern": "\\{\\{timestamp\\}\\}",
+			"flags": "g",
+			"replacementFunction": "timestamp",
+			"description": "时间戳注入测试",
+			"stage": "output",
+			"priority": 5,
+			"groups": [
+				{
+					"name": "full",
+					"description": "完整时间戳",
+					"example": "{{timestamp}} → 2024-01-01T12:00:00.000Z"
+				}
+			]
+		},
+		"testSmartQuotes": {
+			"id": "test-smart-quotes-001",
+			"enabled": true,
+			"pattern": "\"([^\"]+)\"",
+			"flags": "g",
+			"replacementFunction": "smartQuotes",
+			"description": "智能引号转换测试",
+			"stage": "post-ast",
+			"priority": 35,
+			"groups": [
+				{
+					"name": "content",
+					"description": "引号内容",
+					"example": "\"hello\" → \"hello\""
+				}
+			]
+		},
+		"testFootnoteRef": {
+			"id": "test-footnote-001",
+			"enabled": true,
+			"pattern": "\\[(\\d+)\\]",
+			"flags": "g",
+			"replacementFunction": "footnoteRef",
+			"description": "脚注引用测试",
+			"stage": "post-ast",
+			"priority": 40,
+			"groups": [
+				{
+					"name": "footnoteNum",
+					"description": "脚注编号",
+					"example": "[1] → <sup>[1]</sup>"
+				}
+			]
+		},
+		"testStringReplacement": {
+			"id": "test-string-001",
+			"enabled": true,
+			"pattern": "\\[TODO:\\s*([^\\]]+)\\]",
+			"flags": "g",
+			"replacement": "<span class=\"todo\">待办: $1</span>",
+			"description": "字符串替换测试",
+			"stage": "post-ast",
+			"priority": 20,
+			"groups": [
+				{
+					"name": "todoContent",
+					"description": "待办内容",
+					"example": "[TODO: 完成文档] → <span class=\"todo\">待办: 完成文档</span>"
+				}
+			]
+		}
+	},
+	"enabled": true,
+	"metadata": {
+		"createdAt": "2024-01-01T00:00:00Z",
+		"updatedAt": "2024-01-01T00:00:00Z",
+		"author": "System"
+	}
+}

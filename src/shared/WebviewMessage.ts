@@ -259,8 +259,8 @@ export interface WebviewMessage {
 		| "getAnhExtensionState"
 		| "anhExtensionState"
 		| "saveSillyTavernWorldBookChanges"
-	| "saveWorldviewChanges"
-	| "saveAnhExtensionChanges"
+		| "saveWorldviewChanges"
+		| "saveAnhExtensionChanges"
 		| "resetAnhExtensionChanges"
 		| "saveTSProfileChanges"
 		| "getTSProfileState"
@@ -346,11 +346,15 @@ export interface WebviewMessage {
 		| "saveGlobalRoleMemory"
 		| "updateGlobalSetting"
 		| "outputStreamProcessorConfig"
-		| "createRulesMixin"
-		| "editRulesMixin"
-		| "deleteRulesMixin"
-		| "loadMixinFile"
-		| "openRulesDirectory"
+		| "ospCreateRulesMixin"
+		| "ospEditRulesMixin"
+		| "ospDeleteRulesMixin"
+		| "ospLoadMixinFile"
+		| "ospOpenRulesDirectory"
+		| "ospGetAllRules"
+		| "ospGetEnabledRules"
+		| "ospRulesLoaded"
+		| "ospEnabledRulesLoaded"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -403,6 +407,11 @@ export interface WebviewMessage {
 	organizationId?: string | null // For organization switching
 	tsProfilePath?: string // For validateTsProfile and other path-based operations
 	tsProfileName?: string // For enable/disable TSProfile operations
+	// OSP (OutputStreamProcessor) related properties
+	ospFileType?: "regex" | "ast"
+	ospFileName?: string
+	ospBuiltinRuleKey?: string
+	ospMessageId?: string
 	// ANH role-related properties
 	roles?: any[] // For anhRolesLoaded
 	globalRoles?: any[] // For anhGlobalRolesLoaded
@@ -499,7 +508,7 @@ export interface WebviewMessage {
 	// Output stream processor related properties
 	outputStreamProcessorConfig?: any // For outputStreamProcessorConfig
 	// Mixin-related properties
-	fileType?: 'regex' | 'ast' // For mixin operations
+	fileType?: "regex" | "ast" // For mixin operations
 	fileName?: string // For mixin operations
 	builtinRuleKey?: string // For createRulesMixin when creating from built-in rule
 	messageId?: string // For loadMixinFile operations
@@ -554,3 +563,48 @@ export type WebViewMessagePayload =
 	| UpdateTodoListPayload
 	| EditQueuedMessagePayload
 	| ValidateTsProfilePayload
+	| BuiltinRulesPayload
+	| EnabledRulesPayload
+
+export interface BuiltinRulesPayload {
+	builtinRules: {
+		regex: Record<
+			string,
+			{
+				id: string
+				key: string
+				type: "regex"
+				enabled: boolean
+				description: string
+				defaultEnabled: boolean
+				pattern?: string
+				flags?: string
+				dependsOn?: string[]
+				params?: Record<string, any>
+			}
+		>
+		ast: Record<
+			string,
+			{
+				id: string
+				key: string
+				type: "ast"
+				enabled: boolean
+				description: string
+				defaultEnabled: boolean
+				nodeType?: string
+				action?: string
+				priority?: number
+				dependsOn?: string[]
+				params?: Record<string, any>
+			}
+		>
+	}
+}
+
+export interface EnabledRulesPayload {
+	enabledRules: {
+		regex: Record<string, boolean>
+		ast: Record<string, boolean>
+	}
+}

@@ -103,6 +103,65 @@ import { debugLog } from "../../utils/debug"
 import { setPanel } from "../../activate/registerCommands"
 
 import { t } from "../../i18n"
+import { DEFAULT_AST_RULES } from "../../shared/builtin-ast-rules"
+import { DEFAULT_REGEX_RULES } from "../../shared/builtin-regex-rules"
+
+// 生成默认启用的规则
+function getDefaultEnabledRules() {
+	const enabledRules = {
+		regex: {} as Record<string, any>,
+		ast: {} as Record<string, any>,
+	}
+
+	// 添加默认启用的正则规则
+	Object.entries(DEFAULT_REGEX_RULES).forEach(([key, rule]) => {
+		if (rule.enabled) {
+			enabledRules.regex[rule.id] = {
+				id: rule.id,
+				name: rule.name,
+				key: key,
+				type: "regex",
+				enabled: true,
+				description: rule.description || key,
+				pattern: rule.pattern,
+				flags: rule.flags,
+				replacement: rule.replacement,
+				replacementFunction: rule.replacementFunction,
+				groups: rule.groups,
+				stage: rule.stage,
+				priority: rule.priority || 0,
+				dependsOn: rule.dependsOn || [],
+				params: {},
+				source: "builtin",
+			}
+		}
+	})
+
+	// 添加默认启用的AST规则
+	Object.entries(DEFAULT_AST_RULES).forEach(([key, rule]) => {
+		if (rule.enabled) {
+			enabledRules.ast[rule.id] = {
+				id: rule.id,
+				name: rule.name,
+				key: key,
+				type: "ast",
+				enabled: true,
+				description: rule.description || key,
+				nodeType: rule.nodeType,
+				nodeAttributes: rule.nodeAttributes,
+				action: rule.action,
+				priority: rule.priority || 0,
+				processor: rule.processor,
+				params: rule.params || {},
+				recursive: rule.recursive,
+				dependsOn: rule.dependsOn || [],
+				source: "builtin",
+			}
+		}
+	})
+
+	return enabledRules
+}
 
 import { buildApiHandler } from "../../api"
 import { forceFullModelDetailsLoad, hasLoadedFullDetails } from "../../api/providers/fetchers/lmstudio"
@@ -2314,7 +2373,32 @@ export class ClineProvider
 
 	async postStateToWebview() {
 		const state = await this.getStateToPostToWebview()
-		// console.log("[ClineProvider.postStateToWebview] State to post:", state)
+
+		// DEBUG: 检查 outputStreamProcessorConfig 的内容
+		if (state.outputStreamProcessorConfig) {
+			console.log("[ClineProvider.postStateToWebview] outputStreamProcessorConfig details:", {
+				hasEnabledRules: !!state.outputStreamProcessorConfig.enabledRules,
+				regexRulesCount: state.outputStreamProcessorConfig.enabledRules?.regex
+					? Object.keys(state.outputStreamProcessorConfig.enabledRules.regex).length
+					: 0,
+				astRulesCount: state.outputStreamProcessorConfig.enabledRules?.ast
+					? Object.keys(state.outputStreamProcessorConfig.enabledRules.ast).length
+					: 0,
+				totalRules: state.outputStreamProcessorConfig.enabledRules
+					? Object.keys(state.outputStreamProcessorConfig.enabledRules.regex || {}).length +
+						Object.keys(state.outputStreamProcessorConfig.enabledRules.ast || {}).length
+					: 0,
+				sampleRegexRule: state.outputStreamProcessorConfig.enabledRules?.regex
+					? Object.values(state.outputStreamProcessorConfig.enabledRules.regex)[0]
+					: null,
+				sampleAstRule: state.outputStreamProcessorConfig.enabledRules?.ast
+					? Object.values(state.outputStreamProcessorConfig.enabledRules.ast)[0]
+					: null,
+			})
+		} else {
+			console.log("[ClineProvider.postStateToWebview] outputStreamProcessorConfig is missing!")
+		}
+
 		this.postMessageToWebview({ type: "state", state })
 
 		// Check MDM compliance and send user to account tab if not compliant
@@ -2705,6 +2789,7 @@ export class ClineProvider
 			allowNoToolsInChatMode,
 			memorySystemEnabled,
 			memoryToolsEnabled,
+			outputStreamProcessorConfig,
 		} = await this.getState()
 
 		const resolvedCurrentTsProfile = currentTsProfile ?? (await this.resolveCurrentTsProfile(enabledTSProfiles))
@@ -2918,6 +3003,7 @@ export class ClineProvider
 			customUserAgent: this.contextProxy.getGlobalState("customUserAgent"),
 			customUserAgentMode: this.contextProxy.getGlobalState("customUserAgentMode"),
 			customUserAgentFull: this.contextProxy.getGlobalState("customUserAgentFull"),
+			outputStreamProcessorConfig,
 		}
 	}
 
@@ -3215,7 +3301,52 @@ export class ClineProvider
 			allowNoToolsInChatMode: stateValues.allowNoToolsInChatMode ?? false,
 			memorySystemEnabled: stateValues.memorySystemEnabled ?? true,
 			memoryToolsEnabled: stateValues.memoryToolsEnabled ?? true,
-			outputStreamProcessorConfig: stateValues.outputStreamProcessorConfig ?? {},
+			outputStreamProcessorConfig: (() => {
+				const savedConfig = stateValues.outputStreamProcessorConfig
+				const defaultConfig = {
+					// 包含默认启用的规则
+					enabledRules: getDefaultEnabledRules(),
+					customRulesFiles: {
+						regexMixins: [],
+						astMixins: [],
+					},
+					contentInjection: {
+						timestampEnabled: true,
+						variableEnabled: true,
+						dateFormat: "YYYY-MM-DD HH:mm:ss",
+					},
+				}
+
+				// // 如果没有保存的配置，使用默认配置
+				// if (!savedConfig) {
+				// 	return defaultConfig
+				// }
+
+				// // 如果有保存的配置但 enabledRules 为空，补充默认规则
+				// const config = { ...savedConfig }
+				// if (!config.enabledRules) {
+				// 	config.enabledRules = defaultConfig.enabledRules
+				// } else {
+				// 	// 确保规则对象存在
+				// 	if (!config.enabledRules.regex) {
+				// 		config.enabledRules.regex = defaultConfig.enabledRules.regex
+				// 	}
+				// 	if (!config.enabledRules.ast) {
+				// 		config.enabledRules.ast = defaultConfig.enabledRules.ast
+				// 	}
+				// }
+
+				// // 补充其他缺失的默认配置
+				// if (!config.customRulesFiles) {
+				// 	config.customRulesFiles = defaultConfig.customRulesFiles
+				// }
+				// if (!config.contentInjection) {
+				// 	config.contentInjection = defaultConfig.contentInjection
+				// }
+
+				// return config
+				return defaultConfig
+			})(),
 			sillyTavernWorldBookState: this.anhChatServices?.worldBookService
 				? this.anhChatServices.worldBookService.getState()
 				: {

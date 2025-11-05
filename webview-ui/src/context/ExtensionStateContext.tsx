@@ -280,36 +280,39 @@ export interface ExtensionStateContextType extends ExtendedExtensionState {
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
 
 export const mergeExtensionState = (prevState: ExtendedExtensionState, newState: ExtensionState) => {
-		// 安全检查：如果newState为undefined，返回prevState
-		if (!newState) {
-			console.warn("[ExtensionStateContext] mergeExtensionState called with undefined newState")
-			return prevState
-		}
+	// 安全检查：如果newState为undefined，返回prevState
+	if (!newState) {
+		console.warn("[ExtensionStateContext] mergeExtensionState called with undefined newState")
+		return prevState
+	}
 
-		// 如果正在重置，只保留重置相关的状态，避免被其他状态更新覆盖
+	// 如果正在重置，只保留重置相关的状态，避免被其他状态更新覆盖
 	if (prevState._isResetting) {
 		const resetState: Partial<ExtendedExtensionState> = {}
-		
+
 		// 只合并允许在重置期间更新的状态
-		if ('anhExtensionsEnabled' in newState) {
+		if ("anhExtensionsEnabled" in newState) {
 			resetState.anhExtensionsEnabled = newState.anhExtensionsEnabled
 		}
-		if ('anhExtensionSettings' in newState) {
+		if ("anhExtensionSettings" in newState) {
 			resetState.anhExtensionSettings = newState.anhExtensionSettings
 		}
-		if ('enabledTSProfiles' in newState) {
+		if ("enabledTSProfiles" in newState) {
 			resetState.enabledTSProfiles = newState.enabledTSProfiles
 		}
-		if ('anhTsProfileAutoInject' in newState) {
+		if ("anhTsProfileAutoInject" in newState) {
 			resetState.anhTsProfileAutoInject = newState.anhTsProfileAutoInject
 		}
-		if ('anhTsProfileVariables' in newState) {
+		if ("anhTsProfileVariables" in newState) {
 			resetState.anhTsProfileVariables = newState.anhTsProfileVariables
 		}
-		if ('worldsetHasChanges' in newState) {
+		if ("worldsetHasChanges" in newState) {
 			resetState.worldsetHasChanges = newState.worldsetHasChanges as boolean
 		}
-		
+		if ("outputStreamProcessorConfig" in newState) {
+			resetState.outputStreamProcessorConfig = newState.outputStreamProcessorConfig
+		}
+
 		return {
 			...prevState,
 			...resetState,
@@ -374,7 +377,14 @@ export const mergeExtensionState = (prevState: ExtendedExtensionState, newState:
 
 	// Note that we completely replace the previous apiConfiguration and customSupportPrompts objects
 	// with new ones since the state that is broadcast is the entire objects so merging is not necessary.
-	return { ...rest, apiConfiguration, customModePrompts, customSupportPrompts, experiments }
+	return {
+		...rest,
+		apiConfiguration,
+		customModePrompts,
+		customSupportPrompts,
+		experiments,
+		outputStreamProcessorConfig: rest.outputStreamProcessorConfig,
+	}
 }
 
 export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -542,7 +552,9 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					setState((prevState) => mergeExtensionState(prevState, newState))
 					setShowWelcome(!checkExistKey(newState.apiConfiguration))
 					setDidHydrateState(true)
-					console.log("[ExtensionStateContext] Setting didHydrateState to true, should hide StandaloneHydrationGate")
+					console.log(
+						"[ExtensionStateContext] Setting didHydrateState to true, should hide StandaloneHydrationGate",
+					)
 					// Update alwaysAllowFollowupQuestions if present in state message
 					if ((newState as any).alwaysAllowFollowupQuestions !== undefined) {
 						setAlwaysAllowFollowupQuestions((newState as any).alwaysAllowFollowupQuestions)
@@ -561,15 +573,24 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					}
 					// Update enableUserAvatar if present in state message
 					if ((newState as any).enableUserAvatar !== undefined) {
-						setState((prevState) => ({ ...prevState, enableUserAvatar: (newState as any).enableUserAvatar }))
+						setState((prevState) => ({
+							...prevState,
+							enableUserAvatar: (newState as any).enableUserAvatar,
+						}))
 					}
 					// Update memorySystemEnabled if present in state message
 					if ((newState as any).memorySystemEnabled !== undefined) {
-						setState((prevState) => ({ ...prevState, memorySystemEnabled: (newState as any).memorySystemEnabled }))
+						setState((prevState) => ({
+							...prevState,
+							memorySystemEnabled: (newState as any).memorySystemEnabled,
+						}))
 					}
 					// Update memoryToolsEnabled if present in state message
 					if ((newState as any).memoryToolsEnabled !== undefined) {
-						setState((prevState) => ({ ...prevState, memoryToolsEnabled: (newState as any).memoryToolsEnabled }))
+						setState((prevState) => ({
+							...prevState,
+							memoryToolsEnabled: (newState as any).memoryToolsEnabled,
+						}))
 					}
 					// Update userAvatarRole if present in state message
 					if ((newState as any).userAvatarRole !== undefined) {
@@ -577,35 +598,59 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					}
 					// Update hideRoleDescription if present in state message
 					if ((newState as any).hideRoleDescription !== undefined) {
-						setState((prevState) => ({ ...prevState, hideRoleDescription: (newState as any).hideRoleDescription }))
+						setState((prevState) => ({
+							...prevState,
+							hideRoleDescription: (newState as any).hideRoleDescription,
+						}))
 					}
 					// Update anhShowRoleCardOnSwitch if present in state message
 					if ((newState as any).anhShowRoleCardOnSwitch !== undefined) {
-						setState((prevState) => ({ ...prevState, anhShowRoleCardOnSwitch: (newState as any).anhShowRoleCardOnSwitch }))
+						setState((prevState) => ({
+							...prevState,
+							anhShowRoleCardOnSwitch: (newState as any).anhShowRoleCardOnSwitch,
+						}))
 					}
 					// Update allowNoToolsInChatMode if present in state message
 					if ((newState as any).allowNoToolsInChatMode !== undefined) {
-						setState((prevState) => ({ ...prevState, allowNoToolsInChatMode: (newState as any).allowNoToolsInChatMode }))
+						setState((prevState) => ({
+							...prevState,
+							allowNoToolsInChatMode: (newState as any).allowNoToolsInChatMode,
+						}))
 					}
 					// Update variableStateDisplayRows if present in state message
 					if ((newState as any).variableStateDisplayRows !== undefined) {
-						setState((prevState) => ({ ...prevState, variableStateDisplayRows: (newState as any).variableStateDisplayRows }))
+						setState((prevState) => ({
+							...prevState,
+							variableStateDisplayRows: (newState as any).variableStateDisplayRows,
+						}))
 					}
 					// Update variableStateDisplayColumns if present in state message
 					if ((newState as any).variableStateDisplayColumns !== undefined) {
-						setState((prevState) => ({ ...prevState, variableStateDisplayColumns: (newState as any).variableStateDisplayColumns }))
+						setState((prevState) => ({
+							...prevState,
+							variableStateDisplayColumns: (newState as any).variableStateDisplayColumns,
+						}))
 					}
-		// Update enableInjectSystemPromptVariables if present in state message
+					// Update enableInjectSystemPromptVariables if present in state message
 					if ((newState as any).enableInjectSystemPromptVariables !== undefined) {
-						setState((prevState) => ({ ...prevState, enableInjectSystemPromptVariables: (newState as any).enableInjectSystemPromptVariables }))
+						setState((prevState) => ({
+							...prevState,
+							enableInjectSystemPromptVariables: (newState as any).enableInjectSystemPromptVariables,
+						}))
 					}
 					// Update useRefactoredSystemPrompt if present in state message
 					if ((newState as any).useRefactoredSystemPrompt !== undefined) {
-						setState((prevState) => ({ ...prevState, useRefactoredSystemPrompt: (newState as any).useRefactoredSystemPrompt }))
+						setState((prevState) => ({
+							...prevState,
+							useRefactoredSystemPrompt: (newState as any).useRefactoredSystemPrompt,
+						}))
 					}
 					// Update enableRooCloudServices if present in state message
 					if ((newState as any).enableRooCloudServices !== undefined) {
-						setState((prevState) => ({ ...prevState, enableRooCloudServices: (newState as any).enableRooCloudServices }))
+						setState((prevState) => ({
+							...prevState,
+							enableRooCloudServices: (newState as any).enableRooCloudServices,
+						}))
 					}
 					// Update customUserAgent if present in state message
 					if ((newState as any).customUserAgent !== undefined) {
@@ -613,15 +658,34 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					}
 					// Update customUserAgentMode if present in state message
 					if ((newState as any).customUserAgentMode !== undefined) {
-						setState((prevState) => ({ ...prevState, customUserAgentMode: (newState as any).customUserAgentMode }))
+						setState((prevState) => ({
+							...prevState,
+							customUserAgentMode: (newState as any).customUserAgentMode,
+						}))
 					}
 					// Update customUserAgentFull if present in state message
 					if ((newState as any).customUserAgentFull !== undefined) {
-						setState((prevState) => ({ ...prevState, customUserAgentFull: (newState as any).customUserAgentFull }))
+						setState((prevState) => ({
+							...prevState,
+							customUserAgentFull: (newState as any).customUserAgentFull,
+						}))
 					}
 					// Update outputStreamProcessorConfig if present in state message
 					if ((newState as any).outputStreamProcessorConfig !== undefined) {
-						setState((prevState) => ({ ...prevState, outputStreamProcessorConfig: (newState as any).outputStreamProcessorConfig }))
+						const config = (newState as any).outputStreamProcessorConfig
+						console.log("[ExtensionStateContext] Received outputStreamProcessorConfig:", {
+							hasConfig: !!config,
+							hasEnabledRules: !!config?.enabledRules,
+							regexRulesCount: config?.enabledRules?.regex
+								? Object.keys(config.enabledRules.regex).length
+								: 0,
+							astRulesCount: config?.enabledRules?.ast ? Object.keys(config.enabledRules.ast).length : 0,
+							totalRules: config?.enabledRules
+								? Object.keys(config.enabledRules.regex || {}).length +
+									Object.keys(config.enabledRules.ast || {}).length
+								: 0,
+						})
+						setState((prevState) => ({ ...prevState, outputStreamProcessorConfig: config }))
 					}
 					// Update enableUIDebug if present in state message
 					if ((newState as any).enableUIDebug !== undefined) {
@@ -629,7 +693,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					}
 					// Update uiDebugComponents if present in state message
 					if ((newState as any).uiDebugComponents !== undefined) {
-						setState((prevState) => ({ ...prevState, uiDebugComponents: (newState as any).uiDebugComponents }))
+						setState((prevState) => ({
+							...prevState,
+							uiDebugComponents: (newState as any).uiDebugComponents,
+						}))
 					}
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {
@@ -786,11 +853,11 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	}, [])
 
 	const normalizedWorkspaceContextSettings = normalizeWorkspaceContextSettings(state.workspaceContextSettings)
-const contextValue: ExtensionStateContextType = {
-	...state,
-	workspaceContextSettings: normalizedWorkspaceContextSettings,
-	anhExtensionsRuntime: state.anhExtensionsRuntime ?? [],
-	anhExtensionCapabilityRegistry: state.anhExtensionCapabilityRegistry,
+	const contextValue: ExtensionStateContextType = {
+		...state,
+		workspaceContextSettings: normalizedWorkspaceContextSettings,
+		anhExtensionsRuntime: state.anhExtensionsRuntime ?? [],
+		anhExtensionCapabilityRegistry: state.anhExtensionCapabilityRegistry,
 		reasoningBlockCollapsed: state.reasoningBlockCollapsed ?? true,
 		didHydrateState,
 		activateStandaloneDemoMode,
@@ -887,16 +954,19 @@ const contextValue: ExtensionStateContextType = {
 				workspaceContextSettings: normalizeWorkspaceContextSettings({
 					...prevState.workspaceContextSettings,
 					[key]: value,
-					}),
+				}),
 			}))
 			console.debug("[WorkspaceContext] setWorkspaceContextSetting", { key, value })
 			vscode.postMessage({ type: "setWorkspaceContextSetting", workspaceContextKey: key, bool: value })
 		},
 		setAllWorkspaceContextSettings: (value) => {
-			const next = WORKSPACE_CONTEXT_SETTING_KEYS.reduce<Record<WorkspaceContextSettingKey, boolean>>((acc, settingKey) => {
-				acc[settingKey] = value
-				return acc
-			}, { ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS })
+			const next = WORKSPACE_CONTEXT_SETTING_KEYS.reduce<Record<WorkspaceContextSettingKey, boolean>>(
+				(acc, settingKey) => {
+					acc[settingKey] = value
+					return acc
+				},
+				{ ...DEFAULT_WORKSPACE_CONTEXT_SETTINGS },
+			)
 			setState((prevState) => ({ ...prevState, workspaceContextSettings: next }))
 			console.debug("[WorkspaceContext] setAllWorkspaceContextSettings", next)
 			vscode.postMessage({ type: "setWorkspaceContextSettings", workspaceContextSettings: next })
@@ -962,22 +1032,26 @@ const contextValue: ExtensionStateContextType = {
 		anhUseAskTool: state.anhUseAskTool ?? true,
 		setAnhUseAskTool: (value) => setState((prevState) => ({ ...prevState, anhUseAskTool: value })),
 		anhChatModeHideTaskCompletion: state.anhChatModeHideTaskCompletion ?? true,
-		setAnhChatModeHideTaskCompletion: (value) => setState((prevState) => ({ ...prevState, anhChatModeHideTaskCompletion: value })),
+		setAnhChatModeHideTaskCompletion: (value) =>
+			setState((prevState) => ({ ...prevState, anhChatModeHideTaskCompletion: value })),
 		anhShowRoleCardOnSwitch: state.anhShowRoleCardOnSwitch ?? false,
-		setAnhShowRoleCardOnSwitch: (value) => setState((prevState) => ({ ...prevState, anhShowRoleCardOnSwitch: value })),
+		setAnhShowRoleCardOnSwitch: (value) =>
+			setState((prevState) => ({ ...prevState, anhShowRoleCardOnSwitch: value })),
 		enabledTSProfiles: state.enabledTSProfiles ?? [],
-		setEnabledTSProfiles: (value: string[]) => setState((prevState) => ({ ...prevState, enabledTSProfiles: value })),
+		setEnabledTSProfiles: (value: string[]) =>
+			setState((prevState) => ({ ...prevState, enabledTSProfiles: value })),
 		anhTsProfileAutoInject: state.anhTsProfileAutoInject ?? true,
-		setAnhTsProfileAutoInject: (value: boolean) => setState((prevState) => ({ ...prevState, anhTsProfileAutoInject: value })),
+		setAnhTsProfileAutoInject: (value: boolean) =>
+			setState((prevState) => ({ ...prevState, anhTsProfileAutoInject: value })),
 		anhTsProfileVariables: state.anhTsProfileVariables ?? {},
-		setAnhTsProfileVariables: (value: Record<string, string>) => setState((prevState) => ({ ...prevState, anhTsProfileVariables: value })),
+		setAnhTsProfileVariables: (value: Record<string, string>) =>
+			setState((prevState) => ({ ...prevState, anhTsProfileVariables: value })),
 		displayMode: state.displayMode ?? "coding",
 		setDisplayMode: (value) => setState((prevState) => ({ ...prevState, displayMode: value })),
 		enableUserAvatar: state.enableUserAvatar ?? false,
 		setEnableUserAvatar: (value) => setState((prevState) => ({ ...prevState, enableUserAvatar: value })),
 		userAvatarVisibility:
-			state.userAvatarVisibility ??
-			(state.userAvatarHideFullData ? ("summary" as UserAvatarVisibility) : "full"),
+			state.userAvatarVisibility ?? (state.userAvatarHideFullData ? ("summary" as UserAvatarVisibility) : "full"),
 		setUserAvatarVisibility: (value) =>
 			setState((prevState) => ({
 				...prevState,
@@ -989,180 +1063,186 @@ const contextValue: ExtensionStateContextType = {
 			setState((prevState) => ({
 				...prevState,
 				userAvatarHideFullData: value,
-				userAvatarVisibility: value ? "summary" : prevState.userAvatarVisibility ?? "full",
+				userAvatarVisibility: value ? "summary" : (prevState.userAvatarVisibility ?? "full"),
 			})),
 		userAvatarRole: state.userAvatarRole,
 		setUserAvatarRole: (value) => setState((prevState) => ({ ...prevState, userAvatarRole: value })),
-	hideRoleDescription: state.hideRoleDescription ?? false,
-	setHideRoleDescription: (value) => setState((prevState) => ({ ...prevState, hideRoleDescription: value })),
-	allowNoToolsInChatMode: state.allowNoToolsInChatMode ?? false,
-	setAllowNoToolsInChatMode: (value) => setState((prevState) => ({ ...prevState, allowNoToolsInChatMode: value })),
-	variableStateDisplayRows: state.variableStateDisplayRows ?? 2,
-	setVariableStateDisplayRows: (value) => setState((prevState) => ({ ...prevState, variableStateDisplayRows: value })),
-	variableStateDisplayColumns: state.variableStateDisplayColumns ?? 3,
-	setVariableStateDisplayColumns: (value) => setState((prevState) => ({ ...prevState, variableStateDisplayColumns: value })),
-	useRefactoredSystemPrompt: state.useRefactoredSystemPrompt ?? false,
-	setUseRefactoredSystemPrompt: (value) => {
-		setState((prevState) => ({ ...prevState, useRefactoredSystemPrompt: value }))
-		vscode.postMessage({ type: "useRefactoredSystemPrompt", bool: value })
-	},
-	enableInjectSystemPromptVariables: state.enableInjectSystemPromptVariables ?? false,
-	setEnableInjectSystemPromptVariables: (value) => {
-		setState((prevState) => ({ ...prevState, enableInjectSystemPromptVariables: value }))
-		vscode.postMessage({ type: "enableInjectSystemPromptVariables", bool: value })
-	},
-	anhExtensionSettings: state.anhExtensionSettings ?? {},
-	setAnhExtensionSettings: (value) => setState((prevState) => ({ ...prevState, anhExtensionSettings: value })),
-	updateAnhExtensionSetting: (id, key, value) => {
-		setState((prevState) => {
-			const prevSettings = prevState.anhExtensionSettings ?? {}
-			return {
-				...prevState,
-				anhExtensionSettings: {
-					...prevSettings,
-					[id]: {
-						...(prevSettings[id] ?? {}),
-						[key]: value,
+		hideRoleDescription: state.hideRoleDescription ?? false,
+		setHideRoleDescription: (value) => setState((prevState) => ({ ...prevState, hideRoleDescription: value })),
+		allowNoToolsInChatMode: state.allowNoToolsInChatMode ?? false,
+		setAllowNoToolsInChatMode: (value) =>
+			setState((prevState) => ({ ...prevState, allowNoToolsInChatMode: value })),
+		variableStateDisplayRows: state.variableStateDisplayRows ?? 2,
+		setVariableStateDisplayRows: (value) =>
+			setState((prevState) => ({ ...prevState, variableStateDisplayRows: value })),
+		variableStateDisplayColumns: state.variableStateDisplayColumns ?? 3,
+		setVariableStateDisplayColumns: (value) =>
+			setState((prevState) => ({ ...prevState, variableStateDisplayColumns: value })),
+		useRefactoredSystemPrompt: state.useRefactoredSystemPrompt ?? false,
+		setUseRefactoredSystemPrompt: (value) => {
+			setState((prevState) => ({ ...prevState, useRefactoredSystemPrompt: value }))
+			vscode.postMessage({ type: "useRefactoredSystemPrompt", bool: value })
+		},
+		enableInjectSystemPromptVariables: state.enableInjectSystemPromptVariables ?? false,
+		setEnableInjectSystemPromptVariables: (value) => {
+			setState((prevState) => ({ ...prevState, enableInjectSystemPromptVariables: value }))
+			vscode.postMessage({ type: "enableInjectSystemPromptVariables", bool: value })
+		},
+		anhExtensionSettings: state.anhExtensionSettings ?? {},
+		setAnhExtensionSettings: (value) => setState((prevState) => ({ ...prevState, anhExtensionSettings: value })),
+		updateAnhExtensionSetting: (id, key, value) => {
+			setState((prevState) => {
+				const prevSettings = prevState.anhExtensionSettings ?? {}
+				return {
+					...prevState,
+					anhExtensionSettings: {
+						...prevSettings,
+						[id]: {
+							...(prevSettings[id] ?? {}),
+							[key]: value,
+						},
 					},
+					anhExtensionsHasChanges: true,
+				}
+			})
+			// 不再立即发送给后端，而是等待保存
+		},
+		setAnhExtensionEnabled: (compositeKey, enabled) => {
+			setState((prevState) => ({
+				...prevState,
+				anhExtensionsEnabled: {
+					...(prevState.anhExtensionsEnabled ?? {}),
+					[compositeKey]: enabled,
 				},
 				anhExtensionsHasChanges: true,
-			}
-		})
-		// 不再立即发送给后端，而是等待保存
-	},
-	setAnhExtensionEnabled: (compositeKey, enabled) => {
-		setState((prevState) => ({
-			...prevState,
-			anhExtensionsEnabled: {
-				...(prevState.anhExtensionsEnabled ?? {}),
-				[compositeKey]: enabled,
-			},
-			anhExtensionsHasChanges: true,
-		}))
-		// 不再立即发送给后端，而是等待保存
-	},
-	saveAnhExtensionChanges: () => {
-		setState((prevState) => {
-			// 批量发送所有更改给后端，使用统一的保存消息
-			const extensionChanges = prevState.anhExtensionsEnabled ?? {}
-			const extensionSettings = prevState.anhExtensionSettings ?? {}
+			}))
+			// 不再立即发送给后端，而是等待保存
+		},
+		saveAnhExtensionChanges: () => {
+			setState((prevState) => {
+				// 批量发送所有更改给后端，使用统一的保存消息
+				const extensionChanges = prevState.anhExtensionsEnabled ?? {}
+				const extensionSettings = prevState.anhExtensionSettings ?? {}
 
-			// 使用统一的保存消息格式
-			vscode.postMessage({
-				type: "saveAnhExtensionChanges",
-				extensionChanges: extensionChanges,
-				extensionSettings: extensionSettings
-			})
-
-			return {
-				...prevState,
-				anhExtensionsHasChanges: false,
-			}
-		})
-	},
-	resetAnhExtensionChanges: () => {
-		// 发送请求获取当前保存的状态，而不是立即清除标记
-		vscode.postMessage({ type: "getAnhExtensionState" })
-		// 标记正在重置，避免被其他状态更新覆盖
-		setState((prevState) => ({
-			...prevState,
-			_isResetting: true,
-		}))
-	},
-	tsProfilesHasChanges: state.tsProfilesHasChanges ?? false,
-	saveTSProfileChanges: () => {
-		setState((prevState) => {
-			// 设置loading状态，防止重复保存
-			if (prevState._isSavingTSProfile) {
-				console.log("TSProfile save already in progress, skipping...")
-				return prevState
-			}
-
-			// 批量发送所有更改给后端
-			const enabledProfiles = prevState.enabledTSProfiles ?? []
-			const autoInject = prevState.anhTsProfileAutoInject ?? true
-			const variables = prevState.anhTsProfileVariables ?? {}
-
-			try {
-				// 发送启用状态更改
+				// 使用统一的保存消息格式
 				vscode.postMessage({
-					type: "saveTSProfileChanges",
-					enabledProfiles,
-					autoInject,
-					variables
+					type: "saveAnhExtensionChanges",
+					extensionChanges: extensionChanges,
+					extensionSettings: extensionSettings,
 				})
 
-				console.log("TSProfile save request sent, waiting for backend confirmation...")
+				return {
+					...prevState,
+					anhExtensionsHasChanges: false,
+				}
+			})
+		},
+		resetAnhExtensionChanges: () => {
+			// 发送请求获取当前保存的状态，而不是立即清除标记
+			vscode.postMessage({ type: "getAnhExtensionState" })
+			// 标记正在重置，避免被其他状态更新覆盖
+			setState((prevState) => ({
+				...prevState,
+				_isResetting: true,
+			}))
+		},
+		tsProfilesHasChanges: state.tsProfilesHasChanges ?? false,
+		saveTSProfileChanges: () => {
+			setState((prevState) => {
+				// 设置loading状态，防止重复保存
+				if (prevState._isSavingTSProfile) {
+					console.log("TSProfile save already in progress, skipping...")
+					return prevState
+				}
 
-				// 只设置保存中状态，不清除tsProfilesHasChanges
-				// tsProfilesHasChanges将在收到后端的tsProfileState消息时清除
-				return {
-					...prevState,
-					_isSavingTSProfile: true,
+				// 批量发送所有更改给后端
+				const enabledProfiles = prevState.enabledTSProfiles ?? []
+				const autoInject = prevState.anhTsProfileAutoInject ?? true
+				const variables = prevState.anhTsProfileVariables ?? {}
+
+				try {
+					// 发送启用状态更改
+					vscode.postMessage({
+						type: "saveTSProfileChanges",
+						enabledProfiles,
+						autoInject,
+						variables,
+					})
+
+					console.log("TSProfile save request sent, waiting for backend confirmation...")
+
+					// 只设置保存中状态，不清除tsProfilesHasChanges
+					// tsProfilesHasChanges将在收到后端的tsProfileState消息时清除
+					return {
+						...prevState,
+						_isSavingTSProfile: true,
+					}
+				} catch (error) {
+					console.error("Failed to send TSProfile save request:", error)
+					return {
+						...prevState,
+						_isSavingTSProfile: false,
+					}
 				}
-			} catch (error) {
-				console.error("Failed to send TSProfile save request:", error)
-				return {
-					...prevState,
-					_isSavingTSProfile: false,
-				}
-			}
-		})
-	},
-	resetTSProfileChanges: () => {
-		// 发送请求获取当前保存的状态，而不是立即清除标记
-		vscode.postMessage({ type: "getTSProfileState" })
-		// 标记正在重置，避免被其他状态更新覆盖
-		setState((prevState) => ({
-			...prevState,
-			_isResetting: true,
-		}))
-	},
-	worldsetHasChanges: (state as ExtendedExtensionState).worldsetHasChanges ?? false,
-	setWorldsetHasChanges: (value: boolean) => setState((prevState) => ({ ...prevState, worldsetHasChanges: value })),
-	resetWorldsetChanges: () => {
-		// 发送请求获取当前保存的世界观状态
-		vscode.postMessage({ type: "getWorldsetStatus" })
-		// 标记正在重置，避免被其他状态更新覆盖
-		setState((prevState) => ({
-			...prevState,
-			_isResetting: true,
-		}))
-	},
-	memorySystemEnabled: state.memorySystemEnabled ?? true,
-	memoryToolsEnabled: state.memoryToolsEnabled ?? true,
-	enableRooCloudServices: state.enableRooCloudServices ?? false,
-	setEnableRooCloudServices: (value: boolean) => {
-		vscode.postMessage({ type: "enableRooCloudServices", bool: value })
-	},
-	customUserAgent: state.customUserAgent ?? "",
-	setCustomUserAgent: (value: string) => {
-		vscode.postMessage({ type: "customUserAgent", text: value })
-	},
-	customUserAgentMode: state.customUserAgentMode ?? "segments",
-	setCustomUserAgentMode: (value: "segments" | "full") => {
-		vscode.postMessage({ type: "customUserAgentMode", text: value })
-	},
-	customUserAgentFull: state.customUserAgentFull ?? "",
-	setCustomUserAgentFull: (value: string) => {
-		vscode.postMessage({ type: "customUserAgentFull", text: value })
-	},
-	outputStreamProcessorConfig: state.outputStreamProcessorConfig ?? {},
-	setOutputStreamProcessorConfig: (value: any) => {
-		setState((prevState) => ({ ...prevState, outputStreamProcessorConfig: value }))
-		vscode.postMessage({ type: "outputStreamProcessorConfig" as any, config: value })
-	},
-	enableUIDebug: state.enableUIDebug ?? false,
-	setEnableUIDebug: (value: boolean) => {
-		setState((prevState) => ({ ...prevState, enableUIDebug: value }))
-		vscode.postMessage({ type: "enableUIDebug", bool: value })
-	},
-	uiDebugComponents: state.uiDebugComponents ?? [],
-	setUIDebugComponents: (value: string[]) => {
-		setState((prevState) => ({ ...prevState, uiDebugComponents: value }))
-		vscode.postMessage({ type: "uiDebugComponents", array: value })
-	},
-}
+			})
+		},
+		resetTSProfileChanges: () => {
+			// 发送请求获取当前保存的状态，而不是立即清除标记
+			vscode.postMessage({ type: "getTSProfileState" })
+			// 标记正在重置，避免被其他状态更新覆盖
+			setState((prevState) => ({
+				...prevState,
+				_isResetting: true,
+			}))
+		},
+		worldsetHasChanges: (state as ExtendedExtensionState).worldsetHasChanges ?? false,
+		setWorldsetHasChanges: (value: boolean) =>
+			setState((prevState) => ({ ...prevState, worldsetHasChanges: value })),
+		resetWorldsetChanges: () => {
+			// 发送请求获取当前保存的世界观状态
+			vscode.postMessage({ type: "getWorldsetStatus" })
+			// 标记正在重置，避免被其他状态更新覆盖
+			setState((prevState) => ({
+				...prevState,
+				_isResetting: true,
+			}))
+		},
+		memorySystemEnabled: state.memorySystemEnabled ?? true,
+		memoryToolsEnabled: state.memoryToolsEnabled ?? true,
+		enableRooCloudServices: state.enableRooCloudServices ?? false,
+		setEnableRooCloudServices: (value: boolean) => {
+			vscode.postMessage({ type: "enableRooCloudServices", bool: value })
+		},
+		customUserAgent: state.customUserAgent ?? "",
+		setCustomUserAgent: (value: string) => {
+			vscode.postMessage({ type: "customUserAgent", text: value })
+		},
+		customUserAgentMode: state.customUserAgentMode ?? "segments",
+		setCustomUserAgentMode: (value: "segments" | "full") => {
+			vscode.postMessage({ type: "customUserAgentMode", text: value })
+		},
+		customUserAgentFull: state.customUserAgentFull ?? "",
+		setCustomUserAgentFull: (value: string) => {
+			vscode.postMessage({ type: "customUserAgentFull", text: value })
+		},
+		outputStreamProcessorConfig: state.outputStreamProcessorConfig ?? {},
+		setOutputStreamProcessorConfig: (value: any) => {
+			console.log("[ExtensionStateContext] setOutputStreamProcessorConfig called with:", value)
+			setState((prevState) => ({ ...prevState, outputStreamProcessorConfig: value }))
+			// 不再立即发送到后端，等待统一保存
+			console.log("[ExtensionStateContext] Config cached, waiting for unified save")
+		},
+		enableUIDebug: state.enableUIDebug ?? false,
+		setEnableUIDebug: (value: boolean) => {
+			setState((prevState) => ({ ...prevState, enableUIDebug: value }))
+			vscode.postMessage({ type: "enableUIDebug", bool: value })
+		},
+		uiDebugComponents: state.uiDebugComponents ?? [],
+		setUIDebugComponents: (value: string[]) => {
+			setState((prevState) => ({ ...prevState, uiDebugComponents: value }))
+			vscode.postMessage({ type: "uiDebugComponents", array: value })
+		},
+	}
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>
 }

@@ -1,0 +1,122 @@
+{
+	"version": "1.0.0",
+	"type": "regex",
+	"name": "enhanced-replacement-examples",
+	"description": "增强正则替换功能示例",
+	"rules": {
+		"customEmoji": {
+			"id": "custom-emoji-001",
+			"enabled": true,
+			"pattern": ":([a-zA-Z]+):",
+			"flags": "g",
+			"replacementFunction": "customEmoji",
+			"description": "自定义表情符号转换",
+			"stage": "post-ast",
+			"priority": 25,
+			"groups": [
+				{
+					"name": "emojiName",
+					"description": "表情名称",
+					"example": ":tada: → 🎉"
+				}
+			]
+		},
+		"linkShortener": {
+			"id": "link-shortener-001",
+			"enabled": true,
+			"pattern": "\\[(text)\\]\\((long-url-to-be-shortened)\\)",
+			"flags": "g",
+			"replacement": "[$1](https://short.ly/abc123)",
+			"description": "链接缩短示例",
+			"stage": "output",
+			"priority": 60,
+			"groups": [
+				{
+					"name": "text",
+					"description": "链接文本"
+				},
+				{
+					"name": "url",
+					"description": "原始URL"
+				}
+			]
+		},
+		"userMention": {
+			"id": "user-mention-001",
+			"enabled": true,
+			"pattern": "@([a-zA-Z0-9_]+)",
+			"flags": "g",
+			"replacement": "<span class=\"user-mention\">@$1</span>",
+			"description": "用户提及转换为HTML",
+			"stage": "post-ast",
+			"priority": 30,
+			"groups": [
+				{
+					"name": "username",
+					"description": "用户名",
+					"example": "@john → <span class=\"user-mention\">@john</span>"
+				}
+			]
+		},
+		"codeHighlight": {
+			"id": "code-highlight-001",
+			"enabled": true,
+			"pattern": "`([^`]+)`",
+			"flags": "g",
+			"replacement": "<code class=\"inline-code\">$1</code>",
+			"description": "行内代码高亮",
+			"stage": "post-ast",
+			"priority": 20,
+			"groups": [
+				{
+					"name": "code",
+					"description": "代码内容",
+					"example": "`console.log()` → <code class=\"inline-code\">console.log()</code>"
+				}
+			]
+		},
+		"complexDate": {
+			"id": "complex-date-001",
+			"enabled": true,
+			"pattern": "\\{\\{date:\\s*([^}]+)\\s*format:\\s*([^}]+)\\}\\}",
+			"flags": "g",
+			"replacementFunction": "complexDateFormat",
+			"description": "复杂日期格式化",
+			"stage": "output",
+			"priority": 15,
+			"groups": [
+				{
+					"name": "dateInput",
+					"description": "日期输入"
+				},
+				{
+					"name": "format",
+					"description": "格式模式"
+				}
+			]
+		},
+		"variableCalculation": {
+			"id": "variable-calc-001",
+			"enabled": true,
+			"pattern": "\\{\\{calc:\\s*([^}]+)\\}\\}",
+			"flags": "g",
+			"replacementFunction": "calculateVariable",
+			"description": "变量计算",
+			"stage": "output",
+			"priority": 5,
+			"groups": [
+				{
+					"name": "expression",
+					"description": "计算表达式",
+					"example": "{{calc: 2 + 3 * 4}} → 14"
+				}
+			]
+		}
+	},
+	"enabled": true,
+	"metadata": {
+		"createdAt": "2024-01-01T00:00:00Z",
+		"updatedAt": "2024-01-01T00:00:00Z",
+		"author": "System"
+	}
+}

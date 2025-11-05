@@ -52,6 +52,8 @@ import { playTts, setTtsEnabled, setTtsSpeed, stopTts } from "../../utils/tts"
 import { getSettingsDirectoryPath } from "../../utils/storage"
 // Built-in rules are now handled entirely by the frontend
 import { searchCommits } from "../../utils/git"
+import { DEFAULT_AST_RULES } from "../../shared/builtin-ast-rules"
+import { DEFAULT_REGEX_RULES } from "../../shared/builtin-regex-rules"
 import { exportSettings, importSettingsWithFeedback } from "../config/importExport"
 import type { WorldBookConfig } from "../../services/silly-tavern/sillyTavernWorldBookService"
 import { getOpenAiModels } from "../../api/providers/openai"
@@ -190,7 +192,8 @@ export const webviewMessageHandler = async (
 							globalWorldsetDir = globalStorageService.getGlobalWorldsetsPath()
 						} catch (error) {
 							provider.log(
-								`[Worldset] Failed to resolve global worldset directory: ${error instanceof Error ? error.message : String(error)
+								`[Worldset] Failed to resolve global worldset directory: ${
+									error instanceof Error ? error.message : String(error)
 								}`,
 							)
 						}
@@ -205,7 +208,8 @@ export const webviewMessageHandler = async (
 				}
 			} catch (error) {
 				provider.log(
-					`[Worldset] Failed to normalize legacy worldset key ${fileName}: ${error instanceof Error ? error.message : String(error)
+					`[Worldset] Failed to normalize legacy worldset key ${fileName}: ${
+						error instanceof Error ? error.message : String(error)
 					}`,
 				)
 			}
@@ -220,7 +224,8 @@ export const webviewMessageHandler = async (
 				await updateGlobalState("enabledWorldsets", normalizedList)
 			} catch (error) {
 				provider.log(
-					`[Worldset] Failed to persist normalized worldset keys: ${error instanceof Error ? error.message : String(error)
+					`[Worldset] Failed to persist normalized worldset keys: ${
+						error instanceof Error ? error.message : String(error)
 					}`,
 				)
 			}
@@ -1623,7 +1628,7 @@ export const webviewMessageHandler = async (
 			} else {
 				vscode.window.showErrorMessage(
 					t("common:errors.invalid_character_limit") ||
-					"Terminal output character limit must be a positive number",
+						"Terminal output character limit must be a positive number",
 				)
 			}
 			break
@@ -2383,30 +2388,35 @@ export const webviewMessageHandler = async (
 		}
 		case "outputStreamProcessorConfig": {
 			try {
-				console.log("[OutputStreamProcessor] Saving output stream processor configuration...")
-
-				const config = message.config as any || {}
-				console.log("[OutputStreamProcessor] Saving config:", {
-					hasBuiltinRulesEnabled: !!config.builtinRulesEnabled,
-					hasBuiltinRulesConfig: !!config.builtinRulesConfig,
+				console.log("[OutputStreamProcessor] Received output stream processor configuration message")
+				const config = (message.config as any) || {}
+				console.log("[OutputStreamProcessor] Received config:", {
+					hasEnabledRules: !!config.enabledRules,
+					enabledRulesRegex: !!config.enabledRules?.regex,
+					enabledRulesAst: !!config.enabledRules?.ast,
 					hasCustomRulesFiles: !!config.customRulesFiles,
-					hasContentInjection: !!config.contentInjection
+					hasContentInjection: !!config.contentInjection,
 				})
 
-				// 新架构：后端只存储配置状态，不合并规则
-				// 前端负责所有的规则处理和渲染
+				// 新架构：后端存储完整的规则定义，而不仅仅是启用状态
+				// 移除 builtinRulesEnabled 和 builtinRulesConfig 机制，直接使用 enabledRules
 				const storageConfig = {
-					builtinRulesEnabled: config.builtinRulesEnabled || {},
-					builtinRulesConfig: config.builtinRulesConfig || {},
+					// 存储完整的启用规则定义，包含规则的所有属性
+					enabledRules: config.enabledRules || { regex: {}, ast: {} },
 					customRulesFiles: config.customRulesFiles || { regexMixins: [], astMixins: [] },
-					contentInjection: config.contentInjection || { timestampEnabled: true, variableEnabled: true, dateFormat: 'YYYY-MM-DD HH:mm:ss' }
+					contentInjection: config.contentInjection || {
+						timestampEnabled: true,
+						variableEnabled: true,
+						dateFormat: "YYYY-MM-DD HH:mm:ss",
+					},
 				}
 
 				console.log("[OutputStreamProcessor] Storing configuration state:", {
-					builtinRulesEnabledCount: Object.keys(storageConfig.builtinRulesEnabled).length,
-					builtinRulesConfigCount: Object.keys(storageConfig.builtinRulesConfig).length,
+					enabledRulesCount: Object.keys(storageConfig.enabledRules || {}).length,
+					enabledRulesRegexCount: Object.keys(storageConfig.enabledRules.regex || {}).length,
+					enabledRulesAstCount: Object.keys(storageConfig.enabledRules.ast || {}).length,
 					customRegexMixinsCount: storageConfig.customRulesFiles.regexMixins.length,
-					customAstMixinsCount: storageConfig.customRulesFiles.astMixins.length
+					customAstMixinsCount: storageConfig.customRulesFiles.astMixins.length,
 				})
 
 				// 保存配置状态到全局状态
@@ -2422,9 +2432,8 @@ export const webviewMessageHandler = async (
 				await provider.postMessageToWebview({
 					type: "outputStreamProcessorState",
 					text: "outputStreamProcessorState",
-					payload: { config: storageConfig }
+					payload: { config: storageConfig },
 				})
-
 			} catch (error) {
 				provider.log(
 					`Error saving output stream processor configuration: ${error instanceof Error ? error.message : String(error)}`,
@@ -2437,129 +2446,136 @@ export const webviewMessageHandler = async (
 					text: "outputStreamProcessorState",
 					payload: {
 						config: getGlobalState("outputStreamProcessorConfig") ?? {},
-						error: error instanceof Error ? error.message : String(error)
+						error: error instanceof Error ? error.message : String(error),
 					},
 				})
 			}
 			break
 		}
-		case "createRulesMixin": {
+		case "ospCreateRulesMixin": {
 			try {
-				const { fileType, fileName, builtinRuleKey } = message
-				if (!fileType || !fileName) {
+				const { ospFileType, ospFileName, ospBuiltinRuleKey } = message
+				if (!ospFileType || !ospFileName) {
 					throw new Error("文件类型和文件名是必需的")
 				}
 
-				provider.log(`[RulesMixin] Creating ${fileType} mixin file: ${fileName}${builtinRuleKey ? ` based on builtin rule: ${builtinRuleKey}` : ''}`)
+				provider.log(
+					`[RulesMixin] Creating ${ospFileType} mixin file: ${ospFileName}${ospBuiltinRuleKey ? ` based on builtin rule: ${ospBuiltinRuleKey}` : ""}`,
+				)
 
 				// 使用新的mixin文件服务
 				const mixinInfo = await mixinFileService.createMixinFile(provider.context, {
-					fileType,
-					fileName,
-					builtinRuleKey
+					fileType: ospFileType,
+					fileName: ospFileName,
+					builtinRuleKey: ospBuiltinRuleKey,
 				})
 
-				provider.log(`[RulesMixin] Created and opened ${fileType} mixin file: ${fileName}`)
-				vscode.window.showInformationMessage(`${fileType === 'regex' ? '正则' : 'AST'}规则文件已创建: ${fileName} (${mixinInfo.basedOn ? '基于内置规则' : '空白模板'})`)
-
+				provider.log(`[RulesMixin] Created and opened ${ospFileType} mixin file: ${ospFileName}`)
+				vscode.window.showInformationMessage(
+					`${ospFileType === "regex" ? "正则" : "AST"}规则文件已创建: ${ospFileName} (${mixinInfo.basedOn ? "基于内置规则" : "空白模板"})`,
+				)
 			} catch (error) {
 				provider.log(`Error creating rules mixin: ${error instanceof Error ? error.message : String(error)}`)
-				vscode.window.showErrorMessage(`创建规则文件失败: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage(
+					`创建规则文件失败: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			break
 		}
-		case "editRulesMixin": {
+		case "ospEditRulesMixin": {
 			try {
-				const { fileType, fileName } = message
-				if (!fileType || !fileName) {
+				const { ospFileType, ospFileName } = message
+				if (!ospFileType || !ospFileName) {
 					throw new Error("文件类型和文件名是必需的")
 				}
 
-				provider.log(`[RulesMixin] Opening ${fileType} mixin file: ${fileName}`)
+				provider.log(`[RulesMixin] Opening ${ospFileType} mixin file: ${ospFileName}`)
 
 				// 使用新的mixin文件服务 - 打开现有文件进行编辑
 				const document = await vscode.workspace.openTextDocument(
-					vscode.Uri.joinPath(provider.context.globalStorageUri, 'rules', 'rules', fileName)
+					vscode.Uri.joinPath(provider.context.globalStorageUri, "rules", "rules", ospFileName),
 				)
 				await vscode.window.showTextDocument(document)
-
 			} catch (error) {
 				provider.log(`Error editing rules mixin: ${error instanceof Error ? error.message : String(error)}`)
-				vscode.window.showErrorMessage(`打开规则文件失败: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage(
+					`打开规则文件失败: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			break
 		}
-		case "deleteRulesMixin": {
+		case "ospDeleteRulesMixin": {
 			try {
-				const { fileType, fileName } = message
-				if (!fileType || !fileName) {
+				const { ospFileType, ospFileName } = message
+				if (!ospFileType || !ospFileName) {
 					throw new Error("文件类型和文件名是必需的")
 				}
 
-				provider.log(`[RulesMixin] Deleting ${fileType} mixin file: ${fileName}`)
+				provider.log(`[RulesMixin] Deleting ${ospFileType} mixin file: ${ospFileName}`)
 
 				// 使用新的mixin文件服务
-				const success = await mixinFileService.deleteMixinFile(provider.context, fileName)
+				const success = await mixinFileService.deleteMixinFile(provider.context, ospFileName)
 
-				provider.log(`[RulesMixin] Deleted ${fileType} mixin file: ${fileName}`)
-				vscode.window.showInformationMessage(`已删除规则文件: ${fileName}`)
-
+				provider.log(`[RulesMixin] Deleted ${ospFileType} mixin file: ${ospFileName}`)
+				vscode.window.showInformationMessage(`已删除规则文件: ${ospFileName}`)
 			} catch (error) {
 				provider.log(`Error deleting rules mixin: ${error instanceof Error ? error.message : String(error)}`)
-				vscode.window.showErrorMessage(`删除规则文件失败: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage(
+					`删除规则文件失败: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			break
 		}
-		case "loadMixinFile": {
+		case "ospLoadMixinFile": {
 			try {
-				const { fileType, fileName, messageId } = message
-				if (!fileType || !fileName) {
+				const { ospFileType, ospFileName, ospMessageId } = message
+				if (!ospFileType || !ospFileName) {
 					throw new Error("文件类型和文件名是必需的")
 				}
 
-				provider.log(`[RulesMixin] Loading ${fileType} mixin file: ${fileName}`)
+				provider.log(`[RulesMixin] Loading ${ospFileType} mixin file: ${ospFileName}`)
 
 				// 使用新的mixin文件服务
-				const content = await mixinFileService.loadMixinConfig(provider.context, fileName)
+				const content = await mixinFileService.loadMixinConfig(provider.context, ospFileName)
 
 				// 发送文件内容给前端
 				await provider.postMessageToWebview({
-					type: "mixinLoaded",
-					text: "mixinLoaded",
-					messageId,
-					fileType,
-					fileName,
+					type: "ospMixinLoaded",
+					text: "ospMixinLoaded",
+					ospMessageId,
+					ospFileType,
+					ospFileName,
 					payload: {
-						fileName,
+						fileName: ospFileName,
 						content,
 						// 尝试解析模块导出（简单实现，实际项目中可能需要更安全的动态导入）
-						rules: null // 前端会解析内容
-					}
+						rules: null, // 前端会解析内容
+					},
 				})
-
 			} catch (error) {
 				provider.log(`Error loading mixin file: ${error instanceof Error ? error.message : String(error)}`)
 
 				// 发送错误消息给前端
 				await provider.postMessageToWebview({
-					type: "mixinLoaded",
-					text: "mixinLoaded",
-					messageId: message.messageId,
-					error: error instanceof Error ? error.message : String(error)
+					type: "ospMixinLoaded",
+					text: "ospMixinLoaded",
+					ospMessageId: message.ospMessageId,
+					error: error instanceof Error ? error.message : String(error),
 				})
 			}
 			break
 		}
-		case "openRulesDirectory": {
+		case "ospOpenRulesDirectory": {
 			try {
 				provider.log("[RulesMixin] Opening rules directory...")
 
 				// 使用新的mixin文件服务
 				await mixinFileService.openRulesDirectory(provider.context)
-
 			} catch (error) {
 				provider.log(`Error opening rules directory: ${error instanceof Error ? error.message : String(error)}`)
-				vscode.window.showErrorMessage(`打开规则目录失败: ${error instanceof Error ? error.message : String(error)}`)
+				vscode.window.showErrorMessage(
+					`打开规则目录失败: ${error instanceof Error ? error.message : String(error)}`,
+				)
 			}
 			break
 		}
@@ -2992,10 +3008,10 @@ export const webviewMessageHandler = async (
 						const existingMode = existingModes.find((mode) => mode.slug === message.modeConfig?.slug)
 						const changedSettings = existingMode
 							? Object.keys(message.modeConfig).filter(
-								(key) =>
-									JSON.stringify((existingMode as Record<string, unknown>)[key]) !==
-									JSON.stringify((message.modeConfig as Record<string, unknown>)[key]),
-							)
+									(key) =>
+										JSON.stringify((existingMode as Record<string, unknown>)[key]) !==
+										JSON.stringify((message.modeConfig as Record<string, unknown>)[key]),
+								)
 							: []
 
 						if (changedSettings.length > 0) {
@@ -3591,13 +3607,13 @@ export const webviewMessageHandler = async (
 			const status = manager
 				? manager.getCurrentStatus()
 				: {
-					systemStatus: "Standby",
-					message: "No workspace folder open",
-					processedItems: 0,
-					totalItems: 0,
-					currentItemUnit: "items",
-					workspacePath: undefined,
-				}
+						systemStatus: "Standby",
+						message: "No workspace folder open",
+						processedItems: 0,
+						totalItems: 0,
+						currentItemUnit: "items",
+						workspacePath: undefined,
+					}
 
 			provider.postMessageToWebview({
 				type: "indexingStatusUpdate",
@@ -3843,7 +3859,7 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
-				case "enableTSProfile": {
+		case "enableTSProfile": {
 			// 已废弃：现在由 saveTSProfileChanges 处理
 			// 保留此代码以防有其他地方仍在使用
 			if (message.tsProfileName) {
@@ -4426,7 +4442,7 @@ export const webviewMessageHandler = async (
 							const storyline = await storylineRepo.getStoryline(role.uuid)
 							if (storyline) {
 								provider.log(`Timeline loaded: ${storyline.arcs.length} arcs`)
-									; (role as any).timeline = storyline
+								;(role as any).timeline = storyline
 							} else {
 								provider.log("No timeline file found")
 							}
@@ -4724,7 +4740,8 @@ export const webviewMessageHandler = async (
 							userAvatarRole = JSON.parse(userAvatarRoleText)
 						} catch (parseError) {
 							provider.log(
-								`Error parsing user avatar role JSON: ${parseError instanceof Error ? parseError.message : String(parseError)
+								`Error parsing user avatar role JSON: ${
+									parseError instanceof Error ? parseError.message : String(parseError)
 								}`,
 							)
 							userAvatarRole = undefined
@@ -6125,6 +6142,112 @@ export const webviewMessageHandler = async (
 			} catch (error) {
 				provider.log(`Error listing global role memories: ${error}`)
 				vscode.window.showErrorMessage(`获取全局角色记忆列表失败: ${error}`)
+			}
+			break
+		}
+		case "ospGetAllRules": {
+			try {
+				provider.log("[Rules] Getting all available rules...")
+
+				// 获取所有可用规则（包括内建和自定义），统一格式
+				const allRules = {
+					regex: {} as Record<string, any>,
+					ast: {} as Record<string, any>,
+				}
+
+				// 1. 添加内建规则，source标记为"builtin"
+				Object.entries(DEFAULT_REGEX_RULES).forEach(([key, rule]) => {
+					const ruleId = rule.id
+					allRules.regex[ruleId] = {
+						id: ruleId,
+						name: rule.name,
+						key: key,
+						type: "regex",
+						enabled: rule.enabled,
+						defaultEnabled: rule.enabled,
+						description: rule.description || key,
+						pattern: rule.pattern,
+						flags: rule.flags,
+						replacement: rule.replacement,
+						replacementFunction: rule.replacementFunction,
+						groups: rule.groups,
+						stage: rule.stage,
+						priority: rule.priority || 0,
+						dependsOn: rule.dependsOn || [],
+						params: {},
+						source: "builtin",
+					}
+				})
+
+				Object.entries(DEFAULT_AST_RULES).forEach(([key, rule]) => {
+					const ruleId = rule.id
+					allRules.ast[ruleId] = {
+						id: ruleId,
+						name: rule.name,
+						key: key,
+						type: "ast",
+						enabled: rule.enabled,
+						defaultEnabled: rule.enabled,
+						description: rule.description || key,
+						nodeType: rule.nodeType,
+						nodeAttributes: rule.nodeAttributes,
+						action: rule.action,
+						priority: rule.priority || 0,
+						processor: rule.processor,
+						params: rule.params || {},
+						recursive: rule.recursive,
+						dependsOn: rule.dependsOn || [],
+						source: "builtin",
+					}
+				})
+
+				// 2. TODO: 添加自定义mixin规则，source标记为"mixin"
+				// 这里需要加载和解析mixin文件
+
+				await provider.postMessageToWebview({
+					type: "ospRulesLoaded",
+					payload: { ospRules: allRules },
+				})
+
+				provider.log(
+					`[Rules] Sent all rules: regex=${Object.keys(allRules.regex).length}, ast=${Object.keys(allRules.ast).length}`,
+				)
+			} catch (error) {
+				provider.log(`Error getting all rules: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "ospRulesLoaded",
+					payload: { ospRules: { regex: {}, ast: {} } },
+					error: error instanceof Error ? error.message : String(error),
+				})
+			}
+			break
+		}
+		case "ospGetEnabledRules": {
+			try {
+				provider.log("[EnabledRules] Getting enabled rules...")
+
+				// 获取当前配置
+				const currentConfig = (getGlobalState("outputStreamProcessorConfig") as any) || {}
+				// 直接从配置中获取启用的规则，不再依赖 builtinRulesEnabled
+				const enabledRules = currentConfig.enabledRules || { regex: {}, ast: {} }
+
+				// 移除复杂的规则生成逻辑，直接使用配置中存储的完整 enabledRules
+
+				await provider.postMessageToWebview({
+					type: "ospEnabledRulesLoaded",
+					payload: { ospEnabledRules: enabledRules },
+				})
+
+				provider.log(
+					`[EnabledRules] Sent enabled rules: regex=${Object.keys(enabledRules.regex).length}, ast=${Object.keys(enabledRules.ast).length}`,
+				)
+			} catch (error) {
+				provider.log(`Error getting enabled rules: ${error instanceof Error ? error.message : String(error)}`)
+				await provider.postMessageToWebview({
+					type: "ospEnabledRulesLoaded",
+					payload: { ospEnabledRules: { regex: [], ast: [] } },
+					error: error instanceof Error ? error.message : String(error),
+				})
 			}
 			break
 		}

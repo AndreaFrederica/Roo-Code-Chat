@@ -20,7 +20,6 @@ interface EnhancedMarkdownBlockProps {
 	markdown?: string
 }
 
-
 const StyledMarkdown = styled.div`
 	* {
 		font-weight: 400;
@@ -257,6 +256,24 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 	// 使用新的处理器 Hook
 	const processedBlocks = useMarkdownProcessor(markdown)
 
+	// // 调试：log收到的处理结果结构
+	// console.log('[EnhancedMarkdownBlock] ===== Component Render =====')
+	// console.log('[EnhancedMarkdownBlock] Input markdown length:', markdown?.length)
+	// console.log('[EnhancedMarkdownBlock] Input markdown content:', markdown?.substring(0, 200))
+	// console.log('[EnhancedMarkdownBlock] Processed blocks count:', processedBlocks.length)
+	// processedBlocks.forEach((block, index) => {
+	// 	console.log(`[EnhancedMarkdownBlock] Block ${index}:`, {
+	// 		type: block.type,
+	// 		id: block.id,
+	// 		content: block.content, // 完整内容
+	// 		contentLength: block.content?.length || 0,
+	// 		action: block.action,
+	// 		start: block.start,
+	// 		end: block.end,
+	// 		hasChildren: block.children?.length || 0
+	// 	})
+	// })
+
 	// Initialize collapsed state for all foldable blocks using unique IDs
 	useMemo(() => {
 		const foldableBlocks = processedBlocks.filter((block) => block.type !== "text")
@@ -265,18 +282,18 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 			// 为每个新块初始化折叠状态（如果还没有设置的话）
 			setCollapsedBlockIds((prevCollapsedIds) => {
 				const newCollapsedIds = new Set(prevCollapsedIds)
-				
+
 				foldableBlocks.forEach((block) => {
 					// 只有当这个块还没有折叠状态记录时，才设置默认状态
 					if (!prevCollapsedIds.has(block.id)) {
 						// 使用block的defaultCollapsed属性
-						const shouldCollapse = block.defaultCollapsed ?? (reasoningBlockCollapsed ?? false)
+						const shouldCollapse = block.defaultCollapsed ?? reasoningBlockCollapsed ?? false
 						if (shouldCollapse) {
 							newCollapsedIds.add(block.id)
 						}
 					}
 				})
-				
+
 				return newCollapsedIds
 			})
 		}
@@ -397,12 +414,11 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 		const { t } = useTranslation()
 
 		return (
-			<button
-				className="toggle-button"
-				onClick={() => setShowRaw(!showRaw)}
-			>
+			<button className="toggle-button" onClick={() => setShowRaw(!showRaw)}>
 				{showRaw ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-				{showRaw ? t("settings:markdown.showRaw", "显示原文") : t("settings:markdown.showRendered", "显示渲染结果")}
+				{showRaw
+					? t("settings:markdown.showRaw", "显示原文")
+					: t("settings:markdown.showRendered", "显示渲染结果")}
 			</button>
 		)
 	}
@@ -411,6 +427,7 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 	const renderBlock = (block: any, index: number, depth: number = 0): React.ReactNode => {
 		// 处理普通文本块
 		if (block.type === "text") {
+			// console.log("[Rendering text block]:", block.content)
 			return (
 				<ReactMarkdown
 					key={`text-${depth}-${index}`}
@@ -428,9 +445,10 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 		}
 
 		// 递归渲染children
-		const childrenContent = block.children && block.children.length > 0
-			? block.children.map((child: any, childIndex: number) => renderBlock(child, childIndex, depth + 1))
-			: null
+		const childrenContent =
+			block.children && block.children.length > 0
+				? block.children.map((child: any, childIndex: number) => renderBlock(child, childIndex, depth + 1))
+				: null
 
 		// 处理高亮块
 		if (block.action === "highlight") {
@@ -515,17 +533,9 @@ const EnhancedMarkdownBlock = memo(({ markdown }: EnhancedMarkdownBlockProps) =>
 		)
 	}
 
-	const RenderedContent = () => (
-		<>
-			{processedBlocks.map((block, index) => renderBlock(block, index, 0))}
-		</>
-	)
+	const RenderedContent = () => <>{processedBlocks.map((block, index) => renderBlock(block, index, 0))}</>
 
-	const RawContent = () => (
-		<div className="raw-content">
-			{markdown || ""}
-		</div>
-	)
+	const RawContent = () => <div className="raw-content">{markdown || ""}</div>
 
 	return (
 		<StyledMarkdown>
