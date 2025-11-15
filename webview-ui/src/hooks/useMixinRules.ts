@@ -100,20 +100,20 @@ export function useMixinRules(customRulesFiles: {
 	const loadMixinFile = useCallback(
 		async (fileName: string): Promise<Record<string, MixinRule>> => {
 			return new Promise((resolve) => {
-				const messageId = Date.now().toString()
+				const ospMessageId = Date.now().toString()
 
 				// 请求后端加载mixin文件
 				vscode.postMessage({
-					type: "loadMixinFile",
-					messageId,
-					fileType: fileName.includes("regex") ? "regex" : "ast",
-					fileName,
+					type: "ospLoadMixinFile",
+					ospMessageId,
+					ospFileType: fileName.includes("regex") ? "regex" : "ast",
+					ospFileName: fileName,
 				})
 
 				// 监听响应
 				const handleMessage = (event: MessageEvent) => {
 					const message = event.data
-					if (message.type === "ospMixinLoaded" && message.ospMessageId === messageId) {
+					if (message.type === "ospMixinLoaded" && message.ospMessageId === ospMessageId) {
 						window.removeEventListener("message", handleMessage)
 
 						if (message.error) {
