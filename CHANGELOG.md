@@ -2,6 +2,15 @@
 
 ## Anh Chat Changelog
 
+### [3.29.9] - 2025-11-15
+- 新增：引入多批次 Web UI 组件（part1/part2/part3）
+- 新增：系统提示词生成重构（Beta，持续迭代）
+- 改进：历史视图交互与布局优化（Beta）
+- 改进：优化缓存管理与重连机制，提升稳定性
+- 改进：OutputStreamProcessorSettings 使用 `forwardRef` 并暴露 `handleSaveChanges`
+- 改进：国际化键值调整（i18n key 维护）
+- 试验：正则规则在前后端的统一与对齐（WIP）
+
 ### [3.29.8] - 2025-10-21
 - 合入上游Roo Code 的更改至版本 3.28.18
 - 增加了角色卡V3的支持

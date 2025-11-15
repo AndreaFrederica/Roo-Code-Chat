@@ -2,6 +2,7 @@ import { safeWriteJson } from "../../utils/safeWriteJson"
 import * as path from "path"
 import * as os from "os"
 import * as fs from "fs/promises"
+import * as crypto from "crypto"
 import pWaitFor from "p-wait-for"
 import * as vscode from "vscode"
 
@@ -5983,6 +5984,96 @@ export const webviewMessageHandler = async (
 				})
 
 				vscode.window.showInformationMessage("Profile source saved successfully")
+
+				try {
+					const allRules = { regex: {} as Record<string, any>, ast: {} as Record<string, any> }
+					Object.entries(DEFAULT_REGEX_RULES).forEach(([key, rule]) => {
+						const ruleId = rule.id
+						allRules.regex[ruleId] = {
+							id: ruleId,
+							name: rule.name,
+							key: key,
+							type: "regex",
+							enabled: rule.enabled,
+							defaultEnabled: rule.enabled,
+							description: rule.description || key,
+							pattern: rule.pattern,
+							flags: rule.flags,
+							replacement: rule.replacement,
+							replacementFunction: rule.replacementFunction,
+							groups: rule.groups,
+							stage: rule.stage,
+							priority: rule.priority || 0,
+							dependsOn: rule.dependsOn || [],
+							params: {},
+							source: "builtin",
+						}
+					})
+					Object.entries(DEFAULT_AST_RULES).forEach(([key, rule]) => {
+						const ruleId = rule.id
+						allRules.ast[ruleId] = {
+							id: ruleId,
+							name: rule.name,
+							key: key,
+							type: "ast",
+							enabled: rule.enabled,
+							defaultEnabled: rule.enabled,
+							description: rule.description || key,
+							nodeType: rule.nodeType,
+							nodeAttributes: rule.nodeAttributes,
+							action: rule.action,
+							priority: rule.priority || 0,
+							processor: rule.processor,
+							params: rule.params || {},
+							recursive: rule.recursive,
+							dependsOn: rule.dependsOn || [],
+							source: "builtin",
+						}
+					})
+					const extendedService = await getExtendedTSProfileService(provider.context)
+					const profiles = await extendedService.loadAllTsProfiles()
+					for (const p of profiles) {
+						try {
+							const srcPath = p.path
+							const content = await fs.readFile(srcPath, "utf-8")
+							const data = JSON.parse(content)
+							const sourceId = `tsprofile.${crypto.createHash("sha1").update(path.normalize(srcPath).toLowerCase()).digest("hex")}`
+							const seen = new Set<string>()
+							const bindRoot = Array.isArray(data?.regexBindings) ? data.regexBindings : []
+							const bindExt = Array.isArray(data?.extensions?.SPreset?.RegexBinding) ? data.extensions.SPreset.RegexBinding : []
+							const all = ([] as any[]).concat(bindRoot, bindExt)
+							for (const b of all) {
+								const bid = b?.id
+								if (!bid || seen.has(bid)) continue
+								seen.add(bid)
+								const stages: string[] = Array.isArray(b?.runStages) ? b.runStages : []
+								const hasOutput = stages.includes("AI_OUTPUT")
+								const hasPost = stages.includes("POST_PROCESSING")
+								if (!hasOutput && !hasPost) continue
+								const stage = hasOutput ? "output" : "post-ast"
+								const ruleObj = {
+									id: bid,
+									name: b?.scriptName || bid,
+									type: "regex",
+									enabled: false,
+									description: b?.description || bid,
+									pattern: b?.findRegex || b?.pattern,
+									flags: b?.flags,
+									replacement: b?.replaceString || b?.replacement,
+									replacementFunction: b?.replacementFunction,
+									groups: b?.groups,
+									stage,
+									priority: typeof b?.priority === "number" ? b.priority : 0,
+									dependsOn: Array.isArray(b?.dependsOn) ? b.dependsOn : [],
+									params: b?.params || {},
+									source: sourceId,
+								}
+								allRules.regex[`${sourceId}:${bid}`] = ruleObj
+							}
+						} catch {}
+					}
+					await provider.postMessageToWebview({ type: "ospRulesLoaded", payload: { ospRules: allRules } })
+				} catch {}
 			} catch (error) {
 				provider.log(`Error saving TSProfile source: ${error}`)
 				await provider.postMessageToWebview({
@@ -6148,14 +6239,7 @@ export const webviewMessageHandler = async (
 		case "ospGetAllRules": {
 			try {
 				provider.log("[Rules] Getting all available rules...")
-
-				// 获取所有可用规则（包括内建和自定义），统一格式
-				const allRules = {
-					regex: {} as Record<string, any>,
-					ast: {} as Record<string, any>,
-				}
-
-				// 1. 添加内建规则，source标记为"builtin"
+				const allRules = { regex: {} as Record<string, any>, ast: {} as Record<string, any> }
 				Object.entries(DEFAULT_REGEX_RULES).forEach(([key, rule]) => {
 					const ruleId = rule.id
 					allRules.regex[ruleId] = {
@@ -6178,7 +6262,6 @@ export const webviewMessageHandler = async (
 						source: "builtin",
 					}
 				})
-
 				Object.entries(DEFAULT_AST_RULES).forEach(([key, rule]) => {
 					const ruleId = rule.id
 					allRules.ast[ruleId] = {
@@ -6200,25 +6283,53 @@ export const webviewMessageHandler = async (
 						source: "builtin",
 					}
 				})
-
-				// 2. TODO: 添加自定义mixin规则，source标记为"mixin"
-				// 这里需要加载和解析mixin文件
-
-				await provider.postMessageToWebview({
-					type: "ospRulesLoaded",
-					payload: { ospRules: allRules },
-				})
-
-				provider.log(
-					`[Rules] Sent all rules: regex=${Object.keys(allRules.regex).length}, ast=${Object.keys(allRules.ast).length}`,
-				)
+				const extendedService = await getExtendedTSProfileService(provider.context)
+				const profiles = await extendedService.loadAllTsProfiles()
+				for (const p of profiles) {
+					try {
+						const srcPath = p.path
+						const content = await fs.readFile(srcPath, "utf-8")
+						const data = JSON.parse(content)
+						const sourceId = `tsprofile.${crypto.createHash("sha1").update(path.normalize(srcPath).toLowerCase()).digest("hex")}`
+						const seen = new Set<string>()
+						const bindRoot = Array.isArray(data?.regexBindings) ? data.regexBindings : []
+						const bindExt = Array.isArray(data?.extensions?.SPreset?.RegexBinding) ? data.extensions.SPreset.RegexBinding : []
+						const all = ([] as any[]).concat(bindRoot, bindExt)
+						for (const b of all) {
+							const bid = b?.id
+							if (!bid || seen.has(bid)) continue
+							seen.add(bid)
+							const stages: string[] = Array.isArray(b?.runStages) ? b.runStages : []
+							const hasOutput = stages.includes("AI_OUTPUT")
+							const hasPost = stages.includes("POST_PROCESSING")
+							if (!hasOutput && !hasPost) continue
+							const stage = hasOutput ? "output" : "post-ast"
+							const ruleObj = {
+								id: bid,
+								name: b?.scriptName || bid,
+								type: "regex",
+								enabled: false,
+								description: b?.description || bid,
+								pattern: b?.findRegex || b?.pattern,
+								flags: b?.flags,
+								replacement: b?.replaceString || b?.replacement,
+								replacementFunction: b?.replacementFunction,
+								groups: b?.groups,
+								stage,
+								priority: typeof b?.priority === "number" ? b.priority : 0,
+								dependsOn: Array.isArray(b?.dependsOn) ? b.dependsOn : [],
+								params: b?.params || {},
+								source: sourceId,
+							}
+							allRules.regex[`${sourceId}:${bid}`] = ruleObj
+						}
+					} catch {}
+				}
+				await provider.postMessageToWebview({ type: "ospRulesLoaded", payload: { ospRules: allRules } })
+				provider.log(`{Rules] Sent all rules: regex=${Object.keys(allRules.regex).length}, ast=${Object.keys(allRules.ast).length}`)
 			} catch (error) {
 				provider.log(`Error getting all rules: ${error instanceof Error ? error.message : String(error)}`)
-				await provider.postMessageToWebview({
-					type: "ospRulesLoaded",
-					payload: { ospRules: { regex: {}, ast: {} } },
-					error: error instanceof Error ? error.message : String(error),
-				})
+				await provider.postMessageToWebview({ type: "ospRulesLoaded", payload: { ospRules: { regex: {}, ast: {} } }, error: error instanceof Error ? error.message : String(error) })
 			}
 			break
 		}
